@@ -1,0 +1,31 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Java / Gradle
+.gradle/
+**/build/
+out/
+
+# Node / Next.js
+node_modules/
+.next/
+coverage/
+playwright-report/
+test-results/
+
+# Kotlin / Android / iOS
+.idea/
+*.iml
+local.properties
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+DerivedData/
+
+# OS and editors
+.DS_Store
+.vscode/
+*.swp

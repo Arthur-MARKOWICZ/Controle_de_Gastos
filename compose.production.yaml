@@ -1,0 +1,17 @@
+services:
+  backend:
+    environment:
+      AUTH_COOKIE_SECURE: "true"
+      AUTH_COOKIE_NAME: __Secure-refresh_token
+      AUTH_JWT_PRIVATE_KEY_PATH: /run/secrets/jwt-private.pem
+      AUTH_JWT_PUBLIC_KEY_PATH: /run/secrets/jwt-public.pem
+      AUTH_ATTEMPT_HMAC_SECRET: ${AUTH_ATTEMPT_HMAC_SECRET:?defina um segredo HMAC aleatorio}
+      AUTH_JWT_KEY_ID: ${AUTH_JWT_KEY_ID:?defina um identificador unico para a chave}
+      AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:?defina a origem HTTPS exata da web}
+    volumes:
+      - ${AUTH_JWT_PRIVATE_KEY_PATH_HOST:?defina o caminho da chave privada}:/run/secrets/jwt-private.pem:ro
+      - ${AUTH_JWT_PUBLIC_KEY_PATH_HOST:?defina o caminho da chave publica}:/run/secrets/jwt-public.pem:ro
+  web:
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?defina a URL HTTPS publica da API}

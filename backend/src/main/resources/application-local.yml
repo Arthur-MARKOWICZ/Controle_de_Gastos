@@ -1,0 +1,4 @@
+app:
+  auth:
+    cookie-secure: false
+    cookie-name: refresh_token

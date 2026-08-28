@@ -1,0 +1,240 @@
+openapi: 3.1.0
+info:
+  title: Controle de gastos API
+  version: 1.0.0
+servers:
+  - url: /api/v1
+paths:
+  /auth/register:
+    post:
+      summary: Solicita cadastro público
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterCredentials' }
+      responses:
+        '202':
+          description: Resposta idêntica para conta criada, existente ou tentativa limitada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+  /auth/login:
+    post:
+      summary: Autentica por e-mail e senha
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginCredentials' }
+      responses:
+        '200':
+          description: Access token; refresh é enviado somente por Set-Cookie
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: __Secure-refresh_token; Secure; HttpOnly; SameSite=Strict; Path=/api/v1/auth
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Token' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+  /auth/refresh:
+    post:
+      summary: Rotaciona o refresh e emite novo access token
+      responses:
+        '200':
+          description: Tokens renovados; substitui o cookie anterior
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Token' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /auth/logout:
+    post:
+      summary: Revoga imediatamente a sessão atual
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Sessão revogada e cookie removido }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /users/me:
+    get:
+      summary: Retorna a conta autenticada
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Conta atual
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CurrentUser' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /income:
+    put:
+      summary: Configura ou altera a renda do mês corrente
+      description: A vigência usa America/Sao_Paulo. Repetir o mesmo valor é idempotente.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IncomeChange' }
+      responses:
+        '200':
+          description: Renda aplicável ao mês corrente
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Income' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '409': { $ref: '#/components/responses/IncomeConflict' }
+    get:
+      summary: Consulta a renda aplicável a um mês
+      description: Sem o parâmetro month, consulta o mês corrente em America/Sao_Paulo.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: month
+          schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+          description: Mês no formato YYYY-MM.
+      responses:
+        '200':
+          description: Renda efetiva no mês consultado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Income' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '404': { $ref: '#/components/responses/IncomeNotConfigured' }
+  /income/history:
+    get:
+      summary: Lista alterações reais da renda do usuário autenticado
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: size
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Histórico em ordem decrescente de alteração
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/IncomeHistoryPage' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterCredentials:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 12, maxLength: 128 }
+    LoginCredentials:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+    Token:
+      type: object
+      required: [accessToken, tokenType, expiresIn]
+      properties:
+        accessToken: { type: string }
+        tokenType: { type: string, const: Bearer }
+        expiresIn: { type: integer, const: 900 }
+    Message:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    Problem:
+      type: object
+      required: [type, title, status, detail, code]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string, format: uri-reference }
+        code: { type: string }
+    CurrentUser:
+      type: object
+      required: [id, email, emailVerified, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        emailVerified: { type: boolean, const: false }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    IncomeChange:
+      type: object
+      additionalProperties: false
+      required: [amount]
+      properties:
+        amount:
+          type: string
+          pattern: '^\d+(\.\d{1,2})?$'
+          examples: ['5000.00']
+    Income:
+      type: object
+      required: [amount, currency, effectiveFrom, changedAt]
+      properties:
+        amount: { type: string, pattern: '^\d{1,17}\.\d{2}$', examples: ['5000.00'] }
+        currency: { type: string, const: BRL }
+        effectiveFrom: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+        changedAt: { type: string, format: date-time }
+    IncomeHistoryItem:
+      allOf:
+        - $ref: '#/components/schemas/Income'
+        - type: object
+          required: [id, changedBy]
+          properties:
+            id: { type: string, format: uuid }
+            changedBy: { type: string, format: uuid }
+    IncomeHistoryPage:
+      type: object
+      additionalProperties: false
+      required: [items, page, size, hasNext]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/IncomeHistoryItem' }
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        hasNext: { type: boolean }
+  responses:
+    InvalidRequest:
+      description: Dados inválidos
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    AuthenticationFailed:
+      description: Resposta genérica de autenticação
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    TooManyAttempts:
+      description: Janela de tentativas excedida
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    IncomeNotConfigured:
+      description: Não existe renda efetiva no mês solicitado
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    IncomeConflict:
+      description: Renda abaixo das verbas-base ou alteração concorrente
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
