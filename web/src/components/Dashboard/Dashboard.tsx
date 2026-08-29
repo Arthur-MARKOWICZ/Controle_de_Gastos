@@ -87,7 +87,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
       <aside className={styles.sidebar} aria-label="Navegação principal">
         <a className={styles.brand} href="#conteudo"><span aria-hidden="true" className={styles.brandMark}>V</span><span>Verbas</span></a>
         <nav><ul className={styles.navList}>
-          <li><Link href="/" aria-current="page">Visão geral</Link></li><li><Link href="/verbas">Verbas</Link></li><li><a href="#historico">Histórico</a></li><li><a href="#relatorios">Relatórios</a></li>
+          <li><Link href="/" aria-current="page">Visão geral</Link></li><li><Link href="/verbas">Verbas</Link></li><li><Link href="/historico">Histórico</Link></li>
         </ul></nav>
         <div className={styles.sidebarFooter}>
           <span className={styles.avatar} aria-hidden="true">{email.slice(0, 1).toUpperCase()}</span>

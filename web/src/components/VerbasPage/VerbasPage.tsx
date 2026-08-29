@@ -142,10 +142,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
               </Link>
             </li>
             <li>
-              <a href="#historico">Histórico</a>
-            </li>
-            <li>
-              <a href="#relatorios">Relatórios</a>
+              <Link href="/historico">Histórico</Link>
             </li>
           </ul>
         </nav>

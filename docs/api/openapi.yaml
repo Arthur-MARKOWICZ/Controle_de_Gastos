@@ -283,6 +283,54 @@ paths:
                schema: { $ref: '#/components/schemas/LedgerSummary' }
          '400': { $ref: '#/components/responses/InvalidRequest' }
          '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /history:
+     get:
+       summary: Lista gastos visíveis no intervalo, paginados e agrupáveis por tipo de verba
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - { in: query, name: from, required: true, schema: { type: string, format: date } }
+         - { in: query, name: to, required: true, schema: { type: string, format: date } }
+         - { in: query, name: includeDeleted, schema: { type: boolean, default: false }, description: Apenas o owner recebe seus gastos excluídos. }
+         - { in: query, name: page, schema: { type: integer, minimum: 0, default: 0 } }
+         - { in: query, name: size, schema: { type: integer, minimum: 1, maximum: 100, default: 10 } }
+       responses:
+         '200': { description: Página de gastos, content: { application/json: { schema: { $ref: '#/components/schemas/HistoryPage' } } } }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /history/summary:
+     get:
+       summary: Retorna agregados do histórico para todo o intervalo
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - { in: query, name: from, required: true, schema: { type: string, format: date } }
+         - { in: query, name: to, required: true, schema: { type: string, format: date } }
+       responses:
+         '200': { description: Cards e séries dos gráficos, content: { application/json: { schema: { $ref: '#/components/schemas/HistorySummary' } } } }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /ledger/entries/{id}:
+     patch:
+       summary: Edita valor, verba e descrição de um gasto (somente owner; data imutável)
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+       requestBody:
+         required: true
+         content: { application/json: { schema: { $ref: '#/components/schemas/UpdateExpense' } } }
+       responses:
+         '200': { description: Gasto atualizado, content: { application/json: { schema: { $ref: '#/components/schemas/LedgerEntry' } } } }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '403': { $ref: '#/components/responses/Forbidden' }
+         '404': { $ref: '#/components/responses/NotFound' }
+     delete:
+       summary: Exclui logicamente um gasto (somente owner)
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+       responses:
+         '204': { description: Gasto excluído logicamente }
+         '403': { $ref: '#/components/responses/Forbidden' }
+         '404': { $ref: '#/components/responses/NotFound' }
 components:
   securitySchemes:
     bearerAuth:
@@ -425,6 +473,55 @@ components:
         description: { type: string, maxLength: 140, nullable: true }
         authorId: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
+        deletedAt: { type: string, format: date-time, nullable: true }
+    UpdateExpense:
+      type: object
+      additionalProperties: false
+      required: [envelopeId, amount]
+      properties:
+        envelopeId: { type: string, format: uuid }
+        amount: { $ref: '#/components/schemas/Money' }
+        description: { type: string, maxLength: 140, nullable: true }
+    HistoryItem:
+      type: object
+      required: [entry, envelopeName, purpose, role]
+      properties:
+        entry: { $ref: '#/components/schemas/LedgerEntry' }
+        envelopeName: { type: string }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED] }
+        role: { type: string, enum: [OWNER, PARTICIPANT] }
+    HistoryPage:
+      type: object
+      required: [items, page, size, hasNext]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HistoryItem' } }
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        hasNext: { type: boolean }
+    HistorySummary:
+      type: object
+      required: [income, expenses, netBalance, accumulatedBalance, monthlyTotals, purposeTotals]
+      properties:
+        income: { $ref: '#/components/schemas/Money' }
+        expenses: { $ref: '#/components/schemas/Money' }
+        netBalance: { $ref: '#/components/schemas/MoneyNegative' }
+        accumulatedBalance: { $ref: '#/components/schemas/MoneyNegative' }
+        monthlyTotals:
+          type: array
+          items:
+            type: object
+            required: [month, amount]
+            properties:
+              month: { type: string, pattern: '^\\d{4}-(0[1-9]|1[0-2])$' }
+              amount: { $ref: '#/components/schemas/Money' }
+        purposeTotals:
+          type: array
+          items:
+            type: object
+            required: [purpose, amount]
+            properties:
+              purpose: { type: string, enum: [LIMIT, GOAL, FIXED] }
+              amount: { $ref: '#/components/schemas/Money' }
     CreateEntry:
       type: object
       additionalProperties: false

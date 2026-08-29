@@ -53,6 +53,11 @@ public class EnvelopeService {
     }
 
     @Transactional(readOnly = true)
+    public List<Envelope> listVisibleIncludingArchived() {
+        return envelopes.findVisibleIncludingArchivedByUserId(authentication.currentUserId());
+    }
+
+    @Transactional(readOnly = true)
     public Envelope getVisible(UUID envelopeId) {
         UUID userId = authentication.currentUserId();
         Envelope envelope = envelopes.findById(envelopeId)

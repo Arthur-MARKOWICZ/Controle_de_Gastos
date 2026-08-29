@@ -1,0 +1,45 @@
+spring:
+  application:
+    name: controle-gastos-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/controle_gastos}
+    username: ${DATABASE_USERNAME:controle_gastos}
+    password: ${DATABASE_PASSWORD:change-me-local}
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+app:
+  auth:
+    issuer: ${AUTH_JWT_ISSUER:controle-gastos-api}
+    audience: ${AUTH_JWT_AUDIENCE:controle-gastos-clients}
+    access-token-lifetime: ${AUTH_ACCESS_TOKEN_LIFETIME:15m}
+    refresh-idle-lifetime: ${AUTH_REFRESH_IDLE_LIFETIME:30d}
+    session-absolute-lifetime: ${AUTH_SESSION_ABSOLUTE_LIFETIME:365d}
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}
+    cookie-name: ${AUTH_COOKIE_NAME:__Secure-refresh_token}
+    jwt-secret: ${AUTH_JWT_SECRET:}
+    key-id: ${AUTH_JWT_KEY_ID:local-ephemeral}
+    private-key-path: ${AUTH_JWT_PRIVATE_KEY_PATH:}
+    public-key-path: ${AUTH_JWT_PUBLIC_KEY_PATH:}
+    previous-public-key-path: ${AUTH_JWT_PREVIOUS_PUBLIC_KEY_PATH:}
+    previous-key-id: ${AUTH_JWT_PREVIOUS_KEY_ID:}
+    allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+    attempt-hmac-secret: ${AUTH_ATTEMPT_HMAC_SECRET:local-only-change-me}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework

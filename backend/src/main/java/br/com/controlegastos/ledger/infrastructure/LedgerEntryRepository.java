@@ -36,4 +36,44 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
             @Param("monthStart") LocalDate monthStart,
             @Param("monthEnd") LocalDate monthEnd,
             Pageable pageable);
+
+    @Query("""
+        SELECT e FROM LedgerEntry e
+        WHERE e.kind = br.com.controlegastos.ledger.domain.LedgerKind.EXPENSE
+          AND e.occurredAt BETWEEN :from AND :to
+          AND (
+            e.ownerId = :userId OR EXISTS (
+              SELECT 1 FROM EnvelopeParticipant participant
+              WHERE participant.envelopeId = e.envelopeId AND participant.userId = :userId
+            )
+          )
+          AND (
+            e.deletedAt IS NULL OR (:includeDeleted = true AND e.ownerId = :userId)
+          )
+        ORDER BY e.occurredAt DESC, e.createdAt DESC
+        """)
+    Page<LedgerEntry> findHistory(
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("includeDeleted") boolean includeDeleted,
+            Pageable pageable);
+
+    @Query("""
+        SELECT e FROM LedgerEntry e
+        WHERE e.kind = br.com.controlegastos.ledger.domain.LedgerKind.EXPENSE
+          AND e.occurredAt BETWEEN :from AND :to
+          AND e.deletedAt IS NULL
+          AND (
+            e.ownerId = :userId OR EXISTS (
+              SELECT 1 FROM EnvelopeParticipant participant
+              WHERE participant.envelopeId = e.envelopeId AND participant.userId = :userId
+            )
+          )
+        ORDER BY e.occurredAt ASC, e.createdAt ASC
+        """)
+    java.util.List<LedgerEntry> findActiveHistory(
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
 }

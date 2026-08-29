@@ -13,13 +13,13 @@ Como construir um sistema pessoal de verbas reservadas, acessível pela web e pe
 - Permitir saldo negativo com alerta, sem impedir o registro de um gasto real.
 - Avaliar verbas como limite de gasto, meta de aporte ou compromisso fixo.
 - Permitir verbas compartilhadas: participantes visualizam e registram gastos; somente o criador abastece, convida, remove e encerra.
-- Manter histórico de alterações e autoria das movimentações.
+- Manter histórico das movimentações e autoria de seu lançamento.
 
 ## Experiência por canal
 
 - **Mobile:** lançamento rápido, saldos, alertas, notificações e histórico.
 - **Web:** configuração, histórico completo e relatórios.
-- **Backend:** fonte única das regras, autorizações, auditoria e notificações.
+- **Backend:** fonte única das regras, autorizações e notificações.
 
 ## Direção recomendada e confirmada
 

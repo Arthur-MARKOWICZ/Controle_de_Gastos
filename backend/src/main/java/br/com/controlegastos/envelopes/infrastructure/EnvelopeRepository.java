@@ -19,6 +19,15 @@ public interface EnvelopeRepository extends JpaRepository<Envelope, UUID> {
         """)
     List<Envelope> findVisibleByUserId(@Param("userId") UUID userId);
 
+    @Query("""
+        SELECT e FROM Envelope e
+        WHERE e.ownerId = :userId OR EXISTS (
+          SELECT 1 FROM EnvelopeParticipant ep WHERE ep.envelopeId = e.id AND ep.userId = :userId
+        )
+        ORDER BY e.createdAt ASC
+        """)
+    List<Envelope> findVisibleIncludingArchivedByUserId(@Param("userId") UUID userId);
+
     @Query(value = "SELECT COALESCE(SUM(base_amount), 0) FROM envelope WHERE owner_id = :ownerId AND archived_at IS NULL", nativeQuery = true)
     java.math.BigDecimal sumBaseAmountsRaw(@Param("ownerId") UUID ownerId);
 

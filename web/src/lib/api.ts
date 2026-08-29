@@ -37,6 +37,24 @@ export type LedgerEntryDTO = {
   description: string | null;
   authorId: string;
   createdAt: string;
+  deletedAt?: string | null;
+};
+
+export type HistoryItemDTO = {
+  entry: LedgerEntryDTO;
+  envelopeName: string;
+  purpose: "LIMIT" | "GOAL" | "FIXED";
+  role: "OWNER" | "PARTICIPANT";
+};
+
+export type HistoryPageDTO = { items: HistoryItemDTO[]; page: number; size: number; hasNext: boolean };
+export type HistorySummaryDTO = {
+  income: MoneyDTO;
+  expenses: MoneyDTO;
+  netBalance: MoneyDTO;
+  accumulatedBalance: MoneyDTO;
+  monthlyTotals: { month: string; amount: MoneyDTO }[];
+  purposeTotals: { purpose: "LIMIT" | "GOAL" | "FIXED"; amount: MoneyDTO }[];
 };
 
 export type CreateEntryRequest = {
@@ -182,6 +200,23 @@ export function createApiClient(authClient: AuthClient) {
       return authClient
         .request(`/api/v1/income/history?page=${page}&size=${size}`)
         .then(handleResponse<IncomeHistoryPageDTO>);
+    },
+    getHistory(from: string, to: string, page = 0, size = 10, includeDeleted = false): Promise<HistoryPageDTO> {
+      const params = new URLSearchParams({ from, to, page: String(page), size: String(size) });
+      if (includeDeleted) params.set("includeDeleted", "true");
+      return authClient.request(`/api/v1/history?${params}`).then(handleResponse<HistoryPageDTO>);
+    },
+    getHistorySummary(from: string, to: string): Promise<HistorySummaryDTO> {
+      const params = new URLSearchParams({ from, to });
+      return authClient.request(`/api/v1/history/summary?${params}`).then(handleResponse<HistorySummaryDTO>);
+    },
+    updateHistoryEntry(id: string, dto: { envelopeId: string; amount: MoneyDTO; description?: string | null }): Promise<LedgerEntryDTO> {
+      return authClient.request(`/api/v1/ledger/entries/${encodeURIComponent(id)}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(dto),
+      }).then(handleResponse<LedgerEntryDTO>);
+    },
+    deleteHistoryEntry(id: string): Promise<void> {
+      return authClient.request(`/api/v1/ledger/entries/${encodeURIComponent(id)}`, { method: "DELETE" }).then(handleResponse<void>);
     },
   };
 }

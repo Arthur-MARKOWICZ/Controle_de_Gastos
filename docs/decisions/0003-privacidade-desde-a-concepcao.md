@@ -14,7 +14,10 @@ O sistema tratará identidade, renda, categorias e histórico de gastos. Mesmo q
 
 ## Decisão
 
-Aplicar minimização de dados, autorização por recurso, retenção documentada, auditoria sem segredos, exportação e fluxo de exclusão desde o desenho inicial. Toda nova coleta deve declarar finalidade, base legal proposta, retenção e destinatários antes da implementação.
+Aplicar minimização de dados, autorização por recurso, retenção documentada,
+exportação e fluxo de exclusão desde o desenho inicial. Toda nova coleta deve
+declarar finalidade, base legal proposta, retenção e destinatários antes da
+implementação.
 
 ## Alternativas consideradas
 
@@ -30,3 +33,8 @@ Aplicar minimização de dados, autorização por recurso, retenção documentad
 - Exclusão pode exigir anonimização ou retenção limitada quando houver outra obrigação aplicável; a decisão jurídica deve ser documentada.
 - Logs não conterão descrições de gastos, tokens ou payloads completos.
 - Revisão jurídica é necessária antes de disponibilização pública.
+
+## Histórico
+
+O adiamento temporário da trilha detalhada de auditoria para alterações de
+lançamentos é definido no [ADR-009](0009-adiamento-da-auditoria-detalhada-de-gastos.md).

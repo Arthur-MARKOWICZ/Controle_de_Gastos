@@ -46,6 +46,9 @@ public class LedgerEntry {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     protected LedgerEntry() {
     }
 
@@ -78,6 +81,31 @@ public class LedgerEntry {
     public LocalDate occurredAt() { return occurredAt; }
     public String description() { return description; }
     public Instant createdAt() { return createdAt; }
+    public Instant deletedAt() { return deletedAt; }
+    public boolean isDeleted() { return deletedAt != null; }
+
+    public void edit(UUID destinationEnvelopeId, UUID destinationOwnerId, Money newAmount, String newDescription) {
+        if (kind != LedgerKind.EXPENSE) {
+            throw new IllegalStateException("Somente gastos podem ser editados");
+        }
+        if (isDeleted()) {
+            throw new IllegalStateException("Um gasto excluído não pode ser editado");
+        }
+        this.envelopeId = Objects.requireNonNull(destinationEnvelopeId, "A verba é obrigatória");
+        this.ownerId = Objects.requireNonNull(destinationOwnerId, "O proprietário é obrigatório");
+        this.amount = requirePositive(newAmount);
+        this.description = normalizeDescription(newDescription);
+    }
+
+    public void delete(Instant now) {
+        if (kind != LedgerKind.EXPENSE) {
+            throw new IllegalStateException("Somente gastos podem ser excluídos");
+        }
+        if (isDeleted()) {
+            return;
+        }
+        this.deletedAt = Objects.requireNonNull(now, "O instante é obrigatório");
+    }
 
     private static Money requirePositive(Money amount) {
         Objects.requireNonNull(amount, "O valor é obrigatório");
