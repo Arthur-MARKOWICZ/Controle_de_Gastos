@@ -1,8 +1,21 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
 }
+
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.isFile) {
+        localPropertiesFile.inputStream().use(::load)
+    }
+}
+val apiBaseUrl = providers.gradleProperty("API_BASE_URL")
+    .orElse(localProperties.getProperty("API_BASE_URL") ?: "http://10.0.2.2:8080")
+    .get()
+    .also { require(it.matches(Regex("https?://[^\\s\\\"\\\\]+"))) { "API_BASE_URL deve ser uma URL HTTP(S) válida" } }
 
 android {
     namespace = "br.com.controlegastos.app"
@@ -24,11 +37,12 @@ android {
 
     buildTypes {
         debug {
-            buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080\"")
+            buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
         }
         release {
-            buildConfigField("String", "API_BASE_URL", "\"https://api.verbas.example.com\"")
+            buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

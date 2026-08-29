@@ -50,16 +50,8 @@ private val VerbasColors = lightColorScheme(
     surface = Color.White, onSurface = Color(0xFF17211B), outline = Color(0xFFD9DDD6),
 )
 
-private data class EnvelopePreview(val name: String, val purpose: String, val available: String, val progress: Float, val status: String)
-
-private val previewEnvelopes = listOf(
-    EnvelopePreview("Combustível", "Limite de gasto", "R$ 240,00", 0.60f, "Dentro do limite"),
-    EnvelopePreview("Investimentos", "Meta de aporte", "R$ 1.200,00", 0.80f, "R$ 300,00 para a meta"),
-    EnvelopePreview("Livros", "Saldo acumulado", "R$ 180,00", 0.45f, "Acumulou por 2 meses"),
-)
-
 @Composable
-fun VerbasApp(authGateway: AuthGateway = UnavailableAuthGateway) {
+fun VerbasApp(authGateway: AuthGateway = UnavailableAuthGateway, financeGateway: FinanceGateway = UnavailableFinanceGateway) {
     val controller = remember(authGateway) { AuthSessionController(authGateway) }
     var authState by remember { mutableStateOf<AuthState>(AuthState.Loading) }
     val scope = rememberCoroutineScope()
@@ -88,7 +80,7 @@ fun VerbasApp(authGateway: AuthGateway = UnavailableAuthGateway) {
                     }
                 },
             )
-            is AuthState.Authenticated -> Dashboard(current.user.email) {
+            is AuthState.Authenticated -> Dashboard(current.user.email, financeGateway) {
                 authState = AuthState.Anonymous
                 scope.launch { runCatching { controller.logout() } }
             }
@@ -153,7 +145,11 @@ private fun AuthScreen(
 }
 
 @Composable
-private fun Dashboard(email: String, onLogout: () -> Unit) {
+private fun Dashboard(email: String, financeGateway: FinanceGateway, onLogout: () -> Unit) {
+    val controller = remember(financeGateway) { FinanceDashboardController(financeGateway) }
+    var dashboardState by remember { mutableStateOf<DashboardState>(DashboardState.Loading) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(controller) { controller.refresh(); dashboardState = controller.state }
     Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = { MobileNavigation() }) { padding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp),
@@ -161,29 +157,36 @@ private fun Dashboard(email: String, onLogout: () -> Unit) {
         ) {
             item {
                 Column(Modifier.padding(top = 24.dp)) {
-                    Text("AGOSTO DE 2026", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                    Text("VISÃO ATUAL", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     Text("Olá", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
                     Text(email, color = Color(0xFF5E6862), style = MaterialTheme.typography.bodyMedium)
                     TextButton(onClick = onLogout) { Text("Sair da conta") }
                 }
             }
-            item { IncomeSummary() }
-            item { Text("Suas verbas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
-            items(previewEnvelopes) { EnvelopeCard(it) }
-            item { Button(onClick = {}, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary), shape = RoundedCornerShape(8.dp)) { Text("Registrar gasto") } }
+            when (val current = dashboardState) {
+                DashboardState.Loading -> item { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.semantics { contentDescription = "Carregando verbas" }) } }
+                is DashboardState.Error -> item { Column { Text(current.message, color = MaterialTheme.colorScheme.error); Button(onClick = { scope.launch { controller.refresh(); dashboardState = controller.state } }) { Text("Tentar novamente") } } }
+                is DashboardState.Content -> {
+                    item { IncomeSummary(current.dashboard) }
+                    item { Text("Suas verbas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold) }
+                    if (current.dashboard.envelopes.isEmpty()) item { Text("Nenhuma verba disponível neste mês.", color = Color(0xFF5E6862)) }
+                    items(current.dashboard.envelopes) { EnvelopeCard(it) }
+                    item { Button(onClick = { scope.launch { controller.refresh(); dashboardState = controller.state } }, modifier = Modifier.fillMaxWidth().height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary), shape = RoundedCornerShape(8.dp)) { Text("Atualizar verbas") } }
+                }
+            }
             item { Spacer(Modifier.height(8.dp)) }
         }
     }
 }
 
 @Composable
-private fun IncomeSummary() {
+private fun IncomeSummary(dashboard: FinancialDashboard) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(8.dp)) {
         Column(Modifier.fillMaxWidth().padding(20.dp)) {
             Text("Renda do mês", color = Color(0xFF5E6862), style = MaterialTheme.typography.labelLarge)
-            Text("R$ 5.000,00", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(dashboard.income?.let(::formatBrl) ?: "Renda não configurada", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(16.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { SummaryValue("Reservado", "R$ 4.250"); SummaryValue("Não alocado", "R$ 750") }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { SummaryValue("Reservado", formatBrl(dashboard.allocated)); SummaryValue("Não alocado", formatBrl(dashboard.unallocated)) }
         }
     }
 }
@@ -191,16 +194,21 @@ private fun IncomeSummary() {
 @Composable private fun SummaryValue(label: String, value: String) = Column { Text(label, color = Color(0xFF5E6862), style = MaterialTheme.typography.labelMedium); Text(value, fontWeight = FontWeight.SemiBold) }
 
 @Composable
-private fun EnvelopeCard(envelope: EnvelopePreview) {
+private fun EnvelopeCard(envelope: EnvelopeView) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), shape = RoundedCornerShape(8.dp)) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Column { Text(envelope.name, fontWeight = FontWeight.SemiBold); Text(envelope.purpose, color = Color(0xFF5E6862), style = MaterialTheme.typography.bodySmall) }; Text(envelope.available, fontWeight = FontWeight.Bold) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Column { Text(envelope.name, fontWeight = FontWeight.SemiBold); Text(purposeLabel(envelope.purpose), color = Color(0xFF5E6862), style = MaterialTheme.typography.bodySmall) }; Text(formatBrl(envelope.available), fontWeight = FontWeight.Bold) }
             Spacer(Modifier.height(12.dp))
-            LinearProgressIndicator(progress = { envelope.progress }, modifier = Modifier.fillMaxWidth().height(7.dp).semantics { contentDescription = "Progresso de ${envelope.name}: ${(envelope.progress * 100).toInt()}%" }, color = MaterialTheme.colorScheme.primary, trackColor = Color(0xFFEEF0EA))
-            Spacer(Modifier.height(8.dp)); Text(envelope.status, color = Color(0xFF5E6862), style = MaterialTheme.typography.bodySmall)
+            val progress = progressOf(envelope)
+            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(7.dp).semantics { contentDescription = "Progresso de ${envelope.name}: ${(progress * 100).toInt()}%" }, color = if (envelope.isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, trackColor = Color(0xFFEEF0EA))
+            Spacer(Modifier.height(8.dp)); Text(if (envelope.isNegative) "Saldo negativo" else "Saldo disponível", color = Color(0xFF5E6862), style = MaterialTheme.typography.bodySmall)
         }
     }
 }
+
+private fun formatBrl(amount: MoneyView): String = "R$ ${amount.amount.replace('.', ',')}"
+private fun purposeLabel(purpose: String): String = when (purpose) { "LIMIT" -> "Limite de gasto"; "GOAL" -> "Meta de aporte"; "FIXED" -> "Compromisso fixo"; else -> purpose }
+private fun progressOf(envelope: EnvelopeView): Float = envelope.baseAmount.amount.toDoubleOrNull()?.takeIf { it > 0 }?.let { (envelope.available.amount.toDoubleOrNull() ?: 0.0).div(it).coerceIn(0.0, 1.0).toFloat() } ?: 0f
 
 @Composable
 private fun MobileNavigation() = Row(Modifier.fillMaxWidth().background(Color(0xFF18251E)).padding(horizontal = 20.dp, vertical = 14.dp), horizontalArrangement = Arrangement.SpaceAround, verticalAlignment = Alignment.CenterVertically) {

@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
 class AndroidAuthGateway(
     context: Context,
     private val baseUrl: String,
-) : AuthGateway {
+) : AuthGateway, FinanceGateway {
     private val refreshStore = EncryptedRefreshTokenStore(context)
     private val refreshMutex = Mutex()
     @Volatile private var accessToken: String? = null
@@ -43,6 +43,31 @@ class AndroidAuthGateway(
             accessToken = null
             refreshStore.clear()
         }
+    }
+
+    override suspend fun loadDashboard(): FinancialDashboard {
+        val result = request("GET", "/api/v1/ledger/summary", bearer = accessToken)
+        if (result.status == 401 && refreshSingleFlight()) return loadDashboard()
+        requireSuccess(result, "Não foi possível carregar suas verbas")
+        val body = JSONObject(result.body)
+        val envelopes = body.getJSONArray("envelopes")
+        return FinancialDashboard(
+            income = body.optJSONObject("income")?.let { MoneyView(it.getString("amount")) },
+            allocated = MoneyView(body.getJSONObject("allocated").getString("amount")),
+            unallocated = MoneyView(body.getJSONObject("unallocated").getString("amount")),
+            usagePct = body.optDouble("usagePct", 0.0),
+            envelopes = List(envelopes.length()) { index ->
+                val envelope = envelopes.getJSONObject(index)
+                EnvelopeView(
+                    id = envelope.getString("id"),
+                    name = envelope.getString("name"),
+                    purpose = envelope.getString("purpose"),
+                    baseAmount = MoneyView(envelope.getJSONObject("baseAmount").getString("amount")),
+                    available = MoneyView(envelope.getJSONObject("available").getString("amount")),
+                    isNegative = envelope.getBoolean("isNegative"),
+                )
+            },
+        )
     }
 
     private suspend fun currentUser(retry: Boolean): AuthUser {
