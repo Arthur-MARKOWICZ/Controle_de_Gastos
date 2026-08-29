@@ -1,8 +1,0 @@
-utlizar a cripitorafia  bcrypt.
-utilizar apenas um secret para o token ,nao chave privada e publica
-a parte properties de auth deve estra no application.yml com os valores tendo default ,mas deve ter um .env para colocar as variasveis reais 
-remover o auth properties 
-as classes acess token issue , curent user  devem ser removidas o comportamento nao deve ter classe se funcao 
-a classe spring password haser pode colocar as funcoes dentro do authentication service , tabem a do SpringSecurityCurrentUser   pode ficar no authentication service
-passwordCredential deve ficar na tabela de user 
-passwordPolicy  do ficar no AuthenticationService

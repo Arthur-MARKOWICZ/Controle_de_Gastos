@@ -1,11 +1,11 @@
 "use client";
 
 import { Suspense } from "react";
-import { AuthProvider, useAuth } from "../auth/auth-context";
-import { AuthScreen } from "../components/AuthScreen/AuthScreen";
-import { Dashboard } from "../components/Dashboard/Dashboard";
+import { AuthProvider, useAuth } from "../../auth/auth-context";
+import { AuthScreen } from "../../components/AuthScreen/AuthScreen";
+import { VerbasPage } from "../../components/VerbasPage/VerbasPage";
 
-function AuthenticatedApp() {
+function AuthenticatedVerbas() {
   const auth = useAuth();
   if (auth.state === "loading") return <main aria-busy="true"><p role="status">Restaurando sua sessão…</p></main>;
   if (auth.state !== "authenticated" || !auth.user) {
@@ -13,11 +13,11 @@ function AuthenticatedApp() {
   }
   return (
     <Suspense fallback={<main aria-busy="true"><p role="status">Carregando…</p></main>}>
-      <Dashboard email={auth.user.email} onLogout={() => void auth.logout()} />
+      <VerbasPage email={auth.user.email} onLogout={() => void auth.logout()} />
     </Suspense>
   );
 }
 
-export default function Home() {
-  return <AuthProvider><AuthenticatedApp /></AuthProvider>;
+export default function VerbasRoute() {
+  return <AuthProvider><AuthenticatedVerbas /></AuthProvider>;
 }

@@ -9,6 +9,7 @@ type AuthContextValue = {
   state: AuthState;
   user: CurrentUser | null;
   error: string | null;
+  client: AuthClient;
   login(email: string, password: string): Promise<void>;
   register(email: string, password: string): Promise<void>;
   logout(): Promise<void>;
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     state,
     user,
     error,
+    client,
     async login(email, password) {
       setError(null);
       try {

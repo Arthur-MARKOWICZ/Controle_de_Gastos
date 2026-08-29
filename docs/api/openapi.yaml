@@ -106,24 +106,183 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationFailed' }
         '404': { $ref: '#/components/responses/IncomeNotConfigured' }
   /income/history:
-    get:
-      summary: Lista alterações reais da renda do usuário autenticado
-      security: [{ bearerAuth: [] }]
-      parameters:
-        - in: query
-          name: page
-          schema: { type: integer, minimum: 0, default: 0 }
-        - in: query
-          name: size
-          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
-      responses:
-        '200':
-          description: Histórico em ordem decrescente de alteração
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/IncomeHistoryPage' }
-        '400': { $ref: '#/components/responses/InvalidRequest' }
-        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+     get:
+       summary: Lista alterações reais da renda do usuário autenticado
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - in: query
+           name: page
+           schema: { type: integer, minimum: 0, default: 0 }
+         - in: query
+           name: size
+           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+       responses:
+         '200':
+           description: Histórico em ordem decrescente de alteração
+           content:
+             application/json:
+               schema: { $ref: '#/components/schemas/IncomeHistoryPage' }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /envelopes:
+     get:
+       summary: Lista verbas visíveis ao usuário (owner ou participante)
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - in: query
+           name: month
+           schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+           description: Mês no formato YYYY-MM; padrão mês corrente em America/Sao_Paulo.
+       responses:
+         '200':
+           description: Lista de verbas com saldo do mês
+           content:
+             application/json:
+               schema: { type: array, items: { $ref: '#/components/schemas/Envelope' } }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+     post:
+       summary: Cria nova verba
+       security: [{ bearerAuth: [] }]
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { $ref: '#/components/schemas/CreateEnvelope' }
+       responses:
+         '201':
+           description: Verba criada
+           content:
+             application/json:
+               schema: { $ref: '#/components/schemas/Envelope' }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+         '409': { $ref: '#/components/responses/IncomeConflict' }
+  /envelopes/{id}:
+     get:
+       summary: Detalha uma verba
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - in: path
+           name: id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         '200':
+           description: Verba encontrada
+           content:
+             application/json:
+               schema: { $ref: '#/components/schemas/Envelope' }
+         '404': { $ref: '#/components/responses/NotFound' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+     patch:
+       summary: Atualiza nome, propósito ou valor-base da verba (somente owner)
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - in: path
+           name: id
+           required: true
+           schema: { type: string, format: uuid }
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { $ref: '#/components/schemas/UpdateEnvelope' }
+       responses:
+         '200':
+           description: Verba atualizada
+           content:
+             application/json:
+               schema: { $ref: '#/components/schemas/Envelope' }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+         '403': { $ref: '#/components/responses/Forbidden' }
+         '404': { $ref: '#/components/responses/NotFound' }
+         '409': { $ref: '#/components/responses/IncomeConflict' }
+  /envelopes/{id}/archive:
+     post:
+       summary: Arquiva verba (idempotente, somente owner)
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - in: path
+           name: id
+           required: true
+           schema: { type: string, format: uuid }
+       responses:
+         '204': { description: Verba arquivada }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+         '403': { $ref: '#/components/responses/Forbidden' }
+         '404': { $ref: '#/components/responses/NotFound' }
+  /envelopes/{id}/entries:
+     get:
+       summary: Lista movimentações de uma verba (filtro por mês)
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - in: path
+           name: id
+           required: true
+           schema: { type: string, format: uuid }
+         - in: query
+           name: month
+           schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+         - in: query
+           name: page
+           schema: { type: integer, minimum: 0, default: 0 }
+         - in: query
+           name: size
+           schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+         - in: query
+           name: kind
+           schema: { type: string, enum: [EXPENSE, CONTRIBUTION] }
+       responses:
+         '200':
+           description: Página de movimentações
+           content:
+             application/json:
+               schema: { $ref: '#/components/schemas/LedgerEntryPage' }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+         '404': { $ref: '#/components/responses/NotFound' }
+     post:
+       summary: Registra gasto ou aporte em uma verba
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - in: path
+           name: id
+           required: true
+           schema: { type: string, format: uuid }
+       requestBody:
+         required: true
+         content:
+           application/json:
+             schema: { $ref: '#/components/schemas/CreateEntry' }
+       responses:
+         '201':
+           description: Movimentação registrada
+           content:
+             application/json:
+               schema: { $ref: '#/components/schemas/LedgerEntry' }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+         '403': { $ref: '#/components/responses/Forbidden' }
+         '404': { $ref: '#/components/responses/NotFound' }
+  /ledger/summary:
+     get:
+       summary: Resumo financeiro do mês (renda, alocado, não alocado, verbas com saldo)
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - in: query
+           name: month
+           schema: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+           description: Mês no formato YYYY-MM; padrão mês corrente em America/Sao_Paulo.
+       responses:
+         '200':
+           description: Resumo do mês
+           content:
+             application/json:
+               schema: { $ref: '#/components/schemas/LedgerSummary' }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
 components:
   securitySchemes:
     bearerAuth:
@@ -212,6 +371,94 @@ components:
         page: { type: integer, minimum: 0 }
         size: { type: integer, minimum: 1, maximum: 100 }
         hasNext: { type: boolean }
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount: { type: string, pattern: '^\d{1,17}\.\d{2}$', examples: ['400.00'] }
+        currency: { type: string, const: BRL }
+    MoneyNegative:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount: { type: string, pattern: '^-?\d{1,17}\.\d{2}$', examples: ['-25.00'] }
+        currency: { type: string, const: BRL }
+    Envelope:
+      type: object
+      required: [id, ownerId, name, purpose, baseAmount, available, isNegative, role, createdAt, archivedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        ownerId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 80 }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED] }
+        baseAmount: { $ref: '#/components/schemas/Money' }
+        available: { $ref: '#/components/schemas/MoneyNegative' }
+        isNegative: { type: boolean }
+        role: { type: string, enum: [OWNER, PARTICIPANT] }
+        createdAt: { type: string, format: date-time }
+        archivedAt: { type: string, format: date-time, nullable: true }
+        version: { type: integer, minimum: 0 }
+    CreateEnvelope:
+      type: object
+      additionalProperties: false
+      required: [name, purpose, baseAmount]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED] }
+        baseAmount: { $ref: '#/components/schemas/Money' }
+    UpdateEnvelope:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED] }
+        baseAmount: { $ref: '#/components/schemas/Money' }
+    LedgerEntry:
+      type: object
+      required: [id, envelopeId, kind, amount, occurredAt, description, authorId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        envelopeId: { type: string, format: uuid }
+        kind: { type: string, enum: [EXPENSE, CONTRIBUTION] }
+        amount: { $ref: '#/components/schemas/Money' }
+        occurredAt: { type: string, format: date, examples: ['2026-08-27'] }
+        description: { type: string, maxLength: 140, nullable: true }
+        authorId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+    CreateEntry:
+      type: object
+      additionalProperties: false
+      required: [kind, amount, occurredAt]
+      properties:
+        kind: { type: string, enum: [EXPENSE, CONTRIBUTION] }
+        amount: { $ref: '#/components/schemas/Money' }
+        occurredAt: { type: string, format: date, pattern: '^\d{4}-\d{2}-\d{2}$' }
+        description: { type: string, maxLength: 140, nullable: true }
+    LedgerEntryPage:
+      type: object
+      required: [items, page, size, hasNext]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/LedgerEntry' } }
+        page: { type: integer, minimum: 0 }
+        size: { type: integer, minimum: 1, maximum: 100 }
+        hasNext: { type: boolean }
+    LedgerSummary:
+      type: object
+      required: [income, allocated, unallocated, usagePct, envelopes]
+      properties:
+        income:
+          nullable: true
+          type: object
+          required: [amount, currency, effectiveFrom, changedAt]
+          properties:
+            amount: { type: string, pattern: '^\d{1,17}\.\d{2}$' }
+            currency: { type: string, const: BRL }
+            effectiveFrom: { type: string, pattern: '^\d{4}-(0[1-9]|1[0-2])$' }
+            changedAt: { type: string, format: date-time }
+        allocated: { $ref: '#/components/schemas/Money' }
+        unallocated: { $ref: '#/components/schemas/Money' }
+        usagePct: { type: number, minimum: 0 }
+        envelopes: { type: array, items: { $ref: '#/components/schemas/Envelope' } }
   responses:
     InvalidRequest:
       description: Dados inválidos
@@ -235,6 +482,16 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
     IncomeConflict:
       description: Renda abaixo das verbas-base ou alteração concorrente
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Recurso não encontrado ou não autorizado
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Operação não permitida para o papel do usuário
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }

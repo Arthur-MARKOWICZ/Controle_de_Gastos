@@ -1,0 +1,16 @@
+.form { display: grid; gap: 0.75rem; }
+.form label { font-size: 0.8125rem; font-weight: 650; color: var(--foreground-muted); }
+.form input, .form select {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--surface);
+}
+.form input:focus, .form select:focus { outline: 3px solid var(--focus); outline-offset: 2px; }
+.help { font-size: 0.75rem; color: var(--foreground-muted); }
+.error { padding: 0.625rem 0.75rem; border: 1px solid #d9a0a0; background: #fdf0f0; color: #7a2a2a; border-radius: 0.375rem; font-size: 0.8125rem; }
+.actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 0.5rem; }
+.actions button { min-height: 2.5rem; padding: 0 1rem; border-radius: 0.375rem; font-weight: 700; cursor: pointer; }
+.actions button[type="button"] { border: 1px solid var(--border); background: var(--surface-muted); }
+.primary { border: 0; background: var(--accent); color: #fff; }
+.primary:hover { background: var(--accent-strong); }
