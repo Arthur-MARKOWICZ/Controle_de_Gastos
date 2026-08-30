@@ -1,12 +1,14 @@
 FROM eclipse-temurin:25-jdk AS build
 WORKDIR /workspace
 
-COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts ./
+COPY gradlew gradlew.bat settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY gradle ./gradle
-RUN ./gradlew dependencies --no-daemon
+RUN --mount=type=cache,target=/root/.gradle,sharing=locked \
+    ./gradlew dependencies --no-daemon
 
 COPY src ./src
-RUN ./gradlew bootJar --no-daemon
+RUN --mount=type=cache,target=/root/.gradle,sharing=locked \
+    ./gradlew bootJar --no-daemon
 
 FROM eclipse-temurin:25-jre
 WORKDIR /app
