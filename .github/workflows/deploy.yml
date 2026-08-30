@@ -13,9 +13,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  validate:
+    name: Validar e testar
     runs-on: ubuntu-24.04
-    environment: deploy-test
     timeout-minutes: 45
 
     steps:
@@ -48,6 +48,19 @@ jobs:
           set -Eeuo pipefail
           cd web && pnpm install --frozen-lockfile
           cd .. && make check
+
+  deploy:
+    name: Construir e publicar contêineres
+    needs: validate
+    runs-on: ubuntu-24.04
+    environment: deploy-test
+    timeout-minutes: 45
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - name: Construir imagens
         env:
@@ -91,4 +104,13 @@ jobs:
           "${SSH[@]}" true
           docker image save controle-gastos-backend:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
           docker image save controle-gastos-web:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
-          "${SSH[@]}" /srv/controle-gastos/infra/deploy.sh
+          "${SSH[@]}" '
+            set -eu
+            cd /srv/controle-gastos
+            test -f compose.yaml
+            docker image inspect controle-gastos-backend:latest >/dev/null
+            docker image inspect controle-gastos-web:latest >/dev/null
+            docker compose -f compose.yaml config --quiet
+            docker compose -f compose.yaml up --detach --no-build --pull never --remove-orphans
+            docker compose -f compose.yaml ps
+          '

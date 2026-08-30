@@ -2,10 +2,11 @@
 
 ## Escopo deste teste
 
-O GitHub Actions valida o projeto, constrói as imagens da API e da web, envia
-somente essas imagens para a VPS por SSH e executa o único `compose.yaml` já
-instalado em `/srv/controle-gastos`. O Compose contém exclusivamente
-PostgreSQL, backend e web.
+O primeiro job do GitHub Actions valida o projeto. Depois de aprovado, o job
+de deploy constrói as imagens da API e da web, envia somente essas imagens para
+a VPS por SSH e executa o único `compose.yaml` já instalado em
+`/srv/controle-gastos`. O Compose contém exclusivamente PostgreSQL, backend e
+web.
 
 Não configurar ainda domínio, HTTPS, Caddy/Nginx, backup, observabilidade,
 limites de recursos ou cadastro público. As portas ficam em loopback por
@@ -16,8 +17,7 @@ padrão; use túnel SSH para testar de fora sem expor a aplicação.
 1. Instale Docker Engine com Docker Compose v2 e `curl`.
 2. Crie o usuário `deploy`, adicione-o ao grupo `docker` e dê a ele posse de
    `/srv/controle-gastos`.
-3. Copie uma única vez `compose.yaml` e `infra/deploy.sh` para esse diretório,
-   mantendo a mesma estrutura do repositório.
+3. Copie uma única vez `compose.yaml` para `/srv/controle-gastos/compose.yaml`.
 4. Baixe a imagem do banco: `docker pull postgres:18-alpine`.
 5. Cadastre a chave pública exclusiva do GitHub Actions em
    `~deploy/.ssh/authorized_keys`.
@@ -34,8 +34,9 @@ padrão; use túnel SSH para testar de fora sem expor a aplicação.
    `DEPLOY_KNOWN_HOSTS`. Em porta diferente de 22, não omita `-p`: a entrada do
    `known_hosts` será associada a `[host]:porta`.
 
-O primeiro job não copia arquivos de configuração: depois desse preparo, ele
-envia apenas as duas imagens e chama o script já presente na VPS.
+O workflow não copia arquivos de configuração: depois desse preparo, ele envia
+apenas as duas imagens e executa o Compose diretamente por SSH. O job de deploy
+só inicia se o job de validação e testes terminar com sucesso.
 
 ## Variáveis de ambiente
 

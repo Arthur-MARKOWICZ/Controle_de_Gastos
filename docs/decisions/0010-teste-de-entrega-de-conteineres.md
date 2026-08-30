@@ -21,8 +21,9 @@ entrega básica ter sido validada.
 - Manter um único `compose.yaml` com `postgres`, `backend` e `web`.
 - O GitHub Actions executa a verificação do projeto, constrói as duas imagens
   com a tag fixa `latest` e as transfere por SSH para a VPS.
-- A VPS só carrega as imagens e executa `infra/deploy.sh`; o workflow não
-  transfere Compose, proxy ou configurações adicionais.
+- A VPS só carrega as imagens; o workflow executa diretamente o `docker
+  compose` já instalado, sem script de deploy. O workflow não transfere
+  Compose, proxy ou configurações adicionais.
 - Portas ficam em loopback por padrão. O teste externo pode usar túnel SSH ou,
   temporariamente, `HOST_BIND_ADDRESS=0.0.0.0` com firewall restritivo.
 - HTTPS, domínio, Caddy/Nginx, segredos de produção, backup, limites de
