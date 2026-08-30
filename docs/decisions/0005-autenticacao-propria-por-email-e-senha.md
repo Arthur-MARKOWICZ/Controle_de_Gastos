@@ -23,9 +23,8 @@ armazenar credenciais, emitir tokens e revogar sessões no módulo `identity`.
   bytes, hash de 32 bytes, 19 MiB, duas iterações e paralelismo 1. O custo será
   medido na VPS e elevado enquanto a validação permanecer próxima ou abaixo de
   um segundo.
-- Emitir access JWT RS256 por 15 minutos com apenas `iss`, `aud`, `sub`, `sid`,
-  `jti`, `iat`, `nbf` e `exp`. Chaves privadas ficam fora do Git; `kid` permite
-  rotação e a chave pública anterior só permanece durante a expiração dos JWTs.
+- A assinatura RS256 e a rotação por `kid` inicialmente previstas para o access
+  JWT foram superadas pelo [ADR-011](0011-jwt-hs256-para-o-corte-atual.md).
 - Emitir refresh opaco com 256 bits de aleatoriedade, persistindo apenas
   SHA-256 do segredo. Rotacionar a cada uso, renovar 30 dias de inatividade e
   limitar a sessão a 365 dias. Reuso revoga a família inteira.

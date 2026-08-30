@@ -4,7 +4,6 @@
 !.env.example
 *.pem
 *.key
-
 # Java / Gradle
 .gradle/
 **/build/

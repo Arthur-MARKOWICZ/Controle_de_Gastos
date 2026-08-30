@@ -19,7 +19,7 @@ mobile-check:
 	cd mobile && ./gradlew :shared:jvmTest :androidApp:assembleDebug --no-configuration-cache
 
 infra-up:
-	docker compose up -d postgres backend web
+	docker compose up -d postgres
 
 infra-down:
 	docker compose down

@@ -30,7 +30,7 @@ mobile (KMP) ──────┘          │
 ## Início rápido
 
 1. Copie `.env.example` para `.env` e troque as senhas locais.
-2. Inicie PostgreSQL, API e web: `make infra-up`.
+2. Inicie PostgreSQL: `make infra-up`.
 3. Para desenvolvimento fora dos contêineres, inicie somente o PostgreSQL com
    `docker compose up -d postgres`, depois use `./gradlew bootRun` em `backend/`
    e `pnpm dev` em `web/`.
@@ -42,24 +42,27 @@ mobile (KMP) ──────┘          │
 |---|---|
 | `make test` | Executa testes de backend e web |
 | `make check` | Executa testes, lint e builds verificáveis neste ambiente |
-| `make infra-up` | Inicia PostgreSQL, API e web |
+| `make infra-up` | Inicia PostgreSQL local |
 | `make infra-down` | Para a infraestrutura local |
 | `cd backend && ./gradlew test` | Testes Java e arquitetura modular |
 | `cd web && pnpm test` | Testes unitários da web |
 | `cd web && pnpm lint` | Lint da web |
 
-O ambiente local usa uma chave JWT efêmera e cookie sem `Secure` apenas porque
-serve HTTP. Em produção, gere um par RSA PKCS#8/X.509 fora do repositório,
-configure os caminhos absolutos da `.env` e suba com
-`docker compose -f compose.yaml -f compose.production.yaml up -d`. A chave
-privada é montada somente como leitura. O segredo HMAC também deve ser aleatório
-e fornecido pelo ambiente.
+O ambiente de teste usa uma chave JWT efêmera e cookie sem `Secure` apenas
+porque serve HTTP. Ele não é configuração de produção.
 
 Cadastro não verifica e-mail e recuperação de senha ainda não existe. Não abra
 o cadastro ao público antes dos requisitos jurídicos e operacionais listados em
 [`docs/privacy/requisitos-de-seguranca.md`](docs/privacy/requisitos-de-seguranca.md).
 Rotação de chaves, benchmark Argon2id e retenção estão descritos em
 [`docs/privacy/operacao-de-autenticacao.md`](docs/privacy/operacao-de-autenticacao.md).
+
+## Teste de deploy
+
+O primeiro teste de deploy usa apenas PostgreSQL, API e web em um único
+Compose. O GitHub Actions constrói as imagens e as transfere por SSH para a
+VPS; HTTPS, proxy e configuração de produção vêm depois. Consulte
+[`docs/deploy/teste-entrega-conteineres.md`](docs/deploy/teste-entrega-conteineres.md).
 
 ## Backend de renda
 

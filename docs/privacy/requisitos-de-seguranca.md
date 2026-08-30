@@ -4,7 +4,7 @@
 
 - Login próprio por e-mail e senha; Argon2id com parâmetros explícitos e
   benchmark por ambiente.
-- Access JWT RS256 de 15 minutos, refresh opaco rotativo com 30 dias de
+- Access JWT HS256 de 15 minutos, refresh opaco rotativo com 30 dias de
   inatividade e sessão máxima de 365 dias.
 - Consultar a sessão persistida em toda requisição protegida para revogação
   imediata; reuso de refresh revoga a sessão.
@@ -21,8 +21,9 @@
 - TLS em todo tráfego externo.
 - Criptografia dos volumes/backups no provedor ou por ferramenta de backup.
 - Segredos somente por variáveis/arquivos protegidos, nunca no Git.
-- Chave JWT privada somente por arquivo/secret mount com permissão mínima; a
-  chave anterior é removida após a janela dos access tokens emitidos.
+- Segredo JWT somente por variável de runtime protegida, com pelo menos 32
+  bytes; ele nunca entra no Git, logs ou imagens. Sua troca invalida os access
+  tokens emitidos anteriormente.
 - Valores monetários em `BigDecimal` de BRL, com duas casas e sem arredondamento
   implícito; persistência `NUMERIC(19,2)` e JSON em string decimal.
 - Nenhum dado real em fixtures ou screenshots de desenvolvimento.

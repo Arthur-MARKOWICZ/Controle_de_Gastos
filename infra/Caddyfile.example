@@ -1,9 +1,0 @@
-verbas.example.com {
-    encode zstd gzip
-    reverse_proxy web:3000
-}
-
-api.verbas.example.com {
-    encode zstd gzip
-    reverse_proxy backend:8080
-}

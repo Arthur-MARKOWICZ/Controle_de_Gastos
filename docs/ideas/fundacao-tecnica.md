@@ -37,7 +37,8 @@ Monorepo com aplicações separadas e um backend em monólito modular:
 - REST e OpenAPI como contrato entre clientes e API.
 - Flyway para migrações.
 - Docker Compose para desenvolvimento e deploy inicial.
-- Caddy como proxy reverso e terminação TLS na VPS.
+- O primeiro deploy só valida a entrega de contêineres; Caddy/Nginx, domínio e
+  terminação TLS serão adicionados em uma etapa posterior documentada.
 
 O backend é um único processo implantável, separado internamente nos módulos `identity`, `income`, `envelopes`, `ledger`, `sharing`, `notifications`, `audit`, `privacy` e `reporting`.
 

@@ -22,11 +22,6 @@ app:
     cookie-secure: ${AUTH_COOKIE_SECURE:true}
     cookie-name: ${AUTH_COOKIE_NAME:__Secure-refresh_token}
     jwt-secret: ${AUTH_JWT_SECRET:}
-    key-id: ${AUTH_JWT_KEY_ID:local-ephemeral}
-    private-key-path: ${AUTH_JWT_PRIVATE_KEY_PATH:}
-    public-key-path: ${AUTH_JWT_PUBLIC_KEY_PATH:}
-    previous-public-key-path: ${AUTH_JWT_PREVIOUS_PUBLIC_KEY_PATH:}
-    previous-key-id: ${AUTH_JWT_PREVIOUS_KEY_ID:}
     allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
     attempt-hmac-secret: ${AUTH_ATTEMPT_HMAC_SECRET:local-only-change-me}
 

@@ -1,0 +1,90 @@
+name: Testar deploy de contêineres
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-test
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    environment: deploy-test
+    timeout-minutes: 45
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Configurar Java 25
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      - name: Configurar Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Validar aplicação
+        run: |
+          set -Eeuo pipefail
+          export COREPACK_HOME="$RUNNER_TEMP/corepack"
+          corepack enable
+          cd web && pnpm install --frozen-lockfile
+          cd .. && make check
+
+      - name: Construir imagens
+        env:
+          TEST_API_URL: ${{ vars.TEST_API_URL }}
+        run: |
+          set -Eeuo pipefail
+          API_URL="${TEST_API_URL:-http://localhost:8080}"
+          case "$API_URL" in
+            http://*|https://*) ;;
+            *) echo "TEST_API_URL deve iniciar com http:// ou https://" >&2; exit 1 ;;
+          esac
+          docker build --pull --tag controle-gastos-backend:latest backend
+          docker build --pull \
+            --build-arg "NEXT_PUBLIC_API_URL=$API_URL" \
+            --tag controle-gastos-web:latest web
+
+      - name: Configurar SSH
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$DEPLOY_SSH_PRIVATE_KEY"
+          test -n "$DEPLOY_KNOWN_HOSTS"
+          install -d -m 700 "$HOME/.ssh"
+          umask 077
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+      - name: Enviar imagens e iniciar Compose
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -Eeuo pipefail
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_PORT"
+          test -n "$DEPLOY_USER"
+          readonly SSH=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST")
+          docker image save controle-gastos-backend:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
+          docker image save controle-gastos-web:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
+          "${SSH[@]}" /srv/controle-gastos/infra/deploy.sh
