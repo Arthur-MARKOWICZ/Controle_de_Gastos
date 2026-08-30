@@ -19,11 +19,15 @@ entrega básica ter sido validada.
 ## Decisão
 
 - Manter um único `compose.yaml` com `postgres`, `backend` e `web`.
-- O GitHub Actions executa a verificação do projeto, constrói as duas imagens
-  com a tag fixa `latest` e as transfere por SSH para a VPS.
-- A VPS só carrega as imagens; o workflow executa diretamente o `docker
-  compose` já instalado, sem script de deploy. O workflow não transfere
-  Compose, proxy ou configurações adicionais.
+- Separar o GitHub Actions em um job de validação e um job de deploy dependente
+  do primeiro. O deploy constrói as duas imagens com a tag fixa `latest` e as
+  transfere por SSH para a VPS.
+- O workflow cria `/srv/controle-gastos` quando ausente, envia o Compose por
+  substituição atômica e executa diretamente o projeto `controle-gastos`, sem
+  script de deploy.
+- Recriar backend e web e remover apenas serviços órfãos desse projeto. Não
+  usar comandos globais de limpeza, para não afetar outros aplicativos Docker
+  executados na mesma VPS.
 - Portas ficam em loopback por padrão. O teste externo pode usar túnel SSH ou,
   temporariamente, `HOST_BIND_ADDRESS=0.0.0.0` com firewall restritivo.
 - HTTPS, domínio, Caddy/Nginx, segredos de produção, backup, limites de
@@ -33,6 +37,8 @@ entrega básica ter sido validada.
 
 - O fluxo é pequeno e permite validar CI, transferência de imagens, Docker e
   Flyway sem dependências de borda HTTP.
+- A VPS exige um usuário `deploy` no grupo `docker` e uma regra `sudo` sem
+  senha, restrita à criação do diretório do aplicativo.
 - Os valores padrão do Compose são apenas para teste e não podem ser usados
   como configuração de produção.
 - A próxima etapa de produção exige novo ADR para TLS/proxy e gestão de

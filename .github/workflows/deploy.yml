@@ -90,7 +90,7 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
 
-      - name: Enviar imagens e iniciar Compose
+      - name: Preparar diretório na VPS
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -100,17 +100,73 @@ jobs:
           test -n "$DEPLOY_HOST"
           test -n "$DEPLOY_PORT"
           test -n "$DEPLOY_USER"
+          test "$DEPLOY_USER" = deploy
           readonly SSH=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST")
           "${SSH[@]}" true
+          "${SSH[@]}" '
+            set -eu
+            if [ ! -d /srv/controle-gastos ]; then
+              sudo -n /usr/bin/install -d -o deploy -g deploy -m 0750 /srv/controle-gastos || {
+                echo "Não foi possível criar /srv/controle-gastos. Configure o sudo NOPASSWD documentado." >&2
+                exit 1
+              }
+            fi
+            if [ ! -w /srv/controle-gastos ]; then
+              echo "O usuário deploy não pode escrever em /srv/controle-gastos." >&2
+              exit 1
+            fi
+          '
+
+      - name: Enviar e validar Compose
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -Eeuo pipefail
+          readonly SSH=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST")
+          readonly SCP=(scp -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -P "$DEPLOY_PORT")
+          "${SCP[@]}" compose.yaml "$DEPLOY_USER@$DEPLOY_HOST:/srv/controle-gastos/compose.yaml.next"
+          "${SSH[@]}" '
+            set -eu
+            cd /srv/controle-gastos
+            trap "rm -f compose.yaml.next" EXIT
+            chmod 0640 compose.yaml.next
+            docker compose --project-name controle-gastos -f compose.yaml.next config --quiet
+            mv -f compose.yaml.next compose.yaml
+            trap - EXIT
+          '
+
+      - name: Enviar imagens e atualizar containers
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -Eeuo pipefail
+          readonly SSH=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST")
           docker image save controle-gastos-backend:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
           docker image save controle-gastos-web:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
           "${SSH[@]}" '
             set -eu
             cd /srv/controle-gastos
-            test -f compose.yaml
             docker image inspect controle-gastos-backend:latest >/dev/null
             docker image inspect controle-gastos-web:latest >/dev/null
-            docker compose -f compose.yaml config --quiet
-            docker compose -f compose.yaml up --detach --no-build --pull never --remove-orphans
-            docker compose -f compose.yaml ps
+            docker image inspect postgres:18-alpine >/dev/null 2>&1 || docker pull postgres:18-alpine
+            docker compose --project-name controle-gastos -f compose.yaml up \
+              --detach \
+              --no-build \
+              --pull never \
+              --wait \
+              --wait-timeout 120 \
+              postgres
+            docker compose --project-name controle-gastos -f compose.yaml up \
+              --detach \
+              --no-deps \
+              --no-build \
+              --pull never \
+              --force-recreate \
+              --remove-orphans \
+              backend web
+            docker compose --project-name controle-gastos -f compose.yaml ps
           '

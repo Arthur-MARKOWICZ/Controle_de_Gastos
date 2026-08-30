@@ -3,10 +3,10 @@
 ## Escopo deste teste
 
 O primeiro job do GitHub Actions valida o projeto. Depois de aprovado, o job
-de deploy constrói as imagens da API e da web, envia somente essas imagens para
-a VPS por SSH e executa o único `compose.yaml` já instalado em
-`/srv/controle-gastos`. O Compose contém exclusivamente PostgreSQL, backend e
-web.
+de deploy constrói as imagens da API e da web, prepara `/srv/controle-gastos`,
+envia e valida o `compose.yaml`, transfere as imagens por SSH e atualiza o
+projeto Compose `controle-gastos`. O Compose contém exclusivamente PostgreSQL,
+backend e web.
 
 Não configurar ainda domínio, HTTPS, Caddy/Nginx, backup, observabilidade,
 limites de recursos ou cadastro público. As portas ficam em loopback por
@@ -15,13 +15,19 @@ padrão; use túnel SSH para testar de fora sem expor a aplicação.
 ## Preparação única da VPS
 
 1. Instale Docker Engine com Docker Compose v2 e `curl`.
-2. Crie o usuário `deploy`, adicione-o ao grupo `docker` e dê a ele posse de
-   `/srv/controle-gastos`.
-3. Copie uma única vez `compose.yaml` para `/srv/controle-gastos/compose.yaml`.
-4. Baixe a imagem do banco: `docker pull postgres:18-alpine`.
-5. Cadastre a chave pública exclusiva do GitHub Actions em
+2. Crie o usuário `deploy` e adicione-o ao grupo `docker`.
+3. Permita que esse usuário crie o diretório do aplicativo sem interação. Como
+   `root`, abra `visudo -f /etc/sudoers.d/controle-gastos-deploy` e adicione:
+
+   ```sudoers
+   deploy ALL=(root) NOPASSWD: /usr/bin/install -d -o deploy -g deploy -m 0750 /srv/controle-gastos
+   ```
+
+   Valide com `visudo -cf /etc/sudoers.d/controle-gastos-deploy`. Não armazene
+   senha de `sudo` no GitHub.
+4. Cadastre a chave pública exclusiva do GitHub Actions em
    `~deploy/.ssh/authorized_keys`.
-6. Gere a entrada de host da VPS com a mesma porta e o mesmo host que serão
+5. Gere a entrada de host da VPS com a mesma porta e o mesmo host que serão
    usados em `DEPLOY_PORT` e `DEPLOY_HOST`:
 
    ```bash
@@ -34,9 +40,15 @@ padrão; use túnel SSH para testar de fora sem expor a aplicação.
    `DEPLOY_KNOWN_HOSTS`. Em porta diferente de 22, não omita `-p`: a entrada do
    `known_hosts` será associada a `[host]:porta`.
 
-O workflow não copia arquivos de configuração: depois desse preparo, ele envia
-apenas as duas imagens e executa o Compose diretamente por SSH. O job de deploy
-só inicia se o job de validação e testes terminar com sucesso.
+O job de deploy só inicia se o job de validação e testes terminar com sucesso.
+No primeiro deploy, ele cria o diretório e baixa `postgres:18-alpine`; em todos
+os deploys, envia o Compose como `compose.yaml.next`, valida o arquivo e só
+então substitui o anterior.
+
+O comando usa explicitamente o projeto `controle-gastos`. Backend e web são
+recriados com as imagens novas, serviços órfãos desse projeto são removidos e o
+PostgreSQL preserva o volume nomeado. Não é executado nenhum `prune`, nem são
+enumerados ou removidos containers de outros projetos da VPS.
 
 ## Variáveis de ambiente
 
@@ -82,7 +94,8 @@ configuração de produção.
 ## Critério de sucesso
 
 1. Um push na `main` termina o workflow verde.
-2. Na VPS, `docker compose -f compose.yaml ps` mostra os três serviços.
+2. Na VPS, `docker compose --project-name controle-gastos -f compose.yaml ps`
+   mostra os três serviços.
 3. Por túnel SSH, `curl http://localhost:8080/actuator/health/readiness` retorna
    estado `UP` e a web responde em `http://localhost:3000`.
 4. Nenhuma porta é aberta no firewall público durante o teste.

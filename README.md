@@ -60,7 +60,8 @@ Rotação de chaves, benchmark Argon2id e retenção estão descritos em
 ## Teste de deploy
 
 O primeiro teste de deploy usa apenas PostgreSQL, API e web em um único
-Compose. O GitHub Actions constrói as imagens e as transfere por SSH para a
+Compose. O GitHub Actions valida o projeto, envia o Compose, constrói e
+transfere as imagens por SSH e atualiza somente os containers desse projeto na
 VPS; HTTPS, proxy e configuração de produção vêm depois. Consulte
 [`docs/deploy/teste-entrega-conteineres.md`](docs/deploy/teste-entrega-conteineres.md).
 
