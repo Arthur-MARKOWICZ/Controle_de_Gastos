@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-controle_gastos}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-test-only}
     ports:
-      - "${HOST_BIND_ADDRESS:-127.0.0.1}:5432:5432"
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
@@ -35,7 +35,7 @@ services:
       AUTH_ALLOWED_ORIGINS: ${AUTH_ALLOWED_ORIGINS:-http://localhost:3000}
       AUTH_ATTEMPT_HMAC_SECRET: ${AUTH_ATTEMPT_HMAC_SECRET:-test-only-change-before-production}
     ports:
-      - "${HOST_BIND_ADDRESS:-127.0.0.1}:8080:8080"
+      - "${BACKEND_BIND_ADDRESS:-127.0.0.1}:8080:8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -46,7 +46,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
     ports:
-      - "${HOST_BIND_ADDRESS:-127.0.0.1}:3000:3000"
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:3000:3000"
     depends_on:
       - backend
     restart: unless-stopped

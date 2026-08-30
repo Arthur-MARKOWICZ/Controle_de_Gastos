@@ -57,13 +57,15 @@ o cadastro ao público antes dos requisitos jurídicos e operacionais listados e
 Rotação de chaves, benchmark Argon2id e retenção estão descritos em
 [`docs/privacy/operacao-de-autenticacao.md`](docs/privacy/operacao-de-autenticacao.md).
 
-## Teste de deploy
+## Deploy
 
-O primeiro teste de deploy usa apenas PostgreSQL, API e web em um único
-Compose. O GitHub Actions valida o projeto, envia o Compose, constrói e
-transfere as imagens por SSH e atualiza somente os containers desse projeto na
-VPS; HTTPS, proxy e configuração de produção vêm depois. Consulte
-[`docs/deploy/teste-entrega-conteineres.md`](docs/deploy/teste-entrega-conteineres.md).
+O GitHub Actions valida o projeto, constrói e transfere as imagens por SSH e
+atualiza somente os containers do projeto `controle-gastos`. Em produção,
+PostgreSQL, API e web ficam em loopback e um Nginx central da VPS publica cada
+aplicativo por subdomínio com Certbot/HTTPS. Consulte o
+[`runbook de HTTPS`](docs/deploy/https-producao.md), o
+[`ADR-012`](docs/decisions/0012-nginx-central-e-https-por-subdominio.md) e o
+[`registro do teste inicial`](docs/deploy/teste-entrega-conteineres.md).
 
 ## Backend de renda
 

@@ -44,6 +44,12 @@ entrega básica ter sido validada.
 - A próxima etapa de produção exige novo ADR para TLS/proxy e gestão de
   segredos de runtime, em conformidade com os requisitos de privacidade.
 
+## Histórico
+
+A borda HTTPS e a gestão de segredos de runtime foram definidas posteriormente
+no [ADR-012](0012-nginx-central-e-https-por-subdominio.md). Este ADR permanece
+como registro do teste inicial de entrega de contêineres.
+
 ## Fontes
 
 - [GitHub Actions — secrets](https://docs.github.com/en/actions/concepts/security/secrets)

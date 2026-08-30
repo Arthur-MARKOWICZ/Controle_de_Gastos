@@ -1,4 +1,4 @@
-name: Testar deploy de contêineres
+name: Validar e implantar aplicação
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: deploy-test
+  group: deploy-production
   cancel-in-progress: false
 
 jobs:
@@ -50,10 +50,10 @@ jobs:
           cd .. && make check
 
   deploy:
-    name: Construir e publicar contêineres
+    name: Construir e publicar em produção
     needs: validate
     runs-on: ubuntu-24.04
-    environment: deploy-test
+    environment: production
     timeout-minutes: 45
 
     steps:
@@ -64,17 +64,27 @@ jobs:
 
       - name: Construir imagens
         env:
-          TEST_API_URL: ${{ vars.TEST_API_URL }}
+          PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
         run: |
           set -Eeuo pipefail
-          API_URL="${TEST_API_URL:-http://localhost:8080}"
-          case "$API_URL" in
-            http://*|https://*) ;;
-            *) echo "TEST_API_URL deve iniciar com http:// ou https://" >&2; exit 1 ;;
+          test -n "$PUBLIC_APP_URL"
+          case "$PUBLIC_APP_URL" in
+            https://*) ;;
+            *) echo "PUBLIC_APP_URL deve iniciar com https://" >&2; exit 1 ;;
           esac
+          APP_DOMAIN="${PUBLIC_APP_URL#https://}"
+          case "$APP_DOMAIN" in
+            ""|*/*|*:*|*\?*|*\#*)
+              echo "PUBLIC_APP_URL deve conter somente https:// seguido do domínio, sem porta, caminho, query ou fragmento" >&2
+              exit 1
+              ;;
+          esac
+          printf '%s' "$APP_DOMAIN" \
+            | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$' \
+            || { echo "PUBLIC_APP_URL deve conter um domínio completo válido" >&2; exit 1; }
           docker build --pull --tag controle-gastos-backend:latest backend
           docker build --pull \
-            --build-arg "NEXT_PUBLIC_API_URL=$API_URL" \
+            --build-arg "NEXT_PUBLIC_API_URL=$PUBLIC_APP_URL" \
             --tag controle-gastos-web:latest web
 
       - name: Configurar SSH
@@ -132,7 +142,20 @@ jobs:
             cd /srv/controle-gastos
             trap "rm -f compose.yaml.next" EXIT
             chmod 0640 compose.yaml.next
-            docker compose --project-name controle-gastos -f compose.yaml.next config --quiet
+            COMPOSE_DISABLE_ENV_FILE=1 \
+            POSTGRES_DB=controle_gastos \
+            POSTGRES_USER=controle_gastos \
+            POSTGRES_PASSWORD=validation-only-password \
+            POSTGRES_BIND_ADDRESS=127.0.0.1 \
+            BACKEND_BIND_ADDRESS=127.0.0.1 \
+            WEB_BIND_ADDRESS=127.0.0.1 \
+            AUTH_COOKIE_SECURE=true \
+            AUTH_COOKIE_NAME=__Secure-refresh_token \
+            AUTH_JWT_SECRET=validation-only-jwt-secret-at-least-32-bytes \
+            AUTH_ALLOWED_ORIGINS=https://gastos.example.com \
+            AUTH_ATTEMPT_HMAC_SECRET=validation-only-attempt-secret-at-least-32-bytes \
+            NEXT_PUBLIC_API_URL=https://gastos.example.com \
+              docker compose --project-name controle-gastos -f compose.yaml.next config --quiet
             mv -f compose.yaml.next compose.yaml
             trap - EXIT
           '
@@ -142,17 +165,67 @@ jobs:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          PUBLIC_APP_URL: ${{ vars.PUBLIC_APP_URL }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          AUTH_JWT_SECRET: ${{ secrets.AUTH_JWT_SECRET }}
+          AUTH_ATTEMPT_HMAC_SECRET: ${{ secrets.AUTH_ATTEMPT_HMAC_SECRET }}
         run: |
           set -Eeuo pipefail
+          test -n "$PUBLIC_APP_URL"
+          test -n "$POSTGRES_DB"
+          test -n "$POSTGRES_USER"
+          test -n "$POSTGRES_PASSWORD"
+          test "${#AUTH_JWT_SECRET}" -ge 32
+          test "${#AUTH_ATTEMPT_HMAC_SECRET}" -ge 32
+          case "$PUBLIC_APP_URL" in
+            https://*) ;;
+            *) echo "PUBLIC_APP_URL deve iniciar com https://" >&2; exit 1 ;;
+          esac
+          APP_DOMAIN="${PUBLIC_APP_URL#https://}"
+          printf '%s' "$APP_DOMAIN" \
+            | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$' \
+            || { echo "PUBLIC_APP_URL deve conter um domínio completo válido" >&2; exit 1; }
+          case "$POSTGRES_DB" in
+            *[!A-Za-z0-9_]*) echo "POSTGRES_DB aceita apenas letras, números e underscore" >&2; exit 1 ;;
+          esac
+          case "$POSTGRES_USER" in
+            *[!A-Za-z0-9_]*) echo "POSTGRES_USER aceita apenas letras, números e underscore" >&2; exit 1 ;;
+          esac
+          for VALUE in "$PUBLIC_APP_URL" "$POSTGRES_DB" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$AUTH_JWT_SECRET" "$AUTH_ATTEMPT_HMAC_SECRET"; do
+            case "$VALUE" in
+              *$'\n'*) echo "Variáveis de produção não podem conter quebra de linha" >&2; exit 1 ;;
+            esac
+          done
           readonly SSH=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST")
           docker image save controle-gastos-backend:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
           docker image save controle-gastos-web:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
-          "${SSH[@]}" '
-            set -eu
+
+          {
+            printf 'export PUBLIC_APP_URL=%q\n' "$PUBLIC_APP_URL"
+            printf 'export POSTGRES_DB=%q\n' "$POSTGRES_DB"
+            printf 'export POSTGRES_USER=%q\n' "$POSTGRES_USER"
+            printf 'export POSTGRES_PASSWORD=%q\n' "$POSTGRES_PASSWORD"
+            printf 'export AUTH_JWT_SECRET=%q\n' "$AUTH_JWT_SECRET"
+            printf 'export AUTH_ATTEMPT_HMAC_SECRET=%q\n' "$AUTH_ATTEMPT_HMAC_SECRET"
+            cat <<'REMOTE_SCRIPT'
+            set -Eeuo pipefail
             cd /srv/controle-gastos
+            export COMPOSE_DISABLE_ENV_FILE=1
+            export POSTGRES_BIND_ADDRESS=127.0.0.1
+            export BACKEND_BIND_ADDRESS=127.0.0.1
+            export WEB_BIND_ADDRESS=127.0.0.1
+            export AUTH_COOKIE_SECURE=true
+            export AUTH_COOKIE_NAME=__Secure-refresh_token
+            export AUTH_ALLOWED_ORIGINS="$PUBLIC_APP_URL"
+            export NEXT_PUBLIC_API_URL="$PUBLIC_APP_URL"
+
+            set -eu
             docker image inspect controle-gastos-backend:latest >/dev/null
             docker image inspect controle-gastos-web:latest >/dev/null
             docker image inspect postgres:18-alpine >/dev/null 2>&1 || docker pull postgres:18-alpine
+            docker compose --project-name controle-gastos -f compose.yaml config --quiet
             docker compose --project-name controle-gastos -f compose.yaml up \
               --detach \
               --no-build \
@@ -160,6 +233,12 @@ jobs:
               --wait \
               --wait-timeout 120 \
               postgres
+            printf '%s\n' \
+              '\getenv role POSTGRES_USER' \
+              '\getenv password POSTGRES_PASSWORD' \
+              "SELECT format('ALTER ROLE %I WITH PASSWORD %L', :'role', :'password') \gexec" \
+              | docker compose --project-name controle-gastos -f compose.yaml exec --no-TTY postgres \
+                  psql --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --no-password --set ON_ERROR_STOP=1
             docker compose --project-name controle-gastos -f compose.yaml up \
               --detach \
               --no-deps \
@@ -169,4 +248,24 @@ jobs:
               --remove-orphans \
               backend web
             docker compose --project-name controle-gastos -f compose.yaml ps
-          '
+            command -v curl >/dev/null 2>&1 || {
+              echo "curl não está instalado na VPS" >&2
+              exit 1
+            }
+            wait_for_http() {
+              url=$1
+              service=$2
+              attempt=1
+              while ! curl --fail --silent --show-error "$url" >/dev/null 2>&1; do
+                if [ "$attempt" -ge 60 ]; then
+                  echo "$service não respondeu após 120 segundos" >&2
+                  return 1
+                fi
+                attempt=$((attempt + 1))
+                sleep 2
+              done
+            }
+            wait_for_http http://127.0.0.1:8080/actuator/health/readiness backend
+            wait_for_http http://127.0.0.1:3000/ web
+          REMOTE_SCRIPT
+          } | "${SSH[@]}" 'bash -se'

@@ -1,5 +1,9 @@
 # Plano de teste de deploy por contêineres
 
+> Este documento registra o teste inicial. O deploy HTTPS de produção está em
+> [`https-producao.md`](https-producao.md) e no
+> [ADR-012](../decisions/0012-nginx-central-e-https-por-subdominio.md).
+
 ## Escopo deste teste
 
 O primeiro job do GitHub Actions valida o projeto. Depois de aprovado, o job
@@ -102,6 +106,6 @@ configuração de produção.
 
 ## Próxima etapa
 
-Depois deste teste, criar uma nova decisão para proxy HTTPS, TLS, limites de
-recursos, gestão de segredos de runtime, backup e monitoramento. Não reutilize
-os valores padrão deste documento em produção.
+A etapa de proxy HTTPS, TLS e segredos de runtime foi definida no ADR-012.
+Backup, monitoramento, limites de recursos e requisitos jurídicos continuam
+pendentes. Não reutilize os valores padrão deste documento em produção.
