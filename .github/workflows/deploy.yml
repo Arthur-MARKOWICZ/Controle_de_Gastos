@@ -88,6 +88,7 @@ jobs:
           test -n "$DEPLOY_PORT"
           test -n "$DEPLOY_USER"
           readonly SSH=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST")
+          "${SSH[@]}" true
           docker image save controle-gastos-backend:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
           docker image save controle-gastos-web:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
           "${SSH[@]}" /srv/controle-gastos/infra/deploy.sh
