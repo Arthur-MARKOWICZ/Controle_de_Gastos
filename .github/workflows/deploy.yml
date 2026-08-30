@@ -31,6 +31,11 @@ jobs:
           java-version: "25"
           cache: gradle
 
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          package_json_file: web/package.json
+
       - name: Configurar Node.js 24
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -41,8 +46,6 @@ jobs:
       - name: Validar aplicação
         run: |
           set -Eeuo pipefail
-          export COREPACK_HOME="$RUNNER_TEMP/corepack"
-          corepack enable
           cd web && pnpm install --frozen-lockfile
           cd .. && make check
 
