@@ -20,6 +20,8 @@ services:
 
   backend:
     image: controle-gastos-backend:latest
+    build:
+      context: ./backend
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-controle_gastos}
       DATABASE_USERNAME: ${POSTGRES_USER:-controle_gastos}
@@ -43,6 +45,8 @@ services:
 
   web:
     image: controle-gastos-web:latest
+    build:
+      context: ./web
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
     ports:

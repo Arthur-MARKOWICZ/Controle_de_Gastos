@@ -35,12 +35,12 @@ export function PurposeSection({ purpose, envelopes, onRegisterExpense, onArchiv
           {meta.label}
         </h2>
         <p>{meta.hint}</p>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "end", marginTop: "0.5rem" }}>
+        <div className={styles.sectionTotals}>
           <div>
             <strong>{count === 0 ? "—" : formatBRL(totalAvailable.toFixed(2))}</strong>
             <p>{count === 0 ? "Nenhuma verba" : `de ${formatBRL(totalBase.toFixed(2))} · ${count} ${count === 1 ? "verba" : "verbas"}`}</p>
           </div>
-          <span style={{ fontSize: "0.75rem", color: "var(--foreground-muted)" }}>{envelopes.filter(e => e.isNegative).length > 0 ? `⚠ ${envelopes.filter(e => e.isNegative).length} negativa(s)` : ""}</span>
+          <span className={styles.negativeCount}>{envelopes.filter(e => e.isNegative).length > 0 ? `⚠ ${envelopes.filter(e => e.isNegative).length} negativa(s)` : ""}</span>
         </div>
       </div>
 

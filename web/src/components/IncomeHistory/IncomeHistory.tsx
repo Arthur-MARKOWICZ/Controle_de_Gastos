@@ -12,13 +12,13 @@ type Props = {
 
 export function IncomeHistory({ data, loading, error, onLoadMore, onRetry }: Props) {
   if (loading && !data) {
-    return <p role="status" aria-busy="true" style={{ padding: "1rem 1.5rem", color: "var(--foreground-muted)" }}>Carregando histórico…</p>;
+    return <p role="status" aria-busy="true" className={styles.listState}>Carregando histórico…</p>;
   }
   if (error) {
-    return <p role="alert" style={{ padding: "1rem 1.5rem", color: "#7a2a2a" }}>{error} {onRetry && <button type="button" onClick={onRetry} style={{ marginLeft: "0.5rem", color: "var(--accent)", fontWeight: 700, border: 0, background: "transparent", cursor: "pointer" }}>Tentar novamente</button>}</p>;
+    return <p role="alert" className={styles.listError}>{error} {onRetry && <button type="button" onClick={onRetry} className={styles.textAction}>Tentar novamente</button>}</p>;
   }
   if (!data || data.items.length === 0) {
-    return <p style={{ padding: "1rem 1.5rem", color: "var(--foreground-muted)", fontSize: "0.8125rem" }}>Nenhuma alteração registrada — a primeira configuração criará o histórico.</p>;
+    return <p className={styles.listState}>Nenhuma alteração registrada — a primeira configuração criará o histórico.</p>;
   }
   return (
     <div>
@@ -35,7 +35,7 @@ export function IncomeHistory({ data, loading, error, onLoadMore, onRetry }: Pro
         ))}
       </ul>
       {data.hasNext && onLoadMore && (
-        <button type="button" onClick={onLoadMore} className={styles.secondaryAction} style={{ margin: "1rem 1.5rem" }}>
+        <button type="button" onClick={onLoadMore} className={`${styles.secondaryAction} ${styles.loadMore}`}>
           Carregar mais
         </button>
       )}

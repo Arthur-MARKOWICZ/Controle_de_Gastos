@@ -17,6 +17,7 @@ import { VerbasFilters } from "./VerbasFilters";
 import type { EnvelopeDTO } from "../../lib/api";
 import { createApiClient } from "../../lib/api";
 import { useAuth } from "../../auth/auth-context";
+import { AppShell } from "../AppShell/AppShell";
 
 type PurposeFilter = "ALL" | "LIMIT" | "GOAL" | "FIXED";
 type SortKey = "progress" | "saldo" | "nome";
@@ -123,45 +124,9 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   }
 
   return (
-    <div className={styles.shell}>
-      <aside className={styles.sidebar} aria-label="Navegação principal">
-        <a className={styles.brand} href="#conteudo">
-          <span aria-hidden="true" className={styles.brandMark}>
-            V
-          </span>
-          <span>Verbas</span>
-        </a>
-        <nav>
-          <ul className={styles.navList}>
-            <li>
-              <Link href="/">Visão geral</Link>
-            </li>
-            <li>
-              <Link href="/verbas" aria-current="page">
-                Verbas
-              </Link>
-            </li>
-            <li>
-              <Link href="/historico">Histórico</Link>
-            </li>
-          </ul>
-        </nav>
-        <div className={styles.sidebarFooter}>
-          <span className={styles.avatar} aria-hidden="true">
-            {email.slice(0, 1).toUpperCase()}
-          </span>
-          <span>
-            <strong>{email}</strong>
-            <button type="button" onClick={onLogout}>
-              Sair da conta
-            </button>
-          </span>
-        </div>
-      </aside>
-
-      <main id="conteudo" className={styles.main}>
+    <AppShell current="envelopes" email={email} onLogout={onLogout}>
         {feedback && (
-          <p className={styles.alertStrip} role="status" style={{ background: "#eef6ee", borderColor: "#b9d6b9", color: "#164e32" }}>
+          <p className={styles.feedback} role="status">
             {feedback}
           </p>
         )}
@@ -171,8 +136,8 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
             <p className={styles.eyebrow}>{monthLabel}</p>
             <h1>Verbas</h1>
             <p>Um canto para cada natureza — controle limite, meta e compromisso com barra de progresso ao vivo.</p>
-            <div style={{ marginTop: "0.75rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-              <label htmlFor="month-picker" style={{ fontSize: "0.8125rem", color: "var(--foreground-muted)", fontWeight: 650 }}>
+            <div className={styles.monthControl}>
+              <label htmlFor="month-picker">
                 Mês
               </label>
               <input
@@ -180,9 +145,8 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
                 type="month"
                 value={month}
                 onChange={onMonthChange}
-                style={{ padding: "0.375rem 0.5rem", border: "1px solid var(--border)", borderRadius: "0.375rem" }}
               />
-              <span style={{ fontSize: "0.75rem", color: "var(--foreground-muted)" }}>
+              <span>
                 {summary?.income ? `Renda ${formatBRL(summary.income.amount)}` : "Renda não configurada"}
               </span>
             </div>
@@ -193,14 +157,14 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
         </header>
 
         {loading && (
-          <div role="status" aria-busy="true" style={{ display: "grid", gap: "1rem", marginBottom: "1.5rem" }}>
+          <div role="status" aria-busy="true" className={styles.loadingState}>
             <div className={styles.skeleton} />
             <div className={styles.skeleton} />
             <p>Carregando verbas…</p>
           </div>
         )}
         {error && (
-          <p role="alert" style={{ color: "#7a2a2a", background: "#fdf0f0", border: "1px solid #d9a0a0", padding: "0.75rem", borderRadius: "0.375rem", marginBottom: "1.5rem" }}>
+          <p role="alert" className={styles.error}>
             {error}{" "}
             <button
               type="button"
@@ -208,7 +172,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
                 void refreshEnvelopes();
                 void refreshSummary();
               }}
-              style={{ marginLeft: "0.5rem", color: "var(--accent)", fontWeight: 700, border: 0, background: "transparent", cursor: "pointer" }}
+              className={styles.textAction}
             >
               Tentar novamente
             </button>
@@ -273,11 +237,11 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
               <div className={styles.unallocatedCard} data-negative={Number(summary.unallocated.amount) < 0 ? "true" : "false"}>
                 <div>
                   <strong>Não alocado: {formatBRL(summary.unallocated.amount)}</strong>
-                  <p style={{ fontSize: "0.75rem", color: "var(--foreground-muted)", marginTop: "0.25rem" }}>
+                  <p>
                     Dinheiro da renda que ainda não foi para nenhuma verba. Acumula para o próximo mês se não usado.
                   </p>
                 </div>
-                <span style={{ fontSize: "0.75rem", color: "var(--foreground-muted)" }}>
+                <span>
                   Uso {Math.round(summary.usagePct)}% · Alocado {formatBRL(summary.allocated.amount)}
                 </span>
               </div>
@@ -287,7 +251,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
               <span>
                 <strong>Dica:</strong> toque em <em>Registrar gasto</em> no card da verba — saldo negativo não impede o lançamento, apenas alerta.
               </span>
-              <Link href="/" style={{ color: "var(--accent)", fontWeight: 700 }}>
+              <Link href="/">
                 Voltar à visão geral
               </Link>
             </div>
@@ -301,7 +265,6 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
         <Dialog open={!!expenseTarget} onClose={() => setExpenseTarget(null)} title={expenseTarget ? `Registrar gasto em ${expenseTarget.name}` : "Registrar gasto"}>
           {expenseTarget && <ExpenseForm envelope={expenseTarget} onSuccess={handleExpenseSuccess} onCancel={() => setExpenseTarget(null)} />}
         </Dialog>
-      </main>
-    </div>
+    </AppShell>
   );
 }

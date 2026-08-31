@@ -4,12 +4,12 @@
   margin: auto;
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   background: var(--surface);
   color: var(--foreground);
 }
 .dialog::backdrop {
-  background: rgba(23, 33, 27, 0.4);
+  background: var(--overlay);
 }
 .content { display: grid; }
 .header {
@@ -20,7 +20,7 @@
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border);
 }
-.header h2 { font-family: Georgia, serif; font-size: 1.125rem; font-weight: 500; }
+.header h2 { font-size: 1.125rem; font-weight: 800; }
 .close {
   width: 2rem; height: 2rem;
   display: grid; place-items: center;
@@ -30,7 +30,7 @@
   font-size: 1.25rem;
   cursor: pointer;
 }
-.close:hover { background: #e4e8e1; }
+.close:hover { background: var(--surface-raised); }
 .body { padding: 1.5rem; }
 
 @media (max-width: 48rem) {

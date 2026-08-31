@@ -68,15 +68,15 @@ export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, variant =
         max={100}
       />
       <p className={s.statusText} role={envelope.isNegative ? "alert" : undefined}>{status}</p>
-      <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
+      <div className={s.cardActions}>
         {envelope.role === "PARTICIPANT" && <span className={verbasStyles.badge + " " + verbasStyles.badgeShared}>Compartilhada</span>}
         {onRegisterExpense && (
-          <button type="button" onClick={() => onRegisterExpense(envelope)} aria-label={`Registrar gasto em ${envelope.name}`} style={{ fontSize: "0.8125rem", color: "var(--accent)", fontWeight: 700, border: 0, background: "transparent", cursor: "pointer" }}>
+          <button type="button" onClick={() => onRegisterExpense(envelope)} aria-label={`Registrar gasto em ${envelope.name}`}>
             Registrar gasto
           </button>
         )}
         {onArchive && envelope.role === "OWNER" && (
-          <button type="button" onClick={() => onArchive(envelope)} aria-label={`Arquivar ${envelope.name}`} style={{ fontSize: "0.8125rem", color: "var(--foreground-muted)", fontWeight: 600, border: 0, background: "transparent", cursor: "pointer" }}>
+          <button type="button" onClick={() => onArchive(envelope)} aria-label={`Arquivar ${envelope.name}`}>
             Arquivar
           </button>
         )}

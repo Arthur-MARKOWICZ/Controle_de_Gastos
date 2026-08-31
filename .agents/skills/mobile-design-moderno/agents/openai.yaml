@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mobile Design Moderno"
+  short_description: "Experiências mobile simples, modernas e acessíveis"
+  default_prompt: "Use $mobile-design-moderno para criar ou refinar uma experiência mobile simples, moderna e centrada em toque."
