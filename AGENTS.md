@@ -11,6 +11,9 @@ Antes de propor arquitetura, escrever código ou alterar dependências, leia int
 - Preserve a arquitetura de monólito modular no backend. Não introduza microserviços, filas ou caches distribuídos sem um novo ADR aceito.
 - Organize o backend por capacidade de negócio, não por camada técnica global.
 - Use TDD para toda regra de negócio: teste falhando, implementação mínima e refatoração.
+- Foque-se em implementar o código de negócio, não em detalhes de implementação.
+- Foque-se em manter o código limpo e legível.
+- Foque-se em manter o código mais simples possivel sem perder qualidade.
 - Trate valores monetários de BRL com `BigDecimal`, escala fixa de duas casas e
   arredondamento proibido nas fronteiras. Não use `long`, `int`, `double` ou
   `float` para representar dinheiro.

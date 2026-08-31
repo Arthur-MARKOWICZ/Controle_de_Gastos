@@ -1,4 +1,5 @@
 allowBuilds:
+  puppeteer: false
   sharp: true
   unrs-resolver: true
 

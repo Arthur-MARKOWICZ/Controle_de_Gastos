@@ -42,7 +42,7 @@ export function ExpenseForm({ envelope, onSuccess, onCancel }: Props) {
   return (
     <form onSubmit={submit} className={styles.form}>
       {error && <p role="alert" className={styles.error}>{error}</p>}
-      <p style={{ fontSize: "0.8125rem", color: "var(--foreground-muted)" }}>Verba: <strong>{envelope.name}</strong></p>
+      <p className={styles.context}>Verba: <strong>{envelope.name}</strong></p>
       <label htmlFor="expense-amount">Valor (BRL)</label>
       <input id="expense-amount" inputMode="decimal" value={amountMask} onChange={e => setAmountMask(formatBRLInputMask(e.target.value))} placeholder="0,00" required aria-describedby="expense-help" />
       <span id="expense-help" className={styles.help}>Ex: 120,00 será enviado como 120.00</span>

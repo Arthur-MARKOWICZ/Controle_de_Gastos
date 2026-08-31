@@ -34,7 +34,10 @@ mobile (KMP) ──────┘          │
 3. Para desenvolvimento fora dos contêineres, inicie somente o PostgreSQL com
    `docker compose up -d postgres`, depois use `./gradlew bootRun` em `backend/`
    e `pnpm dev` em `web/`.
-4. Abra `mobile/` no Android Studio e execute `androidApp`.
+4. Para executar API e web em contêineres locais, use
+   `docker compose up --build`. O Compose reconstrói as imagens a partir de
+   `backend/` e `web/` antes de recriar os serviços afetados.
+5. Abra `mobile/` no Android Studio e execute `androidApp`.
 
 ## Comandos
 
@@ -78,6 +81,10 @@ efetivo em qualquer mês e navegar pelo histórico de alterações. Dinheiro usa
 ## Estado do esqueleto
 
 O alvo Android é a primeira plataforma móvel verificável. O código iOS é preparado no KMP, mas não é considerado testado sem macOS/Xcode. Consulte [`docs/decisions/0004-kmp-android-primeiro.md`](docs/decisions/0004-kmp-android-primeiro.md).
+
+Web e mobile oferecem aparência `Sistema`, `Claro` e `Escuro`. A preferência é
+mantida somente no dispositivo, sem sincronização com a API, conforme o
+[`ADR-013`](docs/decisions/0013-tema-adaptativo-e-preferencia-local.md).
 
 O computador de desenvolvimento possui apenas a plataforma Android 37, enquanto
 o AGP 9.1 declara validação oficial até 36.1. O APK compila, mas essa diferença

@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import styles from "./AuthScreen.module.css";
+import { ThemeSelector } from "../../theme/ThemeSelector";
 
 type Props = {
   onLogin(email: string, password: string): Promise<void>;
@@ -54,9 +55,10 @@ export function AuthScreen({ onLogin, onRegister, externalError, expired = false
       </section>
 
       <section id="auth-form" className={styles.card} aria-labelledby="form-title">
+        <div className={styles.themeControl}><ThemeSelector compact /></div>
         <div className={styles.tabs} aria-label="Escolha entre entrar ou criar conta">
-          <button type="button" aria-pressed={mode === "login"} onClick={() => { setMode("login"); setMessage(null); }}>Entrar</button>
-          <button type="button" aria-pressed={mode === "register"} onClick={() => { setMode("register"); setMessage(null); }}>Criar conta</button>
+          <button type="button" aria-pressed={mode === "login"} onClick={() => { setMode("login"); setMessage(null); setEmail(""); setPassword(""); }}>Entrar</button>
+          <button type="button" aria-pressed={mode === "register"} onClick={() => { setMode("register"); setMessage(null); setEmail(""); setPassword(""); }}>Criar conta</button>
         </div>
         <h2 id="form-title">{mode === "login" ? "Entre na sua conta" : "Crie sua conta"}</h2>
         <p className={styles.supporting}>{mode === "login"
@@ -80,7 +82,6 @@ export function AuthScreen({ onLogin, onRegister, externalError, expired = false
             {busy ? "Aguarde…" : mode === "login" ? "Entrar com segurança" : "Concluir cadastro"}
           </button>
         </form>
-        <p className={styles.privacy}>O access token fica apenas na memória; o refresh permanece em cookie protegido e inacessível ao JavaScript.</p>
       </section>
     </main>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../auth/auth-context";
@@ -9,6 +8,7 @@ import { createApiClient, type EnvelopeDTO, type HistoryItemDTO, type HistoryPag
 import { currentMonthSaoPaulo, todaySaoPaulo } from "../../lib/dates";
 import { formatBRL, formatBRLInputMask, maskToPlain } from "../../lib/money";
 import styles from "./HistoryPage.module.css";
+import { AppShell } from "../AppShell/AppShell";
 
 type Props = { email: string; onLogout(): void };
 const purposes = { LIMIT: "Limite", GOAL: "Meta", FIXED: "Fixo" } as const;
@@ -89,13 +89,8 @@ export function HistoryPage({ email, onLogout }: Props) {
   const chartMax = Math.max(...(summary?.monthlyTotals.map((total) => Number(total.amount.amount)) ?? [0]), 1);
   const ownerEnvelopes = envelopes.filter((envelope) => envelope.role === "OWNER");
 
-  return <div className={styles.shell}>
-    <aside className={styles.sidebar} aria-label="Navegação principal">
-      <span className={styles.brand}><span aria-hidden="true" className={styles.brandMark}>V</span>Verbas</span>
-      <nav><ul className={styles.navList}><li><Link href="/">Visão geral</Link></li><li><Link href="/verbas">Verbas</Link></li><li><Link href="/historico" aria-current="page">Histórico</Link></li></ul></nav>
-      <div className={styles.sidebarFooter}><span className={styles.avatar} aria-hidden="true">{email.slice(0, 1).toUpperCase()}</span><span><strong>{email}</strong><button type="button" onClick={onLogout}>Sair da conta</button></span></div>
-    </aside>
-    <main className={styles.main}>
+  return <AppShell current="history" email={email} onLogout={onLogout}>
+    <div className={styles.page}>
       <header className={styles.header}><div><p className={styles.eyebrow}>Relatório do período</p><h1>Histórico</h1><p>Gastos e saldos das verbas que você pode visualizar.</p></div></header>
       <form className={styles.filters} onSubmit={(event) => { event.preventDefault(); navigate({ page: 0 }); }}>
         <label>De<input type="date" value={from} onChange={(event) => navigate({ from: event.target.value, page: 0 })} /></label>
@@ -111,7 +106,7 @@ export function HistoryPage({ email, onLogout }: Props) {
         <section className={styles.entries} aria-labelledby="gastos-titulo"><header><h2 id="gastos-titulo">Gastos</h2><span>Página {data?.page ?? 0 + 1}</span></header>{(data?.items.length ?? 0) === 0 ? <p className={styles.empty}>Nenhum gasto no período selecionado.</p> : (Object.keys(purposes) as (keyof typeof purposes)[]).map((purpose) => grouped[purpose].length > 0 && <div className={styles.group} key={purpose}><h3>{purposes[purpose]}</h3><ul>{grouped[purpose].map((item) => <li key={item.entry.id} data-deleted={item.entry.deletedAt ? "true" : "false"}><div><strong>{item.envelopeName}</strong><span>{item.entry.occurredAt}{item.entry.description ? ` · ${item.entry.description}` : ""}</span></div><strong>{formatBRL(item.entry.amount.amount)}</strong>{item.role === "OWNER" && !item.entry.deletedAt && <span className={styles.actions}><button type="button" onClick={() => startEdit(item)}>Editar</button><button type="button" onClick={() => void remove(item)}>Excluir</button></span>}</li>)}</ul></div>)}</section>
         <nav className={styles.pagination} aria-label="Paginação do histórico"><button type="button" disabled={page === 0} onClick={() => navigate({ page: page - 1 })}>Anterior</button><button type="button" disabled={!data?.hasNext} onClick={() => navigate({ page: page + 1 })}>Próxima</button></nav>
       </>}
-    </main>
+    </div>
     <Dialog open={!!editing} onClose={() => setEditing(null)} title="Editar gasto"><form className={styles.editForm} onSubmit={submitEdit}><label>Valor (BRL)<input inputMode="decimal" value={amount} onChange={(event) => setAmount(formatBRLInputMask(event.target.value))} required /></label><label>Verba<select value={envelopeId} onChange={(event) => setEnvelopeId(event.target.value)}>{ownerEnvelopes.map((envelope) => <option key={envelope.id} value={envelope.id}>{envelope.name}</option>)}</select></label><label>Descrição<input value={description} maxLength={140} onChange={(event) => setDescription(event.target.value)} /></label><p>A data do gasto não pode ser alterada.</p><div><button type="button" onClick={() => setEditing(null)}>Cancelar</button><button type="submit">Salvar</button></div></form></Dialog>
-  </div>;
+  </AppShell>;
 }

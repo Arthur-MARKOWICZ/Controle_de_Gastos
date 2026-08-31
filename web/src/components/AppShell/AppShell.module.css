@@ -1,0 +1,60 @@
+.shell { min-height: 100svh; display: grid; grid-template-columns: 17rem minmax(0, 1fr); align-items: stretch; }
+.skipLink { position: fixed; z-index: 100; top: .75rem; left: .75rem; padding: .625rem .875rem; border-radius: var(--radius-sm); color: var(--on-accent); background: var(--accent); transform: translateY(-180%); }
+.skipLink:focus { transform: translateY(0); }
+.sidebar {
+  --text-primary: #f2f7f6; --text-subtle: #9eb2af; --surface-raised: #172b2e; --border-strong: #3a5154;
+  position: relative; min-height: 100svh; height: auto; align-self: stretch; display: flex; flex-direction: column; gap: 2.5rem; padding: 1.5rem 1rem; color: #f2f7f6;
+  background: linear-gradient(rgba(84,198,192,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(84,198,192,.045) 1px,transparent 1px),#0d1b1d;
+  background-size: 1.5rem 1.5rem; border-right: 1px solid #263b3e;
+}
+.brand { display: flex; align-items: center; gap: .75rem; padding: 0 .5rem; }
+.brand>span:last-child { display: grid; gap: .0625rem; }.brand strong{letter-spacing:-.025em}.brand small{color:#9eb2af;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase}
+.brandMark { width:2.5rem;height:2.5rem;display:grid;place-items:center;border-radius:var(--radius-sm);color:#062826;background:#54c6c0;font-weight:850;box-shadow:inset 0 -3px 0 rgba(6,40,38,.18) }
+.navList{display:grid;gap:.375rem;list-style:none}.navList a{min-height:2.875rem;display:flex;align-items:center;gap:.75rem;padding:.625rem .75rem;border:1px solid transparent;border-radius:var(--radius-sm);color:#b8c7c5;font-size:.9375rem;font-weight:650}.navList a>span{color:#6f8c89;font:700 .6875rem ui-monospace,SFMono-Regular,Menlo,monospace}.navList a:hover{color:#fff;background:#15282b}.navList a[aria-current="page"]{color:#fff;border-color:#31565a;background:#193236}.navList a[aria-current="page"]>span{color:#54c6c0}
+.sidebarFooter{display:grid;gap:1rem;margin-top:auto}.account{display:flex;align-items:center;gap:.75rem;padding:1rem .5rem 0;border-top:1px solid #294044;min-width:0}.account>span:last-child{min-width:0;display:grid;gap:.125rem}.account strong{overflow:hidden;color:#f2f7f6;font-size:.75rem;text-overflow:ellipsis;white-space:nowrap}.account button{width:fit-content;padding:0;border:0;color:#a9bcba;background:transparent;font-size:.75rem;cursor:pointer}.account button:hover{color:#fff;text-decoration:underline}.avatar{width:2.25rem;height:2.25rem;flex:0 0 auto;display:grid;place-items:center;border-radius:50%;color:#062826;background:#ff8a6f;font-weight:850}
+.main{min-width:0;width:min(100%,96rem);padding:2rem clamp(1.25rem,4vw,4rem) 4rem}
+@media(max-width:64rem){
+  .shell{grid-template-columns:1fr}
+  .sidebar{
+    position:relative;
+    height:auto;
+    min-height:auto;
+    align-self:auto;
+    display:grid;
+    grid-template-columns:1fr auto;
+    grid-template-areas:"brand actions" "nav nav";
+    gap:1rem;
+    padding:1rem;
+    align-items:center;
+  }
+  .brand{grid-area:brand;padding:0}
+  .sidebar nav{grid-area:nav}
+  .navList{grid-template-columns:repeat(3,1fr)}
+  .navList a{justify-content:center}
+  .sidebarFooter{
+    grid-area:actions;
+    position:static;
+    display:flex;
+    align-items:center;
+    gap:.75rem;
+    margin:0;
+  }
+  .sidebarFooter>label{display:grid}
+  .sidebarFooter>label span{display:none}
+  .sidebarFooter>label select{width:auto;min-width:8.5rem;min-height:2.5rem;padding-left:.75rem}
+  .account{padding:0;border:0}
+  .account strong{display:none}
+  .account button{min-height:2.5rem;padding-inline:.5rem;color:#d6e1df;white-space:nowrap}
+  .avatar{display:none}
+  .main{width:100%;padding-top:1.5rem}
+}
+@media(max-width:38rem){
+  .sidebar{padding-bottom:.75rem;gap:.75rem}
+  .brand small{display:none}
+  .account button{font-size:.6875rem}
+  .navList a{min-height:2.75rem;gap:.375rem;padding-inline:.5rem;font-size:.8125rem}
+  .navList a>span{display:none}
+  .main{padding:1.25rem 1rem 3rem}
+  .sidebarFooter{gap:.5rem}
+  .sidebarFooter>label select{min-width:7.5rem}
+}

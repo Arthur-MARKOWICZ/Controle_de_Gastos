@@ -59,8 +59,8 @@ export function IncomeForm({ initialAmount, onSuccess, onCancel }: Props) {
 
   return (
     <form onSubmit={submit} className={styles.form} aria-labelledby="income-form-title">
-      <h3 id="income-form-title" style={{ fontFamily: "Georgia, serif", fontWeight: 500, fontSize: "1.125rem", marginBottom: "0.25rem" }}>Configurar renda mensal</h3>
-      <p style={{ fontSize: "0.8125rem", color: "var(--foreground-muted)", marginBottom: "0.75rem" }}>
+      <h3 id="income-form-title" className={styles.title}>Configurar renda mensal</h3>
+      <p className={styles.supporting}>
         Vigência é o mês corrente em <code>America/Sao_Paulo</code>. Repetir o mesmo valor é idempotente e não cria nova revisão.
       </p>
       {error && <p role="alert" className={styles.error}>{error}</p>}

@@ -24,6 +24,9 @@ for file in "$COMPOSE_FILE" "$WORKFLOW_FILE" "$NGINX_HTTP_TEMPLATE" "$NGINX_HTTP
   test -f "$file" || fail "arquivo obrigatório ausente: $file"
 done
 
+assert_contains "$COMPOSE_FILE" 'context: ./backend' 'Compose deve declarar o contexto local de build do backend'
+assert_contains "$COMPOSE_FILE" 'context: ./web' 'Compose deve declarar o contexto local de build da web'
+
 readonly RESOLVED_COMPOSE=$(mktemp)
 trap 'rm -f "$RESOLVED_COMPOSE"' EXIT HUP INT TERM
 

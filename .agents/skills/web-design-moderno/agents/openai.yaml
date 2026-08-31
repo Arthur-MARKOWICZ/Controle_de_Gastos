@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Design Moderno"
+  short_description: "Interfaces web simples, modernas e acessíveis"
+  default_prompt: "Use $web-design-moderno para criar ou refinar uma interface web responsiva, simples e moderna."
