@@ -11,7 +11,7 @@ import styles from "./HistoryPage.module.css";
 import { AppShell } from "../AppShell/AppShell";
 
 type Props = { email: string; onLogout(): void };
-const purposes = { LIMIT: "Limite", GOAL: "Meta", FIXED: "Fixo" } as const;
+const purposes = { LIMIT: "Limite", GOAL: "Meta de aporte", FIXED: "Compromisso fixo", SAVINGS_TARGET: "Meta de acumulação" } as const;
 
 function defaultFrom() { return `${currentMonthSaoPaulo()}-01`; }
 
@@ -53,7 +53,7 @@ export function HistoryPage({ email, onLogout }: Props) {
   }, [load]);
 
   const grouped = useMemo(() => {
-    const groups: Record<keyof typeof purposes, HistoryItemDTO[]> = { LIMIT: [], GOAL: [], FIXED: [] };
+    const groups: Record<keyof typeof purposes, HistoryItemDTO[]> = { LIMIT: [], GOAL: [], FIXED: [], SAVINGS_TARGET: [] };
     for (const item of data?.items ?? []) groups[item.purpose].push(item);
     return groups;
   }, [data]);
@@ -62,7 +62,7 @@ export function HistoryPage({ email, onLogout }: Props) {
     const params = new URLSearchParams();
     const merged = { from, to, page, includeDeleted, ...next };
     Object.entries(merged).forEach(([key, value]) => { if (value !== false && value !== undefined) params.set(key, String(value)); });
-    router.push(`/historico?${params}`);
+    router.push(`/gastos?${params}`);
   }
 
   function startEdit(item: HistoryItemDTO) {
@@ -89,9 +89,9 @@ export function HistoryPage({ email, onLogout }: Props) {
   const chartMax = Math.max(...(summary?.monthlyTotals.map((total) => Number(total.amount.amount)) ?? [0]), 1);
   const ownerEnvelopes = envelopes.filter((envelope) => envelope.role === "OWNER");
 
-  return <AppShell current="history" email={email} onLogout={onLogout}>
+  return <AppShell current="expenses" email={email} onLogout={onLogout}>
     <div className={styles.page}>
-      <header className={styles.header}><div><p className={styles.eyebrow}>Relatório do período</p><h1>Histórico</h1><p>Gastos e saldos das verbas que você pode visualizar.</p></div></header>
+      <header className={styles.header}><div><p className={styles.eyebrow}>Registro financeiro</p><h1>Gastos</h1><p>Registre, edite e consulte gastos das verbas que você pode visualizar.</p></div></header>
       <form className={styles.filters} onSubmit={(event) => { event.preventDefault(); navigate({ page: 0 }); }}>
         <label>De<input type="date" value={from} onChange={(event) => navigate({ from: event.target.value, page: 0 })} /></label>
         <label>Até<input type="date" value={to} onChange={(event) => navigate({ to: event.target.value, page: 0 })} /></label>

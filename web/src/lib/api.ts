@@ -1,13 +1,16 @@
 import { AuthClient } from "../auth/auth-client";
 
 export type MoneyDTO = { amount: string; currency: "BRL" };
+export type EnvelopePurpose = "LIMIT" | "GOAL" | "FIXED" | "SAVINGS_TARGET";
 
 export type EnvelopeDTO = {
   id: string;
   ownerId: string;
   name: string;
-  purpose: "LIMIT" | "GOAL" | "FIXED";
+  purpose: EnvelopePurpose;
   baseAmount: MoneyDTO;
+  targetAmount: MoneyDTO | null;
+  targetReachedAt: string | null;
   available: MoneyDTO;
   isNegative: boolean;
   role: "OWNER" | "PARTICIPANT";
@@ -18,14 +21,16 @@ export type EnvelopeDTO = {
 
 export type CreateEnvelopeRequest = {
   name: string;
-  purpose: "LIMIT" | "GOAL" | "FIXED";
+  purpose: EnvelopePurpose;
   baseAmount: MoneyDTO;
+  targetAmount?: MoneyDTO;
 };
 
 export type UpdateEnvelopeRequest = {
   name?: string;
   baseAmount?: MoneyDTO;
-  purpose?: "LIMIT" | "GOAL" | "FIXED";
+  purpose?: EnvelopePurpose;
+  targetAmount?: MoneyDTO;
 };
 
 export type LedgerEntryDTO = {
@@ -38,12 +43,13 @@ export type LedgerEntryDTO = {
   authorId: string;
   createdAt: string;
   deletedAt?: string | null;
+  targetJustReached?: boolean;
 };
 
 export type HistoryItemDTO = {
   entry: LedgerEntryDTO;
   envelopeName: string;
-  purpose: "LIMIT" | "GOAL" | "FIXED";
+  purpose: EnvelopePurpose;
   role: "OWNER" | "PARTICIPANT";
 };
 
@@ -54,11 +60,11 @@ export type HistorySummaryDTO = {
   netBalance: MoneyDTO;
   accumulatedBalance: MoneyDTO;
   monthlyTotals: { month: string; amount: MoneyDTO }[];
-  purposeTotals: { purpose: "LIMIT" | "GOAL" | "FIXED"; amount: MoneyDTO }[];
+  purposeTotals: { purpose: EnvelopePurpose; amount: MoneyDTO }[];
 };
 
 export type CreateEntryRequest = {
-  kind: "EXPENSE";
+  kind: "EXPENSE" | "CONTRIBUTION";
   amount: MoneyDTO;
   occurredAt: string;
   description?: string | null;

@@ -4,13 +4,14 @@ import Link from "next/link";
 import { ThemeSelector } from "../../theme/ThemeSelector";
 import styles from "./AppShell.module.css";
 
-type Destination = "overview" | "envelopes" | "history" | "reports";
+type Destination = "overview" | "envelopes" | "goals" | "expenses" | "reports";
 
 const destinations: Array<{ id: Destination; href: string; index: string; label: string }> = [
   { id: "overview", href: "/", index: "01", label: "Visão geral" },
   { id: "envelopes", href: "/verbas", index: "02", label: "Verbas" },
-  { id: "history", href: "/historico", index: "03", label: "Histórico" },
-  { id: "reports", href: "/relatorios", index: "04", label: "Relatórios" },
+  { id: "goals", href: "/metas", index: "03", label: "Metas" },
+  { id: "expenses", href: "/gastos", index: "04", label: "Gastos" },
+  { id: "reports", href: "/relatorios", index: "05", label: "Relatórios" },
 ];
 
 export function AppShell({ current, email, onLogout, children }: {

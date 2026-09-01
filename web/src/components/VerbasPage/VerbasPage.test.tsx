@@ -50,17 +50,16 @@ vi.mock("../../hooks/useLedgerSummary", () => ({
 afterEach(cleanup);
 
 describe("VerbasPage", () => {
-  it("renderiza um canto para cada tipo de verba", () => {
+  it("mantém limites e compromissos no orçamento mensal", () => {
     render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
     expect(screen.getByRole("heading", { level: 1, name: "Verbas" })).toBeDefined();
     expect(screen.getByRole("heading", { level: 2, name: /Limite de gasto/ })).toBeDefined();
-    expect(screen.getByRole("heading", { level: 2, name: /Meta de aporte/ })).toBeDefined();
     expect(screen.getByRole("heading", { level: 2, name: /Compromisso fixo/ })).toBeDefined();
   });
 
   it("expõe barra de progresso acessível para cada verba", () => {
     render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
-    expect(screen.getAllByRole("progressbar")).toHaveLength(4);
+    expect(screen.getAllByRole("progressbar")).toHaveLength(3);
     expect(screen.getByRole("progressbar", { name: "Progresso de Combustível" }).getAttribute("value")).toBe("60");
   });
 

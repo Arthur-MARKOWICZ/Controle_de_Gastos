@@ -7,6 +7,7 @@ type Props = {
   envelope: EnvelopeDTO;
   onRegisterExpense?: (envelope: EnvelopeDTO) => void;
   onArchive?: (envelope: EnvelopeDTO) => void;
+  onEditTarget?: (envelope: EnvelopeDTO) => void;
   variant?: "dashboard" | "verbas";
 };
 
@@ -15,14 +16,26 @@ function purposeLabel(purpose: string) {
     case "LIMIT": return "Limite de gasto";
     case "GOAL": return "Meta de aporte";
     case "FIXED": return "Compromisso fixo";
+    case "SAVINGS_TARGET": return "Meta de acumulação";
     default: return purpose;
   }
 }
 
-export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, variant = "dashboard" }: Props) {
-  const base = formatBRL(envelope.baseAmount.amount);
+function purposeRule(purpose: string) {
+  switch (purpose) {
+    case "LIMIT": return "Planeje até este valor por mês; o saldo continua disponível.";
+    case "FIXED": return "Reserve este valor mensal e registre o pagamento.";
+    case "GOAL": return "Faça aportes mensais para avançar nesta meta.";
+    case "SAVINGS_TARGET": return "Junte qualquer valor; o saldo não reinicia no próximo mês.";
+    default: return "";
+  }
+}
+
+export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTarget, variant = "dashboard" }: Props) {
+  const progressAmount = envelope.purpose === "SAVINGS_TARGET" ? envelope.targetAmount ?? envelope.baseAmount : envelope.baseAmount;
+  const base = formatBRL(progressAmount.amount);
   const available = formatBRL(envelope.available.amount);
-  const baseNum = Number(envelope.baseAmount.amount);
+  const baseNum = Number(progressAmount.amount);
   const availNum = Number(envelope.available.amount);
   // pct = remaining % (available/base). Clamped 0-100, negative forces 0 for bar but status shows alert
   const rawPct = baseNum > 0 ? (availNum / baseNum) * 100 : 0;
@@ -41,11 +54,19 @@ export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, variant =
   } else if (envelope.purpose === "FIXED") {
     status = envelope.isNegative ? `⚠ Descoberto ${available}` : `${available} reservados · ${pct}%`;
     if (envelope.role === "PARTICIPANT") status = `Compartilhada · ${status}`;
+  } else if (envelope.purpose === "SAVINGS_TARGET") {
+    const remaining = Math.max(0, baseNum - availNum);
+    status = availNum >= baseNum
+      ? "Meta alcançada · continue aportando ou encerre quando quiser"
+      : `${pct}% concluído · faltam ${formatBRL(remaining.toFixed(2))}`;
   } else {
     status = envelope.role === "PARTICIPANT" ? "Compartilhada · Participante" : `${available} disponíveis`;
   }
 
   const s = variant === "verbas" ? verbasStyles : dashboardStyles;
+  const registerActionLabel = envelope.purpose === "SAVINGS_TARGET" || envelope.purpose === "GOAL"
+    ? "Aportar"
+    : "Registrar gasto";
 
   return (
     <li>
@@ -53,6 +74,7 @@ export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, variant =
         <div>
           <h3>{envelope.name}</h3>
           <span>{purposeLabel(envelope.purpose)}{envelope.role === "PARTICIPANT" ? " · Participante" : ""}</span>
+          <span>{purposeRule(envelope.purpose)}</span>
         </div>
         <div className={s.envelopeValue}>
           <strong>{available}</strong>
@@ -71,13 +93,18 @@ export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, variant =
       <div className={s.cardActions}>
         {envelope.role === "PARTICIPANT" && <span className={verbasStyles.badge + " " + verbasStyles.badgeShared}>Compartilhada</span>}
         {onRegisterExpense && (
-          <button type="button" onClick={() => onRegisterExpense(envelope)} aria-label={`Registrar gasto em ${envelope.name}`}>
-            Registrar gasto
+          <button type="button" onClick={() => onRegisterExpense(envelope)} aria-label={`${registerActionLabel} em ${envelope.name}`}>
+            {registerActionLabel}
           </button>
         )}
         {onArchive && envelope.role === "OWNER" && (
           <button type="button" onClick={() => onArchive(envelope)} aria-label={`Arquivar ${envelope.name}`}>
             Arquivar
+          </button>
+        )}
+        {onEditTarget && envelope.purpose === "SAVINGS_TARGET" && envelope.role === "OWNER" && (
+          <button type="button" onClick={() => onEditTarget(envelope)} aria-label={`Editar alvo de ${envelope.name}`}>
+            Editar alvo
           </button>
         )}
       </div>

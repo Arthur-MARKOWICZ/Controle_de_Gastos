@@ -2,7 +2,7 @@
 
 import styles from "./Verbas.module.css";
 
-type PurposeFilter = "ALL" | "LIMIT" | "GOAL" | "FIXED";
+type PurposeFilter = "ALL" | "LIMIT" | "FIXED";
 type SortKey = "progress" | "saldo" | "nome";
 
 type Props = {
@@ -18,7 +18,6 @@ type Props = {
 const TABS: { key: PurposeFilter; label: string }[] = [
   { key: "ALL", label: "Todas" },
   { key: "LIMIT", label: "Limite de gasto" },
-  { key: "GOAL", label: "Meta de aporte" },
   { key: "FIXED", label: "Compromisso fixo" },
 ];
 

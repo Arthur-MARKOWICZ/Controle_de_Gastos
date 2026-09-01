@@ -46,7 +46,7 @@ public class LedgerService implements LedgerReportingQuery {
     }
 
     @Transactional
-    public LedgerEntry register(UUID envelopeId, LedgerKind kind, Money amount, LocalDate occurredAt, String description) {
+    public Registration register(UUID envelopeId, LedgerKind kind, Money amount, LocalDate occurredAt, String description) {
         Envelope envelope = envelopes.getVisible(envelopeId);
         UUID userId = authentication.currentUserId();
         // Authorization: EXPENSE allowed for owner or participant, CONTRIBUTION only owner
@@ -64,10 +64,21 @@ public class LedgerService implements LedgerReportingQuery {
         }
 
         Instant now = clock.instant();
+        Money availableBefore = envelope.isSavingsTarget() && kind == LedgerKind.CONTRIBUTION
+                ? availableAt(envelope, today) : null;
         LedgerEntry entry = kind == LedgerKind.EXPENSE
                 ? LedgerEntry.expense(envelopeId, envelope.ownerId(), userId, amount, occurredAt, description, now)
                 : LedgerEntry.contribution(envelopeId, envelope.ownerId(), userId, amount, occurredAt, description, now);
-        return entries.save(entry);
+        LedgerEntry saved = entries.saveAndFlush(entry);
+        boolean targetJustReached = false;
+        if (availableBefore != null) {
+            Money availableAfter = availableAt(envelope, today);
+            if (availableBefore.amount().compareTo(envelope.targetAmount().amount()) < 0
+                    && availableAfter.amount().compareTo(envelope.targetAmount().amount()) >= 0) {
+                targetJustReached = envelope.recordTargetReached(now);
+            }
+        }
+        return new Registration(saved, targetJustReached);
     }
 
     @Transactional(readOnly = true)
@@ -233,4 +244,5 @@ public class LedgerService implements LedgerReportingQuery {
     public record PurposeTotal(br.com.controlegastos.envelopes.domain.EnvelopePurpose purpose, Money amount) { }
     public record HistorySummary(Money income, Money expenses, Money netBalance, Money accumulatedBalance,
                                  List<MonthlyTotal> monthlyTotals, List<PurposeTotal> purposeTotals) { }
+    public record Registration(LedgerEntry entry, boolean targetJustReached) { }
 }

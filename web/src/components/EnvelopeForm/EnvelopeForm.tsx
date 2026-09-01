@@ -9,27 +9,34 @@ import styles from "./EnvelopeForm.module.css";
 type Props = {
   onSuccess(): void;
   onCancel(): void;
+  initialPurpose?: "LIMIT" | "GOAL" | "FIXED" | "SAVINGS_TARGET";
 };
 
-export function EnvelopeForm({ onSuccess, onCancel }: Props) {
+export function EnvelopeForm({ onSuccess, onCancel, initialPurpose = "LIMIT" }: Props) {
   const { client } = useAuth();
   const api = createApiClient(client);
   const [name, setName] = useState("");
-  const [purpose, setPurpose] = useState<"LIMIT" | "GOAL" | "FIXED">("LIMIT");
+  const [purpose, setPurpose] = useState<"LIMIT" | "GOAL" | "FIXED" | "SAVINGS_TARGET">(initialPurpose);
   const [amountMask, setAmountMask] = useState("");
+  const [targetMask, setTargetMask] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const plain = maskToPlain(amountMask);
+    const plain = purpose === "SAVINGS_TARGET" ? "0.00" : maskToPlain(amountMask);
+    const targetPlain = maskToPlain(targetMask);
     if (!plain) { setError("Informe o valor em BRL"); return; }
     if (!/^\d{1,17}\.\d{2}$/.test(plain)) { setError("Valor deve ter duas casas decimais, ex: 400,00"); return; }
+    if (purpose === "SAVINGS_TARGET" && (!targetPlain || !/^\d{1,17}\.\d{2}$/.test(targetPlain) || targetPlain === "0.00")) {
+      setError("Informe um alvo maior que zero, ex: 1.000,00"); return;
+    }
     if (name.trim().length === 0 || name.trim().length > 80) { setError("Nome deve ter entre 1 e 80 caracteres"); return; }
     setBusy(true);
     try {
-      await api.createEnvelope({ name: name.trim(), purpose, baseAmount: { amount: plain, currency: "BRL" } });
+      await api.createEnvelope({ name: name.trim(), purpose, baseAmount: { amount: plain, currency: "BRL" },
+        ...(purpose === "SAVINGS_TARGET" ? { targetAmount: { amount: targetPlain, currency: "BRL" } } : {}) });
       onSuccess();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -50,10 +57,21 @@ export function EnvelopeForm({ onSuccess, onCancel }: Props) {
         <option value="LIMIT">Limite de gasto</option>
         <option value="GOAL">Meta de aporte</option>
         <option value="FIXED">Compromisso fixo</option>
+        <option value="SAVINGS_TARGET">Meta de acumulação</option>
       </select>
-      <label htmlFor="envelope-amount">Valor-base (BRL)</label>
-      <input id="envelope-amount" inputMode="decimal" value={amountMask} onChange={e => setAmountMask(formatBRLInputMask(e.target.value))} placeholder="0,00" required aria-describedby="amount-help" />
-      <span id="amount-help" className={styles.help}>Use vírgula para centavos. Será enviado como 400.00</span>
+      {purpose === "SAVINGS_TARGET" ? (
+        <>
+          <label htmlFor="envelope-target">Valor total da meta (BRL)</label>
+          <input id="envelope-target" inputMode="decimal" value={targetMask} onChange={e => setTargetMask(formatBRLInputMask(e.target.value))} placeholder="1.000,00" required aria-describedby="target-help" />
+          <span id="target-help" className={styles.help}>Aporte qualquer valor até chegar ao alvo. Esta verba não recebe alocação mensal.</span>
+        </>
+      ) : (
+        <>
+          <label htmlFor="envelope-amount">Valor-base (BRL)</label>
+          <input id="envelope-amount" inputMode="decimal" value={amountMask} onChange={e => setAmountMask(formatBRLInputMask(e.target.value))} placeholder="0,00" required aria-describedby="amount-help" />
+          <span id="amount-help" className={styles.help}>Use vírgula para centavos. Será enviado como 400.00</span>
+        </>
+      )}
       <div className={styles.actions}>
         <button type="button" onClick={onCancel} disabled={busy}>Cancelar</button>
         <button type="submit" disabled={busy} className={styles.primary}>{busy ? "Salvando…" : "Criar verba"}</button>

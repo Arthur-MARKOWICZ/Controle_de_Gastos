@@ -490,13 +490,15 @@ components:
         currency: { type: string, const: BRL }
     Envelope:
       type: object
-      required: [id, ownerId, name, purpose, baseAmount, available, isNegative, role, createdAt, archivedAt, version]
+      required: [id, ownerId, name, purpose, baseAmount, targetAmount, targetReachedAt, available, isNegative, role, createdAt, archivedAt, version]
       properties:
         id: { type: string, format: uuid }
         ownerId: { type: string, format: uuid }
         name: { type: string, minLength: 1, maxLength: 80 }
-        purpose: { type: string, enum: [LIMIT, GOAL, FIXED] }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET] }
         baseAmount: { $ref: '#/components/schemas/Money' }
+        targetAmount: { allOf: [{ $ref: '#/components/schemas/Money' }], nullable: true, description: Obrigatório e positivo somente para SAVINGS_TARGET. }
+        targetReachedAt: { type: string, format: date-time, nullable: true }
         available: { $ref: '#/components/schemas/MoneyNegative' }
         isNegative: { type: boolean }
         role: { type: string, enum: [OWNER, PARTICIPANT] }
@@ -509,18 +511,20 @@ components:
       required: [name, purpose, baseAmount]
       properties:
         name: { type: string, minLength: 1, maxLength: 80 }
-        purpose: { type: string, enum: [LIMIT, GOAL, FIXED] }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET] }
         baseAmount: { $ref: '#/components/schemas/Money' }
+        targetAmount: { $ref: '#/components/schemas/Money' }
     UpdateEnvelope:
       type: object
       additionalProperties: false
       properties:
         name: { type: string, minLength: 1, maxLength: 80 }
-        purpose: { type: string, enum: [LIMIT, GOAL, FIXED] }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET] }
         baseAmount: { $ref: '#/components/schemas/Money' }
+        targetAmount: { $ref: '#/components/schemas/Money' }
     LedgerEntry:
       type: object
-      required: [id, envelopeId, kind, amount, occurredAt, description, authorId, createdAt]
+      required: [id, envelopeId, kind, amount, occurredAt, description, authorId, createdAt, targetJustReached]
       properties:
         id: { type: string, format: uuid }
         envelopeId: { type: string, format: uuid }
@@ -531,6 +535,7 @@ components:
         authorId: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         deletedAt: { type: string, format: date-time, nullable: true }
+        targetJustReached: { type: boolean, description: Verdadeiro somente no aporte que alcançou pela primeira vez o alvo de SAVINGS_TARGET. }
     UpdateExpense:
       type: object
       additionalProperties: false
@@ -545,7 +550,7 @@ components:
       properties:
         entry: { $ref: '#/components/schemas/LedgerEntry' }
         envelopeName: { type: string }
-        purpose: { type: string, enum: [LIMIT, GOAL, FIXED] }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET] }
         role: { type: string, enum: [OWNER, PARTICIPANT] }
     HistoryPage:
       type: object
@@ -577,7 +582,7 @@ components:
             type: object
             required: [purpose, amount]
             properties:
-              purpose: { type: string, enum: [LIMIT, GOAL, FIXED] }
+              purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET] }
               amount: { $ref: '#/components/schemas/Money' }
     CreateEntry:
       type: object

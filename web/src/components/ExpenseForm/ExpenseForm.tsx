@@ -9,11 +9,12 @@ import styles from "../EnvelopeForm/EnvelopeForm.module.css";
 
 type Props = {
   envelope: EnvelopeDTO;
-  onSuccess(): void;
+  kind?: "EXPENSE" | "CONTRIBUTION";
+  onSuccess(targetJustReached?: boolean): void;
   onCancel(): void;
 };
 
-export function ExpenseForm({ envelope, onSuccess, onCancel }: Props) {
+export function ExpenseForm({ envelope, kind = "EXPENSE", onSuccess, onCancel }: Props) {
   const { client } = useAuth();
   const api = createApiClient(client);
   const [amountMask, setAmountMask] = useState("");
@@ -31,10 +32,10 @@ export function ExpenseForm({ envelope, onSuccess, onCancel }: Props) {
     if (description.length > 140) { setError("Descrição até 140 caracteres"); return; }
     setBusy(true);
     try {
-      await api.createEntry(envelope.id, { kind: "EXPENSE", amount: { amount: plain, currency: "BRL" }, occurredAt, description: description.trim() || null });
-      onSuccess();
+      const entry = await api.createEntry(envelope.id, { kind, amount: { amount: plain, currency: "BRL" }, occurredAt, description: description.trim() || null });
+      onSuccess(entry.targetJustReached);
     } catch (err) {
-      if (err instanceof ApiError) setError(err.detail || "Não foi possível registrar o gasto");
+      if (err instanceof ApiError) setError(err.detail || `Não foi possível registrar o ${kind === "EXPENSE" ? "gasto" : "aporte"}`);
       else setError("Erro inesperado");
     } finally { setBusy(false); }
   }
@@ -49,10 +50,10 @@ export function ExpenseForm({ envelope, onSuccess, onCancel }: Props) {
       <label htmlFor="expense-date">Data</label>
       <input id="expense-date" type="date" value={occurredAt} onChange={e => setOccurredAt(e.target.value)} required max={todaySaoPaulo()} />
       <label htmlFor="expense-desc">Descrição (opcional)</label>
-      <input id="expense-desc" value={description} onChange={e => setDescription(e.target.value)} maxLength={140} placeholder="Ex: Posto Avenida" />
+      <input id="expense-desc" value={description} onChange={e => setDescription(e.target.value)} maxLength={140} placeholder={kind === "EXPENSE" ? "Ex: Posto Avenida" : "Ex: Reserva de setembro"} />
       <div className={styles.actions}>
         <button type="button" onClick={onCancel} disabled={busy}>Cancelar</button>
-        <button type="submit" disabled={busy} className={styles.primary}>{busy ? "Registrando…" : "Registrar gasto"}</button>
+        <button type="submit" disabled={busy} className={styles.primary}>{busy ? "Registrando…" : kind === "EXPENSE" ? "Registrar gasto" : "Registrar aporte"}</button>
       </div>
     </form>
   );

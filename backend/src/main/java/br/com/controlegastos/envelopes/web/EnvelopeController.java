@@ -54,7 +54,8 @@ public class EnvelopeController {
         String name = textField(body, "name");
         EnvelopePurpose purpose = purposeField(body, "purpose");
         Money baseAmount = moneyField(body, "baseAmount");
-        Envelope created = envelopes.create(name, purpose, baseAmount);
+        Money targetAmount = body.has("targetAmount") ? moneyField(body, "targetAmount") : null;
+        Envelope created = envelopes.create(name, purpose, baseAmount, targetAmount);
         YearMonth current = YearMonth.now(EnvelopeService.BUSINESS_ZONE);
         return toResponse(created, current);
     }
@@ -67,15 +68,16 @@ public class EnvelopeController {
         String name = body.has("name") ? textField(body, "name") : null;
         EnvelopePurpose purpose = body.has("purpose") ? purposeField(body, "purpose") : null;
         Money baseAmount = body.has("baseAmount") ? moneyField(body, "baseAmount") : null;
+        Money targetAmount = body.has("targetAmount") ? moneyField(body, "targetAmount") : null;
         // Validate no extra fields
         var fieldIt = body.properties().iterator();
         while (fieldIt.hasNext()) {
             String f = fieldIt.next().getKey();
-            if (!List.of("name", "purpose", "baseAmount").contains(f)) {
+            if (!List.of("name", "purpose", "baseAmount", "targetAmount").contains(f)) {
                 throw new IllegalArgumentException("Campo não permitido: " + f);
             }
         }
-        Envelope updated = envelopes.update(id, name, purpose, baseAmount);
+        Envelope updated = envelopes.update(id, name, purpose, baseAmount, targetAmount);
         YearMonth current = YearMonth.now(EnvelopeService.BUSINESS_ZONE);
         return toResponse(updated, current);
     }
@@ -151,6 +153,8 @@ public class EnvelopeController {
         return new EnvelopeResponse(
                 e.id(), e.ownerId(), e.name(), e.purpose().name(),
                 new MoneyDTO(e.baseAmount().toPlainString(), e.baseAmount().currency()),
+                e.targetAmount() == null ? null : new MoneyDTO(e.targetAmount().toPlainString(), e.targetAmount().currency()),
+                e.targetReachedAt(),
                 new MoneyDTO(available.toPlainString(), available.currency()),
                 isNegative, role,
                 e.createdAt(), e.archivedAt(), e.version()
@@ -160,7 +164,7 @@ public class EnvelopeController {
     record MoneyDTO(String amount, String currency) {}
 
     record EnvelopeResponse(UUID id, UUID ownerId, String name, String purpose,
-                            MoneyDTO baseAmount, MoneyDTO available,
+                            MoneyDTO baseAmount, MoneyDTO targetAmount, Instant targetReachedAt, MoneyDTO available,
                             boolean isNegative, String role,
                             Instant createdAt, Instant archivedAt, long version) {}
 }

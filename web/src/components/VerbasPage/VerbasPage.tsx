@@ -19,7 +19,7 @@ import { createApiClient } from "../../lib/api";
 import { useAuth } from "../../auth/auth-context";
 import { AppShell } from "../AppShell/AppShell";
 
-type PurposeFilter = "ALL" | "LIMIT" | "GOAL" | "FIXED";
+type PurposeFilter = "ALL" | "LIMIT" | "FIXED";
 type SortKey = "progress" | "saldo" | "nome";
 
 export function VerbasPage({ email, onLogout }: { email: string; onLogout(): void }) {
@@ -37,7 +37,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   const [purposeFilter, setPurposeFilter] = useState<PurposeFilter>("ALL");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("progress");
-  const [showNewEnvelope, setShowNewEnvelope] = useState<null | "LIMIT" | "GOAL" | "FIXED">(null);
+  const [showNewEnvelope, setShowNewEnvelope] = useState<null | "LIMIT" | "FIXED">(null);
   const [expenseTarget, setExpenseTarget] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -45,10 +45,10 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   const error = envelopesError || summaryError;
 
   // source of truth: summary.envelopes if available, fallback envelopes
-  const source = summary?.envelopes ?? envelopes;
+  const source = (summary?.envelopes ?? envelopes).filter((envelope) => envelope.purpose === "LIMIT" || envelope.purpose === "FIXED");
 
   const counts = useMemo(() => {
-    const c: Record<PurposeFilter, number> = { ALL: source.length, LIMIT: 0, GOAL: 0, FIXED: 0 };
+    const c: Record<PurposeFilter, number> = { ALL: source.length, LIMIT: 0, FIXED: 0 };
     for (const e of source) c[e.purpose as PurposeFilter] = (c[e.purpose as PurposeFilter] ?? 0) + 1;
     return c;
   }, [source]);
@@ -74,19 +74,19 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   }, [query, sort]);
 
   const byPurpose = useMemo(() => {
-    const map: Record<string, EnvelopeDTO[]> = { LIMIT: [], GOAL: [], FIXED: [] };
+    const map: Record<string, EnvelopeDTO[]> = { LIMIT: [], FIXED: [] };
     for (const e of filteredSorted(source)) map[e.purpose]?.push(e);
-    return map as Record<"LIMIT" | "GOAL" | "FIXED", EnvelopeDTO[]>;
+    return map as Record<"LIMIT" | "FIXED", EnvelopeDTO[]>;
   }, [source, filteredSorted]);
 
-  const visiblePurposes: ("LIMIT" | "GOAL" | "FIXED")[] =
-    purposeFilter === "ALL" ? ["LIMIT", "GOAL", "FIXED"] : [purposeFilter];
+  const visiblePurposes: ("LIMIT" | "FIXED")[] =
+    purposeFilter === "ALL" ? ["LIMIT", "FIXED"] : [purposeFilter];
 
   // distribuição por propósito (usa baseAmount total)
   const distribution = useMemo(() => {
-    const totals: Record<string, number> = { LIMIT: 0, GOAL: 0, FIXED: 0 };
+    const totals: Record<string, number> = { LIMIT: 0, FIXED: 0 };
     for (const e of source) totals[e.purpose] += Number(e.baseAmount.amount);
-    const total = totals.LIMIT + totals.GOAL + totals.FIXED;
+    const total = totals.LIMIT + totals.FIXED;
     return { totals, total };
   }, [source]);
 
@@ -135,7 +135,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
           <div>
             <p className={styles.eyebrow}>{monthLabel}</p>
             <h1>Verbas</h1>
-            <p>Um canto para cada natureza — controle limite, meta e compromisso com barra de progresso ao vivo.</p>
+            <p>Organize limites e compromissos mensais. Metas de aporte e acumulação ficam na área Metas.</p>
             <div className={styles.monthControl}>
               <label htmlFor="month-picker">
                 Mês
@@ -203,10 +203,10 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
             />
 
             <div className={styles.distribution} aria-label="Distribuição por natureza">
-              {(["LIMIT", "GOAL", "FIXED"] as const).map((p) => {
+              {(["LIMIT", "FIXED"] as const).map((p) => {
                 const val = distribution.totals[p];
                 const pct = distribution.total > 0 ? Math.round((val / distribution.total) * 100) : 0;
-                const label = p === "LIMIT" ? "Limite de gasto" : p === "GOAL" ? "Meta de aporte" : "Compromisso fixo";
+                const label = p === "LIMIT" ? "Limite de gasto" : "Compromisso fixo";
                 return (
                   <div key={p} className={styles.distributionCard}>
                     <h3>{label}</h3>

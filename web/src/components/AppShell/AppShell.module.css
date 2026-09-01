@@ -29,7 +29,7 @@
   }
   .brand{grid-area:brand;padding:0}
   .sidebar nav{grid-area:nav}
-  .navList{grid-template-columns:repeat(3,1fr)}
+  .navList{grid-template-columns:repeat(5,1fr)}
   .navList a{justify-content:center}
   .sidebarFooter{
     grid-area:actions;

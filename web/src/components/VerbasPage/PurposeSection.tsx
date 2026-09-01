@@ -5,11 +5,10 @@ import type { EnvelopeDTO } from "../../lib/api";
 import { EnvelopeCard } from "../EnvelopeCard/EnvelopeCard";
 import styles from "./Verbas.module.css";
 
-type Purpose = "LIMIT" | "GOAL" | "FIXED";
+type Purpose = "LIMIT" | "FIXED";
 
 const PURPOSE_META: Record<Purpose, { label: string; hint: string }> = {
   LIMIT: { label: "Limite de gasto", hint: "Controle do que pode gastar" },
-  GOAL: { label: "Meta de aporte", hint: "Quanto falta para atingir" },
   FIXED: { label: "Compromisso fixo", hint: "Contas que não podem falhar" },
 };
 

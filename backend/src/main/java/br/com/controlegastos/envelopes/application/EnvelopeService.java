@@ -35,14 +35,14 @@ public class EnvelopeService {
     }
 
     @Transactional
-    public Envelope create(String name, EnvelopePurpose purpose, Money baseAmount) {
+    public Envelope create(String name, EnvelopePurpose purpose, Money baseAmount, Money targetAmount) {
         Objects.requireNonNull(name);
         Objects.requireNonNull(purpose);
         Objects.requireNonNull(baseAmount);
         Instant now = clock.instant();
         UUID ownerId = authentication.currentUserId();
         // Validação de renda delegada ao IncomeService via IncomeChangeConstraint (evita dependência direta em MonthlyIncomeRepository)
-        Envelope envelope = Envelope.create(ownerId, name, purpose, baseAmount, now);
+        Envelope envelope = Envelope.create(ownerId, name, purpose, baseAmount, targetAmount, now);
         return envelopes.save(envelope);
     }
 
@@ -76,7 +76,7 @@ public class EnvelopeService {
     }
 
     @Transactional
-    public Envelope update(UUID envelopeId, String newName, EnvelopePurpose newPurpose, Money newBaseAmount) {
+    public Envelope update(UUID envelopeId, String newName, EnvelopePurpose newPurpose, Money newBaseAmount, Money newTargetAmount) {
         UUID userId = authentication.currentUserId();
         Envelope envelope = envelopes.findById(envelopeId)
                 .orElseThrow(() -> new EnvelopeNotFoundException(envelopeId));
@@ -87,8 +87,15 @@ public class EnvelopeService {
             throw new EnvelopeNotFoundException(envelopeId);
         }
         if (newName != null) envelope.rename(newName);
-        if (newPurpose != null) envelope.changePurpose(newPurpose);
-        if (newBaseAmount != null) envelope.changeBaseAmount(newBaseAmount);
+        if (newPurpose != null || newBaseAmount != null || newTargetAmount != null) {
+            EnvelopePurpose effectivePurpose = newPurpose == null ? envelope.purpose() : newPurpose;
+            envelope.changeFinancialConfiguration(
+                    effectivePurpose,
+                    newBaseAmount == null ? envelope.baseAmount() : newBaseAmount,
+                    effectivePurpose == EnvelopePurpose.SAVINGS_TARGET
+                            ? (newTargetAmount == null ? envelope.targetAmount() : newTargetAmount)
+                            : null);
+        }
         return envelopes.save(envelope);
     }
 

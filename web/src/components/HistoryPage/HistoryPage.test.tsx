@@ -33,7 +33,7 @@ describe("HistoryPage", () => {
   it("exibe os quatro indicadores e um estado vazio para o intervalo filtrado", async () => {
     render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
 
-    expect(await screen.findByRole("heading", { level: 1, name: "Histórico" })).toBeDefined();
+    expect(await screen.findByRole("heading", { level: 1, name: "Gastos" })).toBeDefined();
     expect(await screen.findByText("Renda do período")).toBeDefined();
     expect(screen.getByText("Gastos do período")).toBeDefined();
     expect(screen.getByText("Saldo líquido")).toBeDefined();

@@ -57,8 +57,8 @@ public class LedgerEntryController {
         String description = body.has("description") && !body.get("description").isNull()
                 ? body.get("description").asString()
                 : null;
-        LedgerEntry entry = ledger.register(id, kind, amount, occurredAt, description);
-        return EntryResponse.from(entry);
+        LedgerService.Registration registration = ledger.register(id, kind, amount, occurredAt, description);
+        return EntryResponse.from(registration.entry(), registration.targetJustReached());
     }
 
     private YearMonth parseMonth(String month) {
@@ -89,16 +89,16 @@ public class LedgerEntryController {
     }
 
     record MoneyDTO(String amount, String currency) {}
-    record EntryResponse(UUID id, UUID envelopeId, String kind, MoneyDTO amount, String occurredAt, String description, UUID authorId, Instant createdAt) {
-        static EntryResponse from(LedgerEntry e) {
+    record EntryResponse(UUID id, UUID envelopeId, String kind, MoneyDTO amount, String occurredAt, String description, UUID authorId, Instant createdAt, boolean targetJustReached) {
+        static EntryResponse from(LedgerEntry e, boolean targetJustReached) {
             return new EntryResponse(e.id(), e.envelopeId(), e.kind().name(),
                     new MoneyDTO(e.amount().toPlainString(), e.amount().currency()),
-                    e.occurredAt().toString(), e.description(), e.authorId(), e.createdAt());
+                    e.occurredAt().toString(), e.description(), e.authorId(), e.createdAt(), targetJustReached);
         }
     }
     record EntryPageResponse(List<EntryResponse> items, int page, int size, boolean hasNext) {
         static EntryPageResponse from(Page<LedgerEntry> page) {
-            return new EntryPageResponse(page.getContent().stream().map(EntryResponse::from).toList(),
+            return new EntryPageResponse(page.getContent().stream().map(entry -> EntryResponse.from(entry, false)).toList(),
                     page.getNumber(), page.getSize(), page.hasNext());
         }
     }
