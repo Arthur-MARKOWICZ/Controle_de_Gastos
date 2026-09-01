@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
 public class ReportingService {
 
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Sao_Paulo");
-    private static final DecimalFormat BRL = new DecimalFormat("0.00", DecimalFormatSymbols.getInstance(Locale.forLanguageTag("pt-BR")));
+    private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
     private final LedgerReportingQuery ledger;
 
     public ReportingService(LedgerReportingQuery ledger) {
@@ -126,9 +126,9 @@ public class ReportingService {
     }
 
     private String money(Money value) {
-        synchronized (BRL) {
-            return BRL.format(value.amount());
-        }
+        DecimalFormat formatter = new DecimalFormat("0.00", DecimalFormatSymbols.getInstance(PT_BR));
+        formatter.setGroupingUsed(false);
+        return formatter.format(value.amount());
     }
 
     private String safeText(String value) {

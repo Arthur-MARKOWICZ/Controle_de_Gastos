@@ -9,6 +9,11 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 public record ReportDocument(String filename, ReportFormat format, String sheetName,
                              List<String> headers, List<List<String>> rows) {
 
+    public ReportDocument {
+        headers = List.copyOf(headers);
+        rows = rows.stream().map(List::copyOf).toList();
+    }
+
     public void writeTo(OutputStream output) throws IOException {
         if (format == ReportFormat.CSV) {
             writeCsv(output);
