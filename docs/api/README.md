@@ -1,8 +1,10 @@
 # Contrato HTTP
 
 O contrato executável inicial está em [`openapi.yaml`](openapi.yaml). Ele cobre
-cadastro, login, renovação, logout, conta atual, configuração/consulta de renda
-e histórico paginado e deve evoluir junto dos testes de aceitação.
+cadastro, login, renovação, logout, conta atual, configuração/consulta de renda,
+histórico paginado e exportação de relatórios. Os downloads exigem `from`, `to`
+e `format=csv|xlsx`; eles nunca incluem descrições de gastos, e-mails ou
+lançamentos logicamente excluídos.
 
 Regras de evolução:
 

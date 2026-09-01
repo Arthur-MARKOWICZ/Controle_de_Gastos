@@ -26,7 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-public class LedgerService {
+public class LedgerService implements LedgerReportingQuery {
 
     public static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Sao_Paulo");
 
@@ -113,6 +113,34 @@ public class LedgerService {
         Money expenses = expensesRaw == null ? Money.zero() : Money.brl(expensesRaw);
         Money contributions = contributionsRaw == null ? Money.zero() : Money.brl(contributionsRaw);
         return baseTotal.add(contributions).subtract(expenses);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ReportEnvelope> visibleEnvelopes() {
+        return envelopes.listVisibleIncludingArchived().stream()
+                .map(envelope -> new ReportEnvelope(envelope.id(), envelope.name(), envelope.purpose().name(),
+                        envelope.baseAmount(), envelope.createdAt(), envelope.archivedAt()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ReportEntry> activeEntries(LocalDate from, LocalDate to) {
+        UUID userId = authentication.currentUserId();
+        return entries.findActiveVisibleEntries(userId, from, to).stream()
+                .map(entry -> new ReportEntry(entry.envelopeId(), entry.kind().name(), entry.amount(), entry.occurredAt()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Money availableAt(UUID envelopeId, LocalDate until) {
+        Envelope envelope = envelopes.listVisibleIncludingArchived().stream()
+                .filter(candidate -> candidate.id().equals(envelopeId))
+                .findFirst()
+                .orElseThrow(() -> new EnvelopeNotFoundException(envelopeId));
+        return availableAt(envelope, until);
     }
 
     @Transactional(readOnly = true)

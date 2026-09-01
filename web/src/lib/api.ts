@@ -81,6 +81,8 @@ export type IncomeDTO = {
 
 export type IncomeHistoryItemDTO = IncomeDTO & { id: string; changedBy: string };
 export type IncomeHistoryPageDTO = { items: IncomeHistoryItemDTO[]; page: number; size: number; hasNext: boolean };
+export type ReportId = "expenses-by-purpose" | "limit-exceeded-months" | "goals-below-target";
+export type ReportFormat = "csv" | "xlsx";
 
 export class ApiError extends Error {
   public readonly requiredMinimum?: string;
@@ -209,6 +211,16 @@ export function createApiClient(authClient: AuthClient) {
     getHistorySummary(from: string, to: string): Promise<HistorySummaryDTO> {
       const params = new URLSearchParams({ from, to });
       return authClient.request(`/api/v1/history/summary?${params}`).then(handleResponse<HistorySummaryDTO>);
+    },
+    async downloadReport(type: ReportId, from: string, to: string, format: ReportFormat): Promise<{ blob: Blob; filename: string }> {
+      const params = new URLSearchParams({ from, to, format });
+      const response = await authClient.request(`/api/v1/reports/${type}?${params}`);
+      if (!response.ok) throw await parseProblem(response);
+      const disposition = response.headers.get("Content-Disposition") ?? "";
+      const encodedName = /filename\*=(?:UTF-8'')?([^;\s]+)/i.exec(disposition)?.[1]
+        ?? /filename="?([^";]+)"?/i.exec(disposition)?.[1];
+      const filename = encodedName ? decodeURIComponent(encodedName) : `${type}_${from}_${to}.${format}`;
+      return { blob: await response.blob(), filename };
     },
     updateHistoryEntry(id: string, dto: { envelopeId: string; amount: MoneyDTO; description?: string | null }): Promise<LedgerEntryDTO> {
       return authClient.request(`/api/v1/ledger/entries/${encodeURIComponent(id)}`, {

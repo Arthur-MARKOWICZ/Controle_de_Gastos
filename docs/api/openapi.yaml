@@ -308,6 +308,63 @@ paths:
          '200': { description: Cards e séries dos gráficos, content: { application/json: { schema: { $ref: '#/components/schemas/HistorySummary' } } } }
          '400': { $ref: '#/components/responses/InvalidRequest' }
          '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /reports/expenses-by-purpose:
+     get:
+       summary: Exporta gastos por tipo e por verba no período
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - { in: query, name: from, required: true, schema: { type: string, format: date } }
+         - { in: query, name: to, required: true, schema: { type: string, format: date } }
+         - { in: query, name: format, required: true, schema: { type: string, enum: [csv, xlsx] } }
+       responses:
+         '200':
+           description: Arquivo de relatório
+           headers:
+             Content-Disposition: { schema: { type: string } }
+             Cache-Control: { schema: { type: string, example: no-store } }
+           content:
+             text/csv: { schema: { type: string, format: binary } }
+             application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: { schema: { type: string, format: binary } }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /reports/limit-exceeded-months:
+     get:
+       summary: Exporta meses completos com saldo negativo em verbas LIMIT
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - { in: query, name: from, required: true, schema: { type: string, format: date } }
+         - { in: query, name: to, required: true, schema: { type: string, format: date } }
+         - { in: query, name: format, required: true, schema: { type: string, enum: [csv, xlsx] } }
+       responses:
+         '200':
+           description: Arquivo de relatório
+           headers:
+             Content-Disposition: { schema: { type: string } }
+             Cache-Control: { schema: { type: string, example: no-store } }
+           content:
+             text/csv: { schema: { type: string, format: binary } }
+             application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: { schema: { type: string, format: binary } }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /reports/goals-below-target:
+     get:
+       summary: Exporta metas GOAL abaixo dos aportes esperados em meses completos
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - { in: query, name: from, required: true, schema: { type: string, format: date } }
+         - { in: query, name: to, required: true, schema: { type: string, format: date } }
+         - { in: query, name: format, required: true, schema: { type: string, enum: [csv, xlsx] } }
+       responses:
+         '200':
+           description: Arquivo de relatório
+           headers:
+             Content-Disposition: { schema: { type: string } }
+             Cache-Control: { schema: { type: string, example: no-store } }
+           content:
+             text/csv: { schema: { type: string, format: binary } }
+             application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: { schema: { type: string, format: binary } }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
   /ledger/entries/{id}:
      patch:
        summary: Edita valor, verba e descrição de um gasto (somente owner; data imutável)

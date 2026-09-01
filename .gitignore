@@ -8,7 +8,7 @@
 .gradle/
 **/build/
 out/
-
+plans/
 # Node / Next.js
 node_modules/
 .next/

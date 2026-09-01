@@ -12,7 +12,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> {
 
-    @Query(value = "SELECT COALESCE(SUM(amount), 0) FROM ledger_entry WHERE envelope_id = :envelopeId AND kind = CAST(:kind AS VARCHAR) AND occurred_at <= :until", nativeQuery = true)
+    @Query(value = "SELECT COALESCE(SUM(amount), 0) FROM ledger_entry WHERE envelope_id = :envelopeId AND kind = CAST(:kind AS VARCHAR) AND occurred_at <= :until AND deleted_at IS NULL", nativeQuery = true)
     java.math.BigDecimal sumAmountUpTo(@Param("envelopeId") UUID envelopeId, @Param("kind") String kind, @Param("until") LocalDate until);
 
     default java.math.BigDecimal sumAmountUpTo(UUID envelopeId, LedgerKind kind, LocalDate until) {
@@ -73,6 +73,23 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
         ORDER BY e.occurredAt ASC, e.createdAt ASC
         """)
     java.util.List<LedgerEntry> findActiveHistory(
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
+
+    @Query("""
+        SELECT e FROM LedgerEntry e
+        WHERE e.occurredAt BETWEEN :from AND :to
+          AND e.deletedAt IS NULL
+          AND (
+            e.ownerId = :userId OR EXISTS (
+              SELECT 1 FROM EnvelopeParticipant participant
+              WHERE participant.envelopeId = e.envelopeId AND participant.userId = :userId
+            )
+          )
+        ORDER BY e.occurredAt ASC, e.createdAt ASC
+        """)
+    java.util.List<LedgerEntry> findActiveVisibleEntries(
             @Param("userId") UUID userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
