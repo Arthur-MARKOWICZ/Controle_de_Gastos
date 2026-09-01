@@ -490,15 +490,16 @@ components:
         currency: { type: string, const: BRL }
     Envelope:
       type: object
-      required: [id, ownerId, name, purpose, baseAmount, targetAmount, targetReachedAt, available, isNegative, role, createdAt, archivedAt, version]
+      required: [id, ownerId, name, purpose, baseAmount, targetAmount, targetReachedAt, annualExpense, available, isNegative, role, createdAt, archivedAt, version]
       properties:
         id: { type: string, format: uuid }
         ownerId: { type: string, format: uuid }
         name: { type: string, minLength: 1, maxLength: 80 }
-        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET] }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET, ANNUAL_EXPENSE] }
         baseAmount: { $ref: '#/components/schemas/Money' }
         targetAmount: { allOf: [{ $ref: '#/components/schemas/Money' }], nullable: true, description: Obrigatório e positivo somente para SAVINGS_TARGET. }
         targetReachedAt: { type: string, format: date-time, nullable: true }
+        annualExpense: { allOf: [{ $ref: '#/components/schemas/AnnualExpense' }], nullable: true }
         available: { $ref: '#/components/schemas/MoneyNegative' }
         isNegative: { type: boolean }
         role: { type: string, enum: [OWNER, PARTICIPANT] }
@@ -511,17 +512,34 @@ components:
       required: [name, purpose, baseAmount]
       properties:
         name: { type: string, minLength: 1, maxLength: 80 }
-        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET] }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET, ANNUAL_EXPENSE] }
         baseAmount: { $ref: '#/components/schemas/Money' }
         targetAmount: { $ref: '#/components/schemas/Money' }
+        annualAmount: { $ref: '#/components/schemas/Money' }
+        dueMonth: { type: integer, minimum: 1, maximum: 12 }
+        dueDay: { type: integer, minimum: 1, maximum: 31 }
+        fundingMode: { type: string, enum: [MONTHLY, ONE_TIME] }
     UpdateEnvelope:
       type: object
       additionalProperties: false
       properties:
         name: { type: string, minLength: 1, maxLength: 80 }
-        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET] }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET, ANNUAL_EXPENSE] }
         baseAmount: { $ref: '#/components/schemas/Money' }
         targetAmount: { $ref: '#/components/schemas/Money' }
+        annualAmount: { $ref: '#/components/schemas/Money' }
+        dueMonth: { type: integer, minimum: 1, maximum: 12 }
+        dueDay: { type: integer, minimum: 1, maximum: 31 }
+        fundingMode: { type: string, enum: [MONTHLY, ONE_TIME] }
+    AnnualExpense:
+      type: object
+      additionalProperties: false
+      required: [annualAmount, dueMonth, dueDay, fundingMode]
+      properties:
+        annualAmount: { $ref: '#/components/schemas/Money' }
+        dueMonth: { type: integer, minimum: 1, maximum: 12 }
+        dueDay: { type: integer, minimum: 1, maximum: 31 }
+        fundingMode: { type: string, enum: [MONTHLY, ONE_TIME] }
     LedgerEntry:
       type: object
       required: [id, envelopeId, kind, amount, occurredAt, description, authorId, createdAt, targetJustReached]
@@ -550,7 +568,7 @@ components:
       properties:
         entry: { $ref: '#/components/schemas/LedgerEntry' }
         envelopeName: { type: string }
-        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET] }
+        purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET, ANNUAL_EXPENSE] }
         role: { type: string, enum: [OWNER, PARTICIPANT] }
     HistoryPage:
       type: object
@@ -582,7 +600,7 @@ components:
             type: object
             required: [purpose, amount]
             properties:
-              purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET] }
+              purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET, ANNUAL_EXPENSE] }
               amount: { $ref: '#/components/schemas/Money' }
     CreateEntry:
       type: object

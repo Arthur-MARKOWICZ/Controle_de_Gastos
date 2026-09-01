@@ -8,6 +8,7 @@ type Props = {
   onRegisterExpense?: (envelope: EnvelopeDTO) => void;
   onArchive?: (envelope: EnvelopeDTO) => void;
   onEditTarget?: (envelope: EnvelopeDTO) => void;
+  onEditAnnual?: (envelope: EnvelopeDTO) => void;
   variant?: "dashboard" | "verbas";
 };
 
@@ -17,6 +18,7 @@ function purposeLabel(purpose: string) {
     case "GOAL": return "Meta de aporte";
     case "FIXED": return "Compromisso fixo";
     case "SAVINGS_TARGET": return "Meta de acumulação";
+    case "ANNUAL_EXPENSE": return "Gasto anual";
     default: return purpose;
   }
 }
@@ -27,12 +29,14 @@ function purposeRule(purpose: string) {
     case "FIXED": return "Reserve este valor mensal e registre o pagamento.";
     case "GOAL": return "Faça aportes mensais para avançar nesta meta.";
     case "SAVINGS_TARGET": return "Junte qualquer valor; o saldo não reinicia no próximo mês.";
+    case "ANNUAL_EXPENSE": return "Reserve até o vencimento anual e registre o pagamento real.";
     default: return "";
   }
 }
 
-export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTarget, variant = "dashboard" }: Props) {
-  const progressAmount = envelope.purpose === "SAVINGS_TARGET" ? envelope.targetAmount ?? envelope.baseAmount : envelope.baseAmount;
+export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTarget, onEditAnnual, variant = "dashboard" }: Props) {
+  const progressAmount = envelope.purpose === "SAVINGS_TARGET" ? envelope.targetAmount ?? envelope.baseAmount
+    : envelope.purpose === "ANNUAL_EXPENSE" ? envelope.annualExpense?.annualAmount ?? envelope.baseAmount : envelope.baseAmount;
   const base = formatBRL(progressAmount.amount);
   const available = formatBRL(envelope.available.amount);
   const baseNum = Number(progressAmount.amount);
@@ -59,6 +63,12 @@ export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTar
     status = availNum >= baseNum
       ? "Meta alcançada · continue aportando ou encerre quando quiser"
       : `${pct}% concluído · faltam ${formatBRL(remaining.toFixed(2))}`;
+  } else if (envelope.purpose === "ANNUAL_EXPENSE") {
+    const annual = envelope.annualExpense;
+    const due = annual ? `${String(annual.dueDay).padStart(2, "0")}/${String(annual.dueMonth).padStart(2, "0")}` : "—";
+    status = annual?.fundingMode === "ONE_TIME"
+      ? `Pagamento único em ${due} · registre o gasto quando ocorrer`
+      : `${pct}% reservado · vencimento em ${due}`;
   } else {
     status = envelope.role === "PARTICIPANT" ? "Compartilhada · Participante" : `${available} disponíveis`;
   }
@@ -106,6 +116,9 @@ export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTar
           <button type="button" onClick={() => onEditTarget(envelope)} aria-label={`Editar alvo de ${envelope.name}`}>
             Editar alvo
           </button>
+        )}
+        {onEditAnnual && envelope.purpose === "ANNUAL_EXPENSE" && envelope.role === "OWNER" && (
+          <button type="button" onClick={() => onEditAnnual(envelope)} aria-label={`Editar gasto anual ${envelope.name}`}>Editar</button>
         )}
       </div>
     </li>

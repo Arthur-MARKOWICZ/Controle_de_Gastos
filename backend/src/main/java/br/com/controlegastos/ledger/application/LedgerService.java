@@ -4,6 +4,7 @@ import br.com.controlegastos.envelopes.application.EnvelopeForbiddenException;
 import br.com.controlegastos.envelopes.application.EnvelopeNotFoundException;
 import br.com.controlegastos.envelopes.application.EnvelopeService;
 import br.com.controlegastos.envelopes.domain.Envelope;
+import br.com.controlegastos.envelopes.domain.AnnualExpenseInstallment;
 import br.com.controlegastos.identity.application.AuthenticationService;
 import br.com.controlegastos.income.application.IncomeQuery;
 import br.com.controlegastos.ledger.domain.LedgerEntry;
@@ -114,16 +115,50 @@ public class LedgerService implements LedgerReportingQuery {
         }
         YearMonth allocationMonth = YearMonth.from(allocationUntil);
         long monthsCount = java.time.temporal.ChronoUnit.MONTHS.between(creationMonth, allocationMonth) + 1;
-        Money baseTotal = Money.zero();
-        // Multiply baseAmount * monthsCount
-        for (int i = 0; i < monthsCount; i++) {
-            baseTotal = baseTotal.add(envelope.baseAmount());
-        }
+        Money baseTotal = envelope.isAnnualExpense()
+                ? annualProvisionUntil(envelope, allocationUntil)
+                : repeated(envelope.baseAmount(), monthsCount);
         BigDecimal expensesRaw = entries.sumAmountUpTo(envelope.id(), LedgerKind.EXPENSE, until);
         BigDecimal contributionsRaw = entries.sumAmountUpTo(envelope.id(), LedgerKind.CONTRIBUTION, until);
         Money expenses = expensesRaw == null ? Money.zero() : Money.brl(expensesRaw);
         Money contributions = contributionsRaw == null ? Money.zero() : Money.brl(contributionsRaw);
         return baseTotal.add(contributions).subtract(expenses);
+    }
+
+    @Transactional(readOnly = true)
+    public Money provisionFor(Envelope envelope, YearMonth month) {
+        if (!envelope.isAnnualExpense() || envelope.annualFundingMode() != br.com.controlegastos.envelopes.domain.AnnualExpenseFundingMode.MONTHLY) {
+            return envelope.baseAmount();
+        }
+        return annualInstallmentsUntil(envelope, month.atEndOfMonth()).stream()
+                .filter(installment -> installment.month().equals(month))
+                .map(AnnualExpenseInstallment::amount)
+                .reduce(Money.zero(), Money::add);
+    }
+
+    private Money annualProvisionUntil(Envelope envelope, LocalDate until) {
+        return annualInstallmentsUntil(envelope, until).stream()
+                .map(AnnualExpenseInstallment::amount)
+                .reduce(Money.zero(), Money::add);
+    }
+
+    private List<AnnualExpenseInstallment> annualInstallmentsUntil(Envelope envelope, LocalDate until) {
+        if (envelope.annualFundingMode() != br.com.controlegastos.envelopes.domain.AnnualExpenseFundingMode.MONTHLY) return List.of();
+        LocalDate cycleStart = envelope.createdAt().atZone(BUSINESS_ZONE).toLocalDate();
+        List<AnnualExpenseInstallment> all = new java.util.ArrayList<>();
+        while (!cycleStart.isAfter(until)) {
+            List<AnnualExpenseInstallment> cycle = envelope.annualExpensePlan().installmentsFrom(cycleStart);
+            all.addAll(cycle.stream().filter(installment -> !installment.month().atEndOfMonth().isAfter(until)).toList());
+            YearMonth lastMonth = cycle.getLast().month();
+            cycleStart = lastMonth.plusMonths(1).atDay(1);
+        }
+        return all;
+    }
+
+    private Money repeated(Money amount, long times) {
+        Money total = Money.zero();
+        for (int i = 0; i < times; i++) total = total.add(amount);
+        return total;
     }
 
     @Override

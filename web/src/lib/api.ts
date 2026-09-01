@@ -1,7 +1,8 @@
 import { AuthClient } from "../auth/auth-client";
 
 export type MoneyDTO = { amount: string; currency: "BRL" };
-export type EnvelopePurpose = "LIMIT" | "GOAL" | "FIXED" | "SAVINGS_TARGET";
+export type EnvelopePurpose = "LIMIT" | "GOAL" | "FIXED" | "SAVINGS_TARGET" | "ANNUAL_EXPENSE";
+export type AnnualExpenseDTO = { annualAmount: MoneyDTO; dueMonth: number; dueDay: number; fundingMode: "MONTHLY" | "ONE_TIME" };
 
 export type EnvelopeDTO = {
   id: string;
@@ -11,6 +12,7 @@ export type EnvelopeDTO = {
   baseAmount: MoneyDTO;
   targetAmount: MoneyDTO | null;
   targetReachedAt: string | null;
+  annualExpense?: AnnualExpenseDTO | null;
   available: MoneyDTO;
   isNegative: boolean;
   role: "OWNER" | "PARTICIPANT";
@@ -24,6 +26,10 @@ export type CreateEnvelopeRequest = {
   purpose: EnvelopePurpose;
   baseAmount: MoneyDTO;
   targetAmount?: MoneyDTO;
+  annualAmount?: MoneyDTO;
+  dueMonth?: number;
+  dueDay?: number;
+  fundingMode?: "MONTHLY" | "ONE_TIME";
 };
 
 export type UpdateEnvelopeRequest = {
@@ -31,6 +37,10 @@ export type UpdateEnvelopeRequest = {
   baseAmount?: MoneyDTO;
   purpose?: EnvelopePurpose;
   targetAmount?: MoneyDTO;
+  annualAmount?: MoneyDTO;
+  dueMonth?: number;
+  dueDay?: number;
+  fundingMode?: "MONTHLY" | "ONE_TIME";
 };
 
 export type LedgerEntryDTO = {

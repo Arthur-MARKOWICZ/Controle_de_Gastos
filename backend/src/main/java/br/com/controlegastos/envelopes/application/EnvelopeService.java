@@ -2,11 +2,13 @@ package br.com.controlegastos.envelopes.application;
 
 import br.com.controlegastos.envelopes.domain.Envelope;
 import br.com.controlegastos.envelopes.domain.EnvelopePurpose;
+import br.com.controlegastos.envelopes.domain.AnnualExpenseFundingMode;
 import br.com.controlegastos.envelopes.infrastructure.EnvelopeRepository;
 import br.com.controlegastos.identity.application.AuthenticationService;
 import br.com.controlegastos.shared.money.Money;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.MonthDay;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
@@ -44,6 +46,12 @@ public class EnvelopeService {
         // Validação de renda delegada ao IncomeService via IncomeChangeConstraint (evita dependência direta em MonthlyIncomeRepository)
         Envelope envelope = Envelope.create(ownerId, name, purpose, baseAmount, targetAmount, now);
         return envelopes.save(envelope);
+    }
+
+    @Transactional
+    public Envelope createAnnualExpense(String name, Money annualAmount, MonthDay dueDate, AnnualExpenseFundingMode fundingMode) {
+        UUID ownerId = authentication.currentUserId();
+        return envelopes.save(Envelope.createAnnualExpense(ownerId, name, annualAmount, dueDate, fundingMode, clock.instant()));
     }
 
     @Transactional(readOnly = true)
@@ -95,6 +103,21 @@ public class EnvelopeService {
                     effectivePurpose == EnvelopePurpose.SAVINGS_TARGET
                             ? (newTargetAmount == null ? envelope.targetAmount() : newTargetAmount)
                             : null);
+        }
+        return envelopes.save(envelope);
+    }
+
+    @Transactional
+    public Envelope updateAnnualExpense(UUID envelopeId, String newName, Money annualAmount, MonthDay dueDate,
+                                        AnnualExpenseFundingMode fundingMode) {
+        Envelope envelope = envelopes.findById(envelopeId).orElseThrow(() -> new EnvelopeNotFoundException(envelopeId));
+        if (!envelope.isOwnedBy(authentication.currentUserId())) throw new EnvelopeForbiddenException("Somente o proprietário pode editar a verba");
+        if (envelope.isArchived() || !envelope.isAnnualExpense()) throw new EnvelopeNotFoundException(envelopeId);
+        if (newName != null) envelope.rename(newName);
+        if (annualAmount != null || dueDate != null || fundingMode != null) {
+            envelope.changeAnnualExpense(annualAmount == null ? envelope.annualAmount() : annualAmount,
+                    dueDate == null ? envelope.annualDueDate() : dueDate,
+                    fundingMode == null ? envelope.annualFundingMode() : fundingMode);
         }
         return envelopes.save(envelope);
     }

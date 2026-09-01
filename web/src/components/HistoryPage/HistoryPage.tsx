@@ -11,7 +11,7 @@ import styles from "./HistoryPage.module.css";
 import { AppShell } from "../AppShell/AppShell";
 
 type Props = { email: string; onLogout(): void };
-const purposes = { LIMIT: "Limite", GOAL: "Meta de aporte", FIXED: "Compromisso fixo", SAVINGS_TARGET: "Meta de acumulação" } as const;
+const purposes = { LIMIT: "Limite", GOAL: "Meta de aporte", FIXED: "Compromisso fixo", SAVINGS_TARGET: "Meta de acumulação", ANNUAL_EXPENSE: "Gasto anual" } as const;
 
 function defaultFrom() { return `${currentMonthSaoPaulo()}-01`; }
 
@@ -53,7 +53,7 @@ export function HistoryPage({ email, onLogout }: Props) {
   }, [load]);
 
   const grouped = useMemo(() => {
-    const groups: Record<keyof typeof purposes, HistoryItemDTO[]> = { LIMIT: [], GOAL: [], FIXED: [], SAVINGS_TARGET: [] };
+    const groups: Record<keyof typeof purposes, HistoryItemDTO[]> = { LIMIT: [], GOAL: [], FIXED: [], SAVINGS_TARGET: [], ANNUAL_EXPENSE: [] };
     for (const item of data?.items ?? []) groups[item.purpose].push(item);
     return groups;
   }, [data]);

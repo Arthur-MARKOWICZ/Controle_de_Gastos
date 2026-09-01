@@ -10,6 +10,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
+import java.time.MonthDay;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -41,6 +42,20 @@ public class Envelope {
     @Column(name = "target_reached_at")
     private Instant targetReachedAt;
 
+    @Convert(converter = br.com.controlegastos.shared.money.MoneyJpaConverter.class)
+    @Column(name = "annual_amount", precision = Money.PRECISION, scale = Money.SCALE)
+    private Money annualAmount;
+
+    @Column(name = "annual_due_month")
+    private Integer annualDueMonth;
+
+    @Column(name = "annual_due_day")
+    private Integer annualDueDay;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "annual_funding_mode", length = 12)
+    private AnnualExpenseFundingMode annualFundingMode;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -70,6 +85,14 @@ public class Envelope {
         return new Envelope(UUID.randomUUID(), ownerId, name, purpose, baseAmount, targetAmount, now);
     }
 
+    public static Envelope createAnnualExpense(UUID ownerId, String name, Money annualAmount, MonthDay dueDate,
+                                               AnnualExpenseFundingMode fundingMode, Instant now) {
+        Envelope envelope = new Envelope(UUID.randomUUID(), ownerId, name, EnvelopePurpose.LIMIT, Money.zero(), null, now);
+        envelope.purpose = EnvelopePurpose.ANNUAL_EXPENSE;
+        envelope.changeAnnualExpense(annualAmount, dueDate, fundingMode);
+        return envelope;
+    }
+
     public UUID id() {
         return id;
     }
@@ -97,6 +120,14 @@ public class Envelope {
     public Instant targetReachedAt() {
         return targetReachedAt;
     }
+
+    public Money annualAmount() { return annualAmount; }
+
+    public MonthDay annualDueDate() {
+        return annualDueMonth == null || annualDueDay == null ? null : MonthDay.of(annualDueMonth, annualDueDay);
+    }
+
+    public AnnualExpenseFundingMode annualFundingMode() { return annualFundingMode; }
 
     public Instant createdAt() {
         return createdAt;
@@ -136,6 +167,22 @@ public class Envelope {
 
     public boolean isSavingsTarget() {
         return purpose == EnvelopePurpose.SAVINGS_TARGET;
+    }
+
+    public boolean isAnnualExpense() { return purpose == EnvelopePurpose.ANNUAL_EXPENSE; }
+
+    public AnnualExpensePlan annualExpensePlan() {
+        if (!isAnnualExpense()) return null;
+        return new AnnualExpensePlan(annualAmount, annualDueDate(), annualFundingMode);
+    }
+
+    public void changeAnnualExpense(Money newAnnualAmount, MonthDay newDueDate, AnnualExpenseFundingMode newFundingMode) {
+        if (!isAnnualExpense()) throw new IllegalStateException("Somente gasto anual possui configuração anual");
+        AnnualExpensePlan plan = new AnnualExpensePlan(newAnnualAmount, newDueDate, newFundingMode);
+        this.annualAmount = plan.annualAmount();
+        this.annualDueMonth = plan.dueDate().getMonthValue();
+        this.annualDueDay = plan.dueDate().getDayOfMonth();
+        this.annualFundingMode = plan.fundingMode();
     }
 
     public boolean recordTargetReached(Instant now) {
@@ -182,6 +229,8 @@ public class Envelope {
                 throw new IllegalArgumentException("Meta de acumulação não pode ter valor-base mensal");
             }
             this.targetAmount = requirePositiveTarget(newTargetAmount);
+        } else if (requiredPurpose == EnvelopePurpose.ANNUAL_EXPENSE) {
+            throw new IllegalArgumentException("Crie o gasto anual com valor, vencimento e modo de provisão");
         } else {
             if (newTargetAmount != null) {
                 throw new IllegalArgumentException("Somente meta de acumulação pode ter valor-alvo");
@@ -189,6 +238,10 @@ public class Envelope {
             this.targetAmount = null;
             this.targetReachedAt = null;
         }
+        this.annualAmount = null;
+        this.annualDueMonth = null;
+        this.annualDueDay = null;
+        this.annualFundingMode = null;
         this.purpose = requiredPurpose;
         this.baseAmount = requiredBaseAmount;
     }

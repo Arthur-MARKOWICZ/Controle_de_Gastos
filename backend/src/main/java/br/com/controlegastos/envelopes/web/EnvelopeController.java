@@ -3,9 +3,11 @@ package br.com.controlegastos.envelopes.web;
 import br.com.controlegastos.envelopes.application.EnvelopeService;
 import br.com.controlegastos.envelopes.domain.Envelope;
 import br.com.controlegastos.envelopes.domain.EnvelopePurpose;
+import br.com.controlegastos.envelopes.domain.AnnualExpenseFundingMode;
 import br.com.controlegastos.identity.application.AuthenticationService;
 import br.com.controlegastos.shared.money.Money;
 import java.time.Instant;
+import java.time.MonthDay;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -53,9 +55,11 @@ public class EnvelopeController {
     EnvelopeResponse create(@RequestBody JsonNode body) {
         String name = textField(body, "name");
         EnvelopePurpose purpose = purposeField(body, "purpose");
-        Money baseAmount = moneyField(body, "baseAmount");
+        Money baseAmount = purpose == EnvelopePurpose.ANNUAL_EXPENSE ? Money.zero() : moneyField(body, "baseAmount");
         Money targetAmount = body.has("targetAmount") ? moneyField(body, "targetAmount") : null;
-        Envelope created = envelopes.create(name, purpose, baseAmount, targetAmount);
+        Envelope created = purpose == EnvelopePurpose.ANNUAL_EXPENSE
+                ? envelopes.createAnnualExpense(name, moneyField(body, "annualAmount"), dueDateField(body), fundingModeField(body))
+                : envelopes.create(name, purpose, baseAmount, targetAmount);
         YearMonth current = YearMonth.now(EnvelopeService.BUSINESS_ZONE);
         return toResponse(created, current);
     }
@@ -69,15 +73,20 @@ public class EnvelopeController {
         EnvelopePurpose purpose = body.has("purpose") ? purposeField(body, "purpose") : null;
         Money baseAmount = body.has("baseAmount") ? moneyField(body, "baseAmount") : null;
         Money targetAmount = body.has("targetAmount") ? moneyField(body, "targetAmount") : null;
+        Money annualAmount = body.has("annualAmount") ? moneyField(body, "annualAmount") : null;
+        MonthDay dueDate = body.has("dueMonth") || body.has("dueDay") ? dueDateField(body) : null;
+        AnnualExpenseFundingMode fundingMode = body.has("fundingMode") ? fundingModeField(body) : null;
         // Validate no extra fields
         var fieldIt = body.properties().iterator();
         while (fieldIt.hasNext()) {
             String f = fieldIt.next().getKey();
-            if (!List.of("name", "purpose", "baseAmount", "targetAmount").contains(f)) {
+            if (!List.of("name", "purpose", "baseAmount", "targetAmount", "annualAmount", "dueMonth", "dueDay", "fundingMode").contains(f)) {
                 throw new IllegalArgumentException("Campo não permitido: " + f);
             }
         }
-        Envelope updated = envelopes.update(id, name, purpose, baseAmount, targetAmount);
+        Envelope updated = annualAmount != null || dueDate != null || fundingMode != null
+                ? envelopes.updateAnnualExpense(id, name, annualAmount, dueDate, fundingMode)
+                : envelopes.update(id, name, purpose, baseAmount, targetAmount);
         YearMonth current = YearMonth.now(EnvelopeService.BUSINESS_ZONE);
         return toResponse(updated, current);
     }
@@ -143,6 +152,20 @@ public class EnvelopeController {
         return Money.brl(amountStr);
     }
 
+    private MonthDay dueDateField(JsonNode body) {
+        if (!body.has("dueMonth") || !body.has("dueDay") || !body.get("dueMonth").isInt() || !body.get("dueDay").isInt()) {
+            throw new IllegalArgumentException("Informe mês e dia de vencimento");
+        }
+        try { return MonthDay.of(body.get("dueMonth").asInt(), body.get("dueDay").asInt()); }
+        catch (RuntimeException exception) { throw new IllegalArgumentException("Data de vencimento inválida"); }
+    }
+
+    private AnnualExpenseFundingMode fundingModeField(JsonNode body) {
+        if (!body.has("fundingMode") || !body.get("fundingMode").isString()) throw new IllegalArgumentException("Informe o modo de provisão");
+        try { return AnnualExpenseFundingMode.valueOf(body.get("fundingMode").asString()); }
+        catch (IllegalArgumentException exception) { throw new IllegalArgumentException("Modo de provisão inválido"); }
+    }
+
     private EnvelopeResponse toResponse(Envelope e, YearMonth month) {
         // Sem dependência em ledger para quebrar ciclo Modulith; disponível inicial = baseAmount.
         // Saldo real com carry e ledger é fornecido por GET /ledger/summary (ledger module).
@@ -155,6 +178,8 @@ public class EnvelopeController {
                 new MoneyDTO(e.baseAmount().toPlainString(), e.baseAmount().currency()),
                 e.targetAmount() == null ? null : new MoneyDTO(e.targetAmount().toPlainString(), e.targetAmount().currency()),
                 e.targetReachedAt(),
+                e.annualAmount() == null ? null : new AnnualExpenseDTO(new MoneyDTO(e.annualAmount().toPlainString(), e.annualAmount().currency()),
+                        e.annualDueDate().getMonthValue(), e.annualDueDate().getDayOfMonth(), e.annualFundingMode().name()),
                 new MoneyDTO(available.toPlainString(), available.currency()),
                 isNegative, role,
                 e.createdAt(), e.archivedAt(), e.version()
@@ -162,9 +187,10 @@ public class EnvelopeController {
     }
 
     record MoneyDTO(String amount, String currency) {}
+    record AnnualExpenseDTO(MoneyDTO annualAmount, int dueMonth, int dueDay, String fundingMode) {}
 
     record EnvelopeResponse(UUID id, UUID ownerId, String name, String purpose,
-                            MoneyDTO baseAmount, MoneyDTO targetAmount, Instant targetReachedAt, MoneyDTO available,
+                            MoneyDTO baseAmount, MoneyDTO targetAmount, Instant targetReachedAt, AnnualExpenseDTO annualExpense, MoneyDTO available,
                             boolean isNegative, String role,
                             Instant createdAt, Instant archivedAt, long version) {}
 }

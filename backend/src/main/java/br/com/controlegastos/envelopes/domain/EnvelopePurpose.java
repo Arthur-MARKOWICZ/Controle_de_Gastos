@@ -4,5 +4,6 @@ public enum EnvelopePurpose {
     LIMIT,
     GOAL,
     FIXED,
-    SAVINGS_TARGET
+    SAVINGS_TARGET,
+    ANNUAL_EXPENSE
 }
