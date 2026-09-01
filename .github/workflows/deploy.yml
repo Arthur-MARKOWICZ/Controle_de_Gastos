@@ -172,6 +172,7 @@ jobs:
           AUTH_ATTEMPT_HMAC_SECRET: ${{ secrets.AUTH_ATTEMPT_HMAC_SECRET }}
         run: |
           set -Eeuo pipefail
+          set -x
           test -n "$PUBLIC_APP_URL"
           test -n "$POSTGRES_DB"
           test -n "$POSTGRES_USER"
@@ -198,8 +199,11 @@ jobs:
             esac
           done
           readonly SSH=(ssh -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST")
+          echo ">>> Enviando imagem backend..."
           docker image save controle-gastos-backend:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
+          echo ">>>Backend enviado com sucesso, enviando web..."
           docker image save controle-gastos-web:latest | gzip -1 | "${SSH[@]}" 'docker image load --quiet'
+          echo ">>> Web enviada com sucesso, executando script remoto..."
 
           {
             printf 'export PUBLIC_APP_URL=%q\n' "$PUBLIC_APP_URL"
@@ -210,6 +214,7 @@ jobs:
             printf 'export AUTH_ATTEMPT_HMAC_SECRET=%q\n' "$AUTH_ATTEMPT_HMAC_SECRET"
             cat <<'REMOTE_SCRIPT'
             set -Eeuo pipefail
+            set -x
             cd /srv/controle-gastos
             export COMPOSE_DISABLE_ENV_FILE=1
             export POSTGRES_BIND_ADDRESS=127.0.0.1
