@@ -23,9 +23,9 @@ para:
 | `80` | Anywhere | Desafio HTTP do Let's Encrypt e redirecionamento |
 | `443` | Anywhere | Aplicação HTTPS |
 
-Não abra 3000, 5432 ou 8080. Se o UFW estiver ativo, replique as regras nele;
-se estiver inativo, o firewall gerenciado da Hostinger continua sendo uma
-camada separada. Confira na VPS com `sudo ufw status verbose` e
+Não abra 3000, 5432, 8080, 25, 465 ou 587. Se o UFW estiver ativo, replique as
+regras nele; se estiver inativo, o firewall gerenciado da Hostinger continua
+sendo uma camada separada. Confira na VPS com `sudo ufw status verbose` e
 `sudo ss -lntp`.
 
 ## 2. GitHub Environment `production`
@@ -46,6 +46,8 @@ Environments**, crie `production` e cadastre:
 | `POSTGRES_PASSWORD` | Secret | Sim | Senha aleatória nova do banco |
 | `AUTH_JWT_SECRET` | Secret | Sim | Segredo HS256 aleatório com pelo menos 32 bytes |
 | `AUTH_ATTEMPT_HMAC_SECRET` | Secret | Sim | Segredo HMAC distinto, com pelo menos 32 bytes |
+| `GMAIL_SMTP_USERNAME` | Secret | Sim | Conta Gmail remetente exclusiva do serviço |
+| `GMAIL_SMTP_APP_PASSWORD` | Secret | Sim | App password de 16 dígitos da conta remetente |
 
 Gere valores diferentes para as três credenciais:
 
@@ -64,6 +66,31 @@ restrito.
 No primeiro deploy seguro sobre um volume existente, o workflow também executa
 `ALTER ROLE` para aplicar `POSTGRES_PASSWORD`. `POSTGRES_DB` e `POSTGRES_USER`
 não devem ser renomeados sem uma migração explícita.
+
+### SMTP Gmail para recuperação de senha
+
+Esta configuração prepara o deploy; ela não ativa recuperação de senha antes
+do ADR correspondente e da implementação da feature. A conta remetente deve
+ser exclusiva do serviço, ter a verificação em duas etapas ativada e usar uma
+app password dedicada. O backend recebe `smtp.gmail.com`, porta `587`, STARTTLS
+e o remetente igual a `GMAIL_SMTP_USERNAME`; host e porta não são Secrets.
+
+O SMTP é exclusivamente tráfego de saída. Não crie regra de entrada para 25,
+465 ou 587. Caso a política de saída da VPS seja restritiva, permita somente
+TCP 587 da VPS para `smtp.gmail.com`. Antes do deploy, valide DNS e TLS sem
+enviar credenciais:
+
+```bash
+getent ahosts smtp.gmail.com
+openssl s_client -starttls smtp -connect smtp.gmail.com:587 -servername smtp.gmail.com </dev/null
+```
+
+App passwords são menos recomendadas pelo Google e são revogadas quando a senha
+da conta Gmail muda. Para rotacionar, gere uma nova app password, atualize
+`GMAIL_SMTP_APP_PASSWORD` no GitHub Environment, execute o deploy, valide o
+envio com uma conta sintética e só então revogue a senha anterior. Nunca grave
+a senha de app em `.env`, imagem, ticket, log ou exemplo. O workflow desativa o
+rastreio de comandos antes de receber e transportar esses Secrets.
 
 ## 3. Deploy dos containers
 

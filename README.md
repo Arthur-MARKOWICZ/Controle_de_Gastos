@@ -39,6 +39,25 @@ mobile (KMP) ──────┘          │
    `backend/` e `web/` antes de recriar os serviços afetados.
 5. Abra `mobile/` no Android Studio e execute `androidApp`.
 
+### API HTTPS no Android
+
+Para testar o aplicativo com a API publicada, defina a URL pública HTTPS no
+arquivo local ignorado pelo Git `mobile/local.properties`:
+
+```properties
+API_BASE_URL=https://<SUBDOMINIO>
+```
+
+Use somente a origem, sem `/api`, caminho ou barra final. Por exemplo,
+`https://gastos.exemplo.com`. Não use placeholders de configuração do Spring,
+como `${api_base_url:...}`: o Gradle não os expande e interrompe o build porque
+o valor não é uma URL HTTP(S). A mesma URL pode ser passada em linha de comando
+com `-PAPI_BASE_URL=https://<SUBDOMINIO>`.
+
+O certificado do subdomínio deve ser público e válido; a configuração de Nginx
+e Certbot está no [runbook de HTTPS](docs/deploy/https-producao.md). O build de
+debug mantém HTTP liberado apenas para a API local do emulador.
+
 ## Comandos
 
 | Comando | Descrição |

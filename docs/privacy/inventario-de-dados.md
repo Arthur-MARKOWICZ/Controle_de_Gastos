@@ -17,6 +17,16 @@ Este documento é uma base de engenharia, não uma definição definitiva de bas
 | Token push | Entregar notificações | API/PostgreSQL | Até logout/revogação | Nunca registrar em logs |
 | Eventos de auditoria | Segurança e responsabilização | API/PostgreSQL | Prazo a definir | Sem tokens ou payload financeiro completo |
 
+## Operador previsto para recuperação de senha
+
+O Gmail SMTP está configurado somente como preparação de deploy e a recuperação
+de senha ainda não está ativa. Quando o ADR e a implementação correspondentes
+forem aceitos, o Google receberá o endereço destinatário e o link de
+recuperação; ambos são dados pessoais e o link contém um segredo de acesso.
+Antes de qualquer uso real, devem ser registrados finalidade, contrato,
+região/transferência, retenção, descarte e resposta a incidentes. Token, URL e
+senha jamais entram em logs, backups de diagnóstico ou dados de teste.
+
 ## Regras
 
 - Toda nova coluna pessoal deve atualizar este inventário.
