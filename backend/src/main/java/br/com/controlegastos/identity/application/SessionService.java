@@ -91,6 +91,11 @@ public class SessionService {
                 .ifPresent(session -> session.revoke(clock.instant(), "LOGOUT"));
     }
 
+    @Transactional
+    public void revokeAllForPasswordReset(UUID userId) {
+        sessions.revokeActiveByUserId(userId, clock.instant(), "PASSWORD_RESET");
+    }
+
     @Transactional(readOnly = true)
     public boolean isActive(UUID sessionId, UUID userId) {
         return sessions.findById(sessionId)

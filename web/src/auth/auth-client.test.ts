@@ -37,6 +37,20 @@ describe("AuthClient", () => {
 
     await expect(new AuthClient("http://api.test").restore()).resolves.toBeNull();
   });
+
+  it("envia a solicitação e a confirmação de recuperação sem token de sessão", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({}));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new AuthClient("http://api.test");
+
+    await client.requestPasswordReset("pessoa@example.com");
+    await client.resetPassword("token-seguro", "uma senha nova segura");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://api.test/api/v1/auth/password-reset-requests",
+      expect.objectContaining({ method: "POST", credentials: "include", body: JSON.stringify({ email: "pessoa@example.com" }) }));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "http://api.test/api/v1/auth/password-resets",
+      expect.objectContaining({ method: "POST", credentials: "include", body: JSON.stringify({ token: "token-seguro", newPassword: "uma senha nova segura" }) }));
+  });
 });
 
 function response(body: unknown, status = 200): Response {

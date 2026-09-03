@@ -5,9 +5,10 @@ Este documento é uma base de engenharia, não uma definição definitiva de bas
 | Dado | Finalidade | Local | Retenção inicial | Observação |
 |---|---|---|---|---|
 | UUID de usuário | Identificar proprietário e participantes | API/PostgreSQL | Vida da conta e obrigações de auditoria | Não usar e-mail como chave de domínio |
-| E-mail normalizado | Cadastro e login | API/PostgreSQL | Vida da conta; descarte/anomização conforme política de exclusão | Não verificado neste corte; não autoriza recuperação ou ação sensível |
+| E-mail normalizado | Cadastro, login e recuperação de senha | API/PostgreSQL e Gmail SMTP | Vida da conta; descarte/anomização conforme política de exclusão | Uma recuperação concluída confirma o e-mail; nunca registrar em logs |
 | Hash Argon2id da senha | Verificar credencial | API/PostgreSQL | Até troca ou exclusão da conta | Irreversível; senha original nunca é persistida |
 | ID e hash da sessão | Renovar, detectar reuso e revogar acesso | API/PostgreSQL | Sessão ativa + 30 dias após encerramento | Refresh original existe somente no cliente; descarte diário automatizado |
+| Hash de token de recuperação | Autorizar uma única troca de senha | API/PostgreSQL | Até 24 horas após expiração ou consumo | Token bruto só compõe o e-mail; válido por 15 minutos e nunca entra em logs |
 | Chave HMAC de tentativa e contadores | Limitar abuso de login/cadastro | API/PostgreSQL | 24 horas | Derivada de e-mail/IP; não armazena os valores brutos; descarte diário e oportunístico |
 | Segredo HMAC de JWT | Assinar e validar access tokens | Variável protegida no runtime | Enquanto houver access tokens emitidos (máximo de 15 min) | Nunca entra no Git, logs ou imagens; uma troca invalida os access tokens anteriores |
 | Renda mensal e histórico de alterações | Distribuir verbas, validar limites e apresentar a evolução ao titular | API/PostgreSQL | Até exclusão da conta; política final de histórico pendente | Dado financeiro pessoal; somente valor total, mês de vigência, ator e instantes técnicos |
@@ -17,15 +18,15 @@ Este documento é uma base de engenharia, não uma definição definitiva de bas
 | Token push | Entregar notificações | API/PostgreSQL | Até logout/revogação | Nunca registrar em logs |
 | Eventos de auditoria | Segurança e responsabilização | API/PostgreSQL | Prazo a definir | Sem tokens ou payload financeiro completo |
 
-## Operador previsto para recuperação de senha
+## Operador para recuperação de senha
 
-O Gmail SMTP está configurado somente como preparação de deploy e a recuperação
-de senha ainda não está ativa. Quando o ADR e a implementação correspondentes
-forem aceitos, o Google receberá o endereço destinatário e o link de
-recuperação; ambos são dados pessoais e o link contém um segredo de acesso.
-Antes de qualquer uso real, devem ser registrados finalidade, contrato,
-região/transferência, retenção, descarte e resposta a incidentes. Token, URL e
-senha jamais entram em logs, backups de diagnóstico ou dados de teste.
+O Google, por meio do Gmail SMTP, recebe o endereço destinatário e o link de
+recuperação para entregar a mensagem. Ambos são dados pessoais e o link contém
+um segredo de acesso. A conta remetente usa app password exclusiva, mantida
+somente como Secret no GitHub Environment; token, URL e senha jamais entram em
+logs, backups de diagnóstico ou dados de teste. Finalidade, contrato,
+região/transferência, retenção, descarte e resposta a incidentes do operador
+continuam pendentes de registro pelo controlador antes da abertura pública.
 
 ## Regras
 

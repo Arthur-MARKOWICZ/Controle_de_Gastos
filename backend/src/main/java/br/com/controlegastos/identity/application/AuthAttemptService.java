@@ -79,6 +79,19 @@ public class AuthAttemptService {
         return true;
     }
 
+    @Transactional
+    public boolean consumePasswordResetAttempt(String rawEmail, String remoteAddress) {
+        String key = key("PASSWORD_RESET", rawEmail, remoteAddress);
+        attempts.lockKey(key);
+        Instant now = clock.instant();
+        attempts.deleteExpired(now);
+        AuthAttempt attempt = attempts.findById(key).orElseGet(() -> new AuthAttempt(key, now, RETENTION));
+        if (attempt.isBlockedAt(now)) return false;
+        attempt.recordFailure(now, WINDOW, BLOCK_DURATION, RETENTION, LIMIT);
+        attempts.save(attempt);
+        return true;
+    }
+
     private String key(String scope, String rawEmail, String remoteAddress) {
         String normalizedEmail;
         try {

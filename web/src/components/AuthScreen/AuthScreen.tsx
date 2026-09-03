@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import styles from "./AuthScreen.module.css";
 import { ThemeSelector } from "../../theme/ThemeSelector";
 
@@ -63,7 +64,7 @@ export function AuthScreen({ onLogin, onRegister, externalError, expired = false
         <h2 id="form-title">{mode === "login" ? "Entre na sua conta" : "Crie sua conta"}</h2>
         <p className={styles.supporting}>{mode === "login"
           ? "Use o e-mail e a senha cadastrados."
-          : "O e-mail ainda não será verificado e não haverá recuperação de senha neste corte."}</p>
+          : "Use de 12 a 128 caracteres. Você poderá recuperar a senha pelo e-mail cadastrado."}</p>
 
         {expired && <p className={styles.notice} role="status">Sua sessão expirou. Entre novamente.</p>}
         {(message || externalError) && <p className={styles.notice} role="status">{message ?? externalError}</p>}
@@ -77,6 +78,7 @@ export function AuthScreen({ onLogin, onRegister, externalError, expired = false
             autoComplete={mode === "login" ? "current-password" : "new-password"}
             minLength={12} maxLength={128} required value={password}
             onChange={(event) => setPassword(event.target.value)} />
+          {mode === "login" && <Link className={styles.passwordResetLink} href="/recuperar-senha">Esqueci minha senha</Link>}
           {mode === "register" && <p className={styles.hint}>Use de 12 a 128 caracteres. Espaços e Unicode são aceitos.</p>}
           <button className={styles.submit} type="submit" disabled={busy}>
             {busy ? "Aguarde…" : mode === "login" ? "Entrar com segurança" : "Concluir cadastro"}

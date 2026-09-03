@@ -2,6 +2,7 @@ package br.com.controlegastos.identity.web;
 
 import br.com.controlegastos.identity.application.InvalidCredentialsException;
 import br.com.controlegastos.identity.application.InvalidRefreshTokenException;
+import br.com.controlegastos.identity.application.InvalidPasswordResetTokenException;
 import br.com.controlegastos.identity.application.TooManyAttemptsException;
 import java.time.Duration;
 import org.springframework.http.HttpHeaders;
@@ -57,6 +58,12 @@ class ApiExceptionHandler {
     ProblemDetail tooManyAttempts() {
         return problem(HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_ATTEMPTS",
                 "Muitas tentativas", "Aguarde alguns minutos antes de tentar novamente.");
+    }
+
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    ProblemDetail invalidPasswordResetToken() {
+        return problem(HttpStatus.BAD_REQUEST, "PASSWORD_RESET_INVALID",
+                "Link indisponível", "O link de redefinição é inválido ou expirou.");
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,
