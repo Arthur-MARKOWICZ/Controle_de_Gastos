@@ -170,15 +170,19 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           AUTH_JWT_SECRET: ${{ secrets.AUTH_JWT_SECRET }}
           AUTH_ATTEMPT_HMAC_SECRET: ${{ secrets.AUTH_ATTEMPT_HMAC_SECRET }}
+          GMAIL_SMTP_USERNAME: ${{ secrets.GMAIL_SMTP_USERNAME }}
+          GMAIL_SMTP_APP_PASSWORD: ${{ secrets.GMAIL_SMTP_APP_PASSWORD }}
         run: |
           set -Eeuo pipefail
-          set -x
+          set +x
           test -n "$PUBLIC_APP_URL"
           test -n "$POSTGRES_DB"
           test -n "$POSTGRES_USER"
           test -n "$POSTGRES_PASSWORD"
           test "${#AUTH_JWT_SECRET}" -ge 32
           test "${#AUTH_ATTEMPT_HMAC_SECRET}" -ge 32
+          test -n "$GMAIL_SMTP_USERNAME"
+          test -n "$GMAIL_SMTP_APP_PASSWORD"
           case "$PUBLIC_APP_URL" in
             https://*) ;;
             *) echo "PUBLIC_APP_URL deve iniciar com https://" >&2; exit 1 ;;
@@ -193,7 +197,7 @@ jobs:
           case "$POSTGRES_USER" in
             *[!A-Za-z0-9_]*) echo "POSTGRES_USER aceita apenas letras, números e underscore" >&2; exit 1 ;;
           esac
-          for VALUE in "$PUBLIC_APP_URL" "$POSTGRES_DB" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$AUTH_JWT_SECRET" "$AUTH_ATTEMPT_HMAC_SECRET"; do
+          for VALUE in "$PUBLIC_APP_URL" "$POSTGRES_DB" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$AUTH_JWT_SECRET" "$AUTH_ATTEMPT_HMAC_SECRET" "$GMAIL_SMTP_USERNAME" "$GMAIL_SMTP_APP_PASSWORD"; do
             case "$VALUE" in
               *$'\n'*) echo "Variáveis de produção não podem conter quebra de linha" >&2; exit 1 ;;
             esac
@@ -212,9 +216,11 @@ jobs:
             printf 'export POSTGRES_PASSWORD=%q\n' "$POSTGRES_PASSWORD"
             printf 'export AUTH_JWT_SECRET=%q\n' "$AUTH_JWT_SECRET"
             printf 'export AUTH_ATTEMPT_HMAC_SECRET=%q\n' "$AUTH_ATTEMPT_HMAC_SECRET"
+            printf 'export GMAIL_SMTP_USERNAME=%q\n' "$GMAIL_SMTP_USERNAME"
+            printf 'export GMAIL_SMTP_APP_PASSWORD=%q\n' "$GMAIL_SMTP_APP_PASSWORD"
             cat <<'REMOTE_SCRIPT'
             set -Eeuo pipefail
-            set -x
+            set +x
             cd /srv/controle-gastos
             export COMPOSE_DISABLE_ENV_FILE=1
             export POSTGRES_BIND_ADDRESS=127.0.0.1
