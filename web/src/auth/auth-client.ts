@@ -49,6 +49,27 @@ export class AuthClient {
     return this.currentUser();
   }
 
+  async requestPasswordReset(email: string): Promise<void> {
+    const response = await fetch(`${this.apiUrl}/api/v1/auth/password-reset-requests`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) throw await this.error(response);
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const response = await fetch(`${this.apiUrl}/api/v1/auth/password-resets`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token, newPassword }),
+    });
+    if (!response.ok) throw await this.error(response);
+    this.accessToken = undefined;
+  }
+
   async restore(): Promise<CurrentUser | null> {
     if (!await this.refresh()) return null;
     try {

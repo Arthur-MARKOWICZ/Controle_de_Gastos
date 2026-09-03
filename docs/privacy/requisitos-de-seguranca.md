@@ -12,6 +12,9 @@
   cifrada com chave protegida pelo Keystore e excluída no logout.
 - Respostas genéricas e rate limiting com identificadores HMAC, sem persistir
   e-mail ou IP em `auth_attempt`.
+- Recuperação de senha por token aleatório de 256 bits, com validade de 15
+  minutos, uso único e somente hash persistido; a conclusão revoga todas as
+  sessões do usuário e não cria login automático.
 - Autorização no backend para cada recurso; ocultar botões não é controle de acesso.
 - Privilégios administrativos separados das contas comuns.
 - Revogar tokens push ao sair e ao excluir a conta.
@@ -32,7 +35,7 @@
 
 - Logs estruturados com identificadores técnicos e `correlation_id`.
 - Não registrar token, senha, renda, descrição de gasto ou payload completo.
-- Não registrar DTOs de cadastro/login, hashes de senha/refresh, cookies,
+- Não registrar DTOs de cadastro/login, hashes de senha/refresh/recuperação, cookies,
   cabeçalhos `Authorization` ou e-mails associados a falhas de autenticação.
 - Auditoria registra ator, ação, recurso, instante e resultado.
 - Acesso à auditoria é restrito e também auditado.

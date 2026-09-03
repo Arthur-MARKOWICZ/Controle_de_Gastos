@@ -40,5 +40,9 @@ use senhas nem e-mails reais na medição.
   vencidas oportunisticamente.
 - Reuso de refresh revoga a sessão inteira e deve produzir métrica sem token,
   cookie, e-mail ou IP bruto.
-- Recuperação de senha e verificação de e-mail não existem neste corte; suporte
-  não deve contornar isso alterando hashes diretamente.
+- O token de recuperação expira em 15 minutos, só pode ser usado uma vez e seu
+  hash é descartado até 24 horas após o término. Suporte não altera hashes
+  diretamente: deve orientar a pessoa a iniciar uma nova recuperação.
+- A troca confirma o e-mail e revoga todas as sessões; a pessoa deve entrar de
+  novo. O Gmail SMTP usa app password exclusiva e sua rotação segue o runbook
+  de produção.

@@ -9,5 +9,6 @@ public interface SessionRepository {
     <S extends AuthSession> S save(S session);
     Optional<AuthSession> findById(UUID id);
     Optional<AuthSession> findLockedById(UUID id);
+    int revokeActiveByUserId(UUID userId, Instant now, String reason);
     int deleteEndedBefore(Instant cutoff);
 }

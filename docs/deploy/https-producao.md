@@ -69,9 +69,8 @@ não devem ser renomeados sem uma migração explícita.
 
 ### SMTP Gmail para recuperação de senha
 
-Esta configuração prepara o deploy; ela não ativa recuperação de senha antes
-do ADR correspondente e da implementação da feature. A conta remetente deve
-ser exclusiva do serviço, ter a verificação em duas etapas ativada e usar uma
+Esta configuração ativa o envio da recuperação de senha em produção. A conta
+remetente deve ser exclusiva do serviço, ter a verificação em duas etapas ativada e usar uma
 app password dedicada. O backend recebe `smtp.gmail.com`, porta `587`, STARTTLS
 e o remetente igual a `GMAIL_SMTP_USERNAME`; host e porta não são Secrets.
 
@@ -90,7 +89,9 @@ da conta Gmail muda. Para rotacionar, gere uma nova app password, atualize
 `GMAIL_SMTP_APP_PASSWORD` no GitHub Environment, execute o deploy, valide o
 envio com uma conta sintética e só então revogue a senha anterior. Nunca grave
 a senha de app em `.env`, imagem, ticket, log ou exemplo. O workflow desativa o
-rastreio de comandos antes de receber e transportar esses Secrets.
+rastreio de comandos antes de receber e transportar esses Secrets. Após o deploy,
+solicite uma recuperação para uma conta sintética, confirme o recebimento do
+link HTTPS e verifique que as sessões anteriores foram revogadas.
 
 ## 3. Deploy dos containers
 

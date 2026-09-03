@@ -5,11 +5,11 @@ import { AuthScreen } from "./auth-screen";
 afterEach(cleanup);
 
 describe("AuthScreen", () => {
-  it("oferece login sem prometer recuperação de senha", () => {
+  it("oferece recuperação de senha na tela de login", () => {
     render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn()} />);
 
     expect(screen.getByRole("heading", { name: "Entre na sua conta" })).toBeDefined();
-    expect(screen.queryByText(/esqueci minha senha/i)).toBeNull();
+    expect(screen.getByRole("link", { name: "Esqueci minha senha" })).toHaveProperty("href", "http://localhost:3000/recuperar-senha");
     expect(screen.getByLabelText("E-mail")).toBeDefined();
     expect(screen.getByLabelText("Senha")).toBeDefined();
   });

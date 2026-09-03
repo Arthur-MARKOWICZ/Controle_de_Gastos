@@ -2,6 +2,7 @@ package br.com.controlegastos.identity.web;
 
 import br.com.controlegastos.identity.application.AuthenticationService;
 import br.com.controlegastos.identity.application.SessionService;
+import br.com.controlegastos.identity.application.PasswordResetService;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,14 +30,17 @@ public class AuthController {
     private final String cookieName;
     private final boolean cookieSecure;
     private final Duration refreshIdleLifetime;
+    private final PasswordResetService passwordResets;
 
     public AuthController(
             AuthenticationService authentication,
+            PasswordResetService passwordResets,
             @Value("${app.auth.cookie-name}") String cookieName,
             @Value("${app.auth.cookie-secure}") boolean cookieSecure,
             @Value("${app.auth.refresh-idle-lifetime}") Duration refreshIdleLifetime
     ) {
         this.authentication = authentication;
+        this.passwordResets = passwordResets;
         this.cookieName = cookieName;
         this.cookieSecure = cookieSecure;
         this.refreshIdleLifetime = refreshIdleLifetime;
@@ -67,6 +71,21 @@ public class AuthController {
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString())
                 .build();
+    }
+
+    @PostMapping("/password-reset-requests")
+    ResponseEntity<Map<String, String>> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request,
+                                                               HttpServletRequest httpRequest) {
+        passwordResets.request(request.email(), httpRequest.getRemoteAddr());
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of(
+                "message", "Se houver uma conta para este endereço, enviaremos as instruções."
+        ));
+    }
+
+    @PostMapping("/password-resets")
+    ResponseEntity<Void> resetPassword(@Valid @RequestBody PasswordResetConfirmation request) {
+        passwordResets.reset(request.token(), request.newPassword());
+        return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString()).build();
     }
 
     private ResponseEntity<TokenResponse> tokenResponse(SessionService.AuthenticatedSession session) {
@@ -119,6 +138,10 @@ public class AuthController {
             @NotNull String password
     ) {
     }
+
+    public record PasswordResetRequest(@NotNull String email) { }
+    public record PasswordResetConfirmation(@NotBlank @Size(max = 256) String token,
+                                            @NotNull @Size(min = 12, max = 128) String newPassword) { }
 
     public record TokenResponse(String accessToken, String tokenType, long expiresIn) {
     }

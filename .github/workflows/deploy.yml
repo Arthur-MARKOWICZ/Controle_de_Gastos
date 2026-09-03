@@ -229,6 +229,7 @@ jobs:
             export AUTH_COOKIE_SECURE=true
             export AUTH_COOKIE_NAME=__Secure-refresh_token
             export AUTH_ALLOWED_ORIGINS="$PUBLIC_APP_URL"
+            export AUTH_PASSWORD_RESET_MAIL_ENABLED=true
             export NEXT_PUBLIC_API_URL="$PUBLIC_APP_URL"
 
             set -eu

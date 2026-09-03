@@ -84,4 +84,10 @@ public class UserAccount {
         status = UserStatus.BLOCKED;
         updatedAt = now;
     }
+
+    public void changePasswordAndVerifyEmail(String passwordHash, Instant now) {
+        passwordCredential = new PasswordCredential(passwordHash, now);
+        if (emailVerifiedAt == null) emailVerifiedAt = now;
+        updatedAt = now;
+    }
 }

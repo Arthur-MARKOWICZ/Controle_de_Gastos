@@ -73,8 +73,9 @@ debug mantém HTTP liberado apenas para a API local do emulador.
 O ambiente de teste usa uma chave JWT efêmera e cookie sem `Secure` apenas
 porque serve HTTP. Ele não é configuração de produção.
 
-Cadastro não verifica e-mail e recuperação de senha ainda não existe. Não abra
-o cadastro ao público antes dos requisitos jurídicos e operacionais listados em
+O cadastro não verifica o e-mail imediatamente; uma recuperação de senha bem-sucedida
+o confirma e revoga todas as sessões existentes. Não abra o cadastro ao público antes
+dos requisitos jurídicos e operacionais listados em
 [`docs/privacy/requisitos-de-seguranca.md`](docs/privacy/requisitos-de-seguranca.md).
 Rotação de chaves, benchmark Argon2id e retenção estão descritos em
 [`docs/privacy/operacao-de-autenticacao.md`](docs/privacy/operacao-de-autenticacao.md).

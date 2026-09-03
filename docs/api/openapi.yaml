@@ -57,6 +57,33 @@ paths:
       responses:
         '204': { description: Sessão revogada e cookie removido }
         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /auth/password-reset-requests:
+    post:
+      summary: Solicita instruções para redefinir a senha
+      description: Sempre retorna a mesma resposta para e-mail existente, inexistente ou limitado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordResetRequest' }
+      responses:
+        '202':
+          description: Solicitação recebida; não confirma a existência da conta
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Message' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+  /auth/password-resets:
+    post:
+      summary: Redefine a senha usando o token recebido por e-mail
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordResetConfirmation' }
+      responses:
+        '204': { description: Senha alterada, sessões revogadas e refresh cookie removido }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
   /users/me:
     get:
       summary: Retorna a conta autenticada
@@ -409,6 +436,19 @@ components:
       properties:
         email: { type: string }
         password: { type: string }
+    PasswordResetRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+    PasswordResetConfirmation:
+      type: object
+      additionalProperties: false
+      required: [token, newPassword]
+      properties:
+        token: { type: string, minLength: 1, maxLength: 256 }
+        newPassword: { type: string, minLength: 12, maxLength: 128 }
     Token:
       type: object
       required: [accessToken, tokenType, expiresIn]
@@ -437,7 +477,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         email: { type: string, format: email }
-        emailVerified: { type: boolean, const: false }
+        emailVerified: { type: boolean }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     IncomeChange:

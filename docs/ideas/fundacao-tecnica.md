@@ -74,7 +74,6 @@ Ela aproveita a experiência existente em Spring, React e Kotlin, mantém os cli
 - Mais de uma moeda; o MVP usa BRL.
 - Build ou publicação iOS sem macOS/Xcode.
 - Plataforma pesada de observabilidade.
-- Recuperação e verificação de e-mail neste corte.
 - Keycloak no runtime atual; uma adoção futura exige novo ADR.
 
 ## Privacidade e LGPD

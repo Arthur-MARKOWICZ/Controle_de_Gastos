@@ -19,3 +19,7 @@ app:
     jwt-secret: ${AUTH_JWT_SECRET:}
     allowed-origins: ${AUTH_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
     attempt-hmac-secret: ${AUTH_ATTEMPT_HMAC_SECRET:local-only-change-me}
+    password-reset:
+      public-url: ${AUTH_PUBLIC_APP_URL:http://localhost:3000}
+      mail-enabled: ${AUTH_PASSWORD_RESET_MAIL_ENABLED:false}
+      from: ${GMAIL_SMTP_FROM:}
