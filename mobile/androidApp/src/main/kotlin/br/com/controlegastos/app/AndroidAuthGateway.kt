@@ -65,6 +65,14 @@ class AndroidAuthGateway(
                     baseAmount = MoneyView(envelope.getJSONObject("baseAmount").getString("amount")),
                     available = MoneyView(envelope.getJSONObject("available").getString("amount")),
                     isNegative = envelope.getBoolean("isNegative"),
+                    goalProgress = envelope.optJSONObject("goalProgress")?.let { progress ->
+                        GoalProgressView(
+                            plannedAmount = MoneyView(progress.getJSONObject("plannedAmount").getString("amount")),
+                            contributedAmount = MoneyView(progress.getJSONObject("contributedAmount").getString("amount")),
+                            remainingAmount = MoneyView(progress.getJSONObject("remainingAmount").getString("amount")),
+                            percent = progress.getInt("percent"),
+                        )
+                    },
                 )
             },
         )

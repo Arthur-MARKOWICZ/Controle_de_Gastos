@@ -153,6 +153,7 @@ private fun SummaryValue(label: String, value: String) = Column {
 
 @Composable
 private fun EnvelopeSummaryCard(envelope: EnvelopeView) {
+    val goalProgress = envelope.goalProgress.takeIf { envelope.purpose == "GOAL" }
     val purposeColor: Color = when (envelope.purpose) {
         "GOAL" -> MaterialTheme.colorScheme.tertiary
         "FIXED" -> MaterialTheme.colorScheme.secondary
@@ -165,7 +166,10 @@ private fun EnvelopeSummaryCard(envelope: EnvelopeView) {
                     Text(envelope.name, fontWeight = FontWeight.Bold)
                     Text(purposeLabel(envelope.purpose), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
                 }
-                Text(formatBrl(envelope.available), fontWeight = FontWeight.Black)
+                Text(
+                    if (goalProgress == null) formatBrl(envelope.available) else "Faltam ${formatBrl(goalProgress.remainingAmount)}",
+                    fontWeight = FontWeight.Black,
+                )
             }
             Spacer(Modifier.height(12.dp))
             val progress = progressOf(envelope)
@@ -177,7 +181,11 @@ private fun EnvelopeSummaryCard(envelope: EnvelopeView) {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                if (envelope.isNegative) "⚠ Saldo negativo" else "Saldo disponível",
+                when {
+                    envelope.isNegative -> "⚠ Saldo negativo"
+                    goalProgress != null -> "Meta acumulada ${formatBrl(goalProgress.plannedAmount)} · ${goalProgress.percent}% concluído"
+                    else -> "Saldo disponível"
+                },
                 color = if (envelope.isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -187,4 +195,6 @@ private fun EnvelopeSummaryCard(envelope: EnvelopeView) {
 
 private fun formatBrl(amount: MoneyView): String = "R$ ${amount.amount.replace('.', ',')}"
 private fun purposeLabel(purpose: String): String = when (purpose) { "LIMIT" -> "Limite de gasto"; "GOAL" -> "Meta de aporte"; "FIXED" -> "Compromisso fixo"; else -> purpose }
-private fun progressOf(envelope: EnvelopeView): Float = envelope.baseAmount.amount.toDoubleOrNull()?.takeIf { it > 0 }?.let { (envelope.available.amount.toDoubleOrNull() ?: 0.0).div(it).coerceIn(0.0, 1.0).toFloat() } ?: 0f
+internal fun progressOf(envelope: EnvelopeView): Float = envelope.goalProgress.takeIf { envelope.purpose == "GOAL" }
+    ?.let { it.percent.coerceIn(0, 100) / 100f }
+    ?: envelope.baseAmount.amount.toDoubleOrNull()?.takeIf { it > 0 }?.let { (envelope.available.amount.toDoubleOrNull() ?: 0.0).div(it).coerceIn(0.0, 1.0).toFloat() } ?: 0f

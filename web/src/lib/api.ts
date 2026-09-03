@@ -3,6 +3,7 @@ import { AuthClient } from "../auth/auth-client";
 export type MoneyDTO = { amount: string; currency: "BRL" };
 export type EnvelopePurpose = "LIMIT" | "GOAL" | "FIXED" | "SAVINGS_TARGET" | "ANNUAL_EXPENSE";
 export type AnnualExpenseDTO = { annualAmount: MoneyDTO; dueMonth: number; dueDay: number; fundingMode: "MONTHLY" | "ONE_TIME" };
+export type GoalProgressDTO = { plannedAmount: MoneyDTO; contributedAmount: MoneyDTO; remainingAmount: MoneyDTO; percent: number };
 
 export type EnvelopeDTO = {
   id: string;
@@ -13,6 +14,7 @@ export type EnvelopeDTO = {
   targetAmount: MoneyDTO | null;
   targetReachedAt: string | null;
   annualExpense?: AnnualExpenseDTO | null;
+  goalProgress?: GoalProgressDTO | null;
   available: MoneyDTO;
   isNegative: boolean;
   role: "OWNER" | "PARTICIPANT";

@@ -6,6 +6,16 @@ import kotlin.test.assertEquals
 
 class FinanceDashboardControllerTest {
     @Test
+    fun `uses the server goal percentage for a contribution goal progress bar`() {
+        val goal = EnvelopeView(
+            "goal-1", "Investimentos", "GOAL", MoneyView("100.00"), MoneyView("120.00"), false,
+            GoalProgressView(MoneyView("200.00"), MoneyView("20.00"), MoneyView("180.00"), 10),
+        )
+
+        assertEquals(0.1f, progressOf(goal))
+    }
+
+    @Test
     fun `loads the financial dashboard from the gateway`() = runSuspend {
         val expected = FinancialDashboard(
             income = MoneyView("5000.00"),

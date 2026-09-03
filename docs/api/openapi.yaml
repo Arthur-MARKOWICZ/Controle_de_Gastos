@@ -490,7 +490,7 @@ components:
         currency: { type: string, const: BRL }
     Envelope:
       type: object
-      required: [id, ownerId, name, purpose, baseAmount, targetAmount, targetReachedAt, annualExpense, available, isNegative, role, createdAt, archivedAt, version]
+      required: [id, ownerId, name, purpose, baseAmount, targetAmount, targetReachedAt, annualExpense, goalProgress, available, isNegative, role, createdAt, archivedAt, version]
       properties:
         id: { type: string, format: uuid }
         ownerId: { type: string, format: uuid }
@@ -500,6 +500,7 @@ components:
         targetAmount: { allOf: [{ $ref: '#/components/schemas/Money' }], nullable: true, description: Obrigatório e positivo somente para SAVINGS_TARGET. }
         targetReachedAt: { type: string, format: date-time, nullable: true }
         annualExpense: { allOf: [{ $ref: '#/components/schemas/AnnualExpense' }], nullable: true }
+        goalProgress: { allOf: [{ $ref: '#/components/schemas/GoalProgress' }], nullable: true, description: Preenchido no resumo do ledger somente para GOAL. }
         available: { $ref: '#/components/schemas/MoneyNegative' }
         isNegative: { type: boolean }
         role: { type: string, enum: [OWNER, PARTICIPANT] }
@@ -540,6 +541,14 @@ components:
         dueMonth: { type: integer, minimum: 1, maximum: 12 }
         dueDay: { type: integer, minimum: 1, maximum: 31 }
         fundingMode: { type: string, enum: [MONTHLY, ONE_TIME] }
+    GoalProgress:
+      type: object
+      required: [plannedAmount, contributedAmount, remainingAmount, percent]
+      properties:
+        plannedAmount: { $ref: '#/components/schemas/Money' }
+        contributedAmount: { $ref: '#/components/schemas/Money' }
+        remainingAmount: { $ref: '#/components/schemas/Money' }
+        percent: { type: integer, minimum: 0, maximum: 100 }
     LedgerEntry:
       type: object
       required: [id, envelopeId, kind, amount, occurredAt, description, authorId, createdAt, targetJustReached]

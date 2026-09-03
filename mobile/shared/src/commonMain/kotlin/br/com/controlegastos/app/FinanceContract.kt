@@ -2,6 +2,13 @@ package br.com.controlegastos.app
 
 data class MoneyView(val amount: String)
 
+data class GoalProgressView(
+    val plannedAmount: MoneyView,
+    val contributedAmount: MoneyView,
+    val remainingAmount: MoneyView,
+    val percent: Int,
+)
+
 data class EnvelopeView(
     val id: String,
     val name: String,
@@ -9,6 +16,7 @@ data class EnvelopeView(
     val baseAmount: MoneyView,
     val available: MoneyView,
     val isNegative: Boolean,
+    val goalProgress: GoalProgressView? = null,
 )
 
 data class FinancialDashboard(

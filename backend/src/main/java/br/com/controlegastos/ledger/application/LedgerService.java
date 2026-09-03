@@ -12,6 +12,7 @@ import br.com.controlegastos.ledger.domain.LedgerKind;
 import br.com.controlegastos.ledger.infrastructure.LedgerEntryRepository;
 import br.com.controlegastos.shared.money.Money;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -97,6 +98,29 @@ public class LedgerService implements LedgerReportingQuery {
     @Transactional(readOnly = true)
     public Money availableFor(Envelope envelope, YearMonth month) {
         return availableAt(envelope, month.atEndOfMonth());
+    }
+
+    @Transactional(readOnly = true)
+    public GoalProgress goalProgressFor(Envelope envelope, YearMonth month) {
+        if (envelope == null || envelope.purpose() != br.com.controlegastos.envelopes.domain.EnvelopePurpose.GOAL) {
+            throw new IllegalArgumentException("O progresso acumulado é exclusivo de metas de aporte");
+        }
+        YearMonth creationMonth = YearMonth.from(envelope.createdAt().atZone(BUSINESS_ZONE));
+        if (month.isBefore(creationMonth)) {
+            return new GoalProgress(Money.zero(), Money.zero(), Money.zero(), 0);
+        }
+
+        long monthsCount = java.time.temporal.ChronoUnit.MONTHS.between(creationMonth, month) + 1;
+        Money planned = repeated(envelope.baseAmount(), monthsCount);
+        BigDecimal contributionsRaw = entries.sumAmountUpTo(envelope.id(), LedgerKind.CONTRIBUTION, month.atEndOfMonth());
+        Money contributed = contributionsRaw == null ? Money.zero() : Money.brl(contributionsRaw);
+        Money remaining = contributed.compareTo(planned) >= 0 ? Money.zero() : planned.subtract(contributed);
+        int percent = planned.equals(Money.zero()) ? 0 : contributed.amount()
+                .multiply(BigDecimal.valueOf(100))
+                .divide(planned.amount(), 0, RoundingMode.HALF_UP)
+                .min(BigDecimal.valueOf(100))
+                .intValueExact();
+        return new GoalProgress(planned, contributed, remaining, percent);
     }
 
     @Transactional(readOnly = true)
@@ -280,4 +304,5 @@ public class LedgerService implements LedgerReportingQuery {
     public record HistorySummary(Money income, Money expenses, Money netBalance, Money accumulatedBalance,
                                  List<MonthlyTotal> monthlyTotals, List<PurposeTotal> purposeTotals) { }
     public record Registration(LedgerEntry entry, boolean targetJustReached) { }
+    public record GoalProgress(Money plannedAmount, Money contributedAmount, Money remainingAmount, int percent) { }
 }

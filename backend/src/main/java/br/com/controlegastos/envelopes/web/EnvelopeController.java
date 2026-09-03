@@ -180,6 +180,7 @@ public class EnvelopeController {
                 e.targetReachedAt(),
                 e.annualAmount() == null ? null : new AnnualExpenseDTO(new MoneyDTO(e.annualAmount().toPlainString(), e.annualAmount().currency()),
                         e.annualDueDate().getMonthValue(), e.annualDueDate().getDayOfMonth(), e.annualFundingMode().name()),
+                null,
                 new MoneyDTO(available.toPlainString(), available.currency()),
                 isNegative, role,
                 e.createdAt(), e.archivedAt(), e.version()
@@ -188,9 +189,10 @@ public class EnvelopeController {
 
     record MoneyDTO(String amount, String currency) {}
     record AnnualExpenseDTO(MoneyDTO annualAmount, int dueMonth, int dueDay, String fundingMode) {}
+    record GoalProgressDTO(MoneyDTO plannedAmount, MoneyDTO contributedAmount, MoneyDTO remainingAmount, int percent) {}
 
     record EnvelopeResponse(UUID id, UUID ownerId, String name, String purpose,
-                            MoneyDTO baseAmount, MoneyDTO targetAmount, Instant targetReachedAt, AnnualExpenseDTO annualExpense, MoneyDTO available,
+                            MoneyDTO baseAmount, MoneyDTO targetAmount, Instant targetReachedAt, AnnualExpenseDTO annualExpense, GoalProgressDTO goalProgress, MoneyDTO available,
                             boolean isNegative, String role,
                             Instant createdAt, Instant archivedAt, long version) {}
 }

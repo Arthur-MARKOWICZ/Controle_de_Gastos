@@ -35,26 +35,29 @@ function purposeRule(purpose: string) {
 }
 
 export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTarget, onEditAnnual, variant = "dashboard" }: Props) {
-  const progressAmount = envelope.purpose === "SAVINGS_TARGET" ? envelope.targetAmount ?? envelope.baseAmount
-    : envelope.purpose === "ANNUAL_EXPENSE" ? envelope.annualExpense?.annualAmount ?? envelope.baseAmount : envelope.baseAmount;
+  const goalProgress = envelope.purpose === "GOAL" ? envelope.goalProgress : null;
+  const progressAmount = goalProgress?.plannedAmount ?? (envelope.purpose === "SAVINGS_TARGET" ? envelope.targetAmount ?? envelope.baseAmount
+    : envelope.purpose === "ANNUAL_EXPENSE" ? envelope.annualExpense?.annualAmount ?? envelope.baseAmount : envelope.baseAmount);
   const base = formatBRL(progressAmount.amount);
-  const available = formatBRL(envelope.available.amount);
+  const financialAvailable = formatBRL(envelope.available.amount);
+  const available = formatBRL(goalProgress?.remainingAmount.amount ?? envelope.available.amount);
   const baseNum = Number(progressAmount.amount);
-  const availNum = Number(envelope.available.amount);
+  const availNum = Number(goalProgress?.remainingAmount.amount ?? envelope.available.amount);
   // pct = remaining % (available/base). Clamped 0-100, negative forces 0 for bar but status shows alert
   const rawPct = baseNum > 0 ? (availNum / baseNum) * 100 : 0;
-  const pct = baseNum > 0 ? Math.max(0, Math.min(100, Math.round(rawPct))) : 0;
+  const pct = goalProgress?.percent ?? (baseNum > 0 ? Math.max(0, Math.min(100, Math.round(rawPct))) : 0);
   const spent = baseNum > 0 ? Math.max(0, Math.round(((baseNum - availNum) / baseNum) * 100)) : 0;
 
   let status: string;
   if (envelope.isNegative) {
-    status = `⚠ Saldo negativo ${available}`;
+    status = `⚠ Saldo negativo ${financialAvailable}`;
   } else if (envelope.purpose === "LIMIT") {
     status = availNum === baseNum ? `${available} disponíveis` : `${available} restantes · ${spent}% usado`;
   } else if (envelope.purpose === "GOAL") {
-    const falta = baseNum - availNum;
-    const faltaFmt = falta > 0 ? formatBRL(falta.toFixed(2)) : "Meta atingida";
-    status = envelope.role === "PARTICIPANT" ? `Compartilhada · ${pct}%` : falta > 0 ? `Falta ${faltaFmt} · ${pct}%` : `${pct}% · Meta atingida`;
+    const contributed = goalProgress ? formatBRL(goalProgress.contributedAmount.amount) : null;
+    status = envelope.role === "PARTICIPANT" ? `Compartilhada · ${pct}%` : availNum > 0
+      ? `Faltam ${available} · ${pct}% concluído${contributed ? ` · ${contributed} aportados` : ""}`
+      : `${pct}% · Meta atingida`;
   } else if (envelope.purpose === "FIXED") {
     status = envelope.isNegative ? `⚠ Descoberto ${available}` : `${available} reservados · ${pct}%`;
     if (envelope.role === "PARTICIPANT") status = `Compartilhada · ${status}`;
@@ -87,8 +90,8 @@ export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTar
           <span>{purposeRule(envelope.purpose)}</span>
         </div>
         <div className={s.envelopeValue}>
-          <strong>{available}</strong>
-          <span>de {base}</span>
+          <strong>{envelope.purpose === "GOAL" && goalProgress ? `Faltam ${available}` : available}</strong>
+          <span>{envelope.purpose === "GOAL" && goalProgress ? `meta acumulada ${base}` : `de ${base}`}</span>
         </div>
       </div>
       <progress
