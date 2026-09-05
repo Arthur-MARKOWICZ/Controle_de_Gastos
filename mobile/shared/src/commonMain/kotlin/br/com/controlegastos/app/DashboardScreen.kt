@@ -50,6 +50,7 @@ fun DashboardScreen(
     themeMode: ThemeMode,
     onThemeSelected: (ThemeMode) -> Unit,
     onLogout: () -> Unit,
+    onOpenSecuritySettings: () -> Unit = {},
 ) {
     val controller = remember(financeGateway) { FinanceDashboardController(financeGateway) }
     var dashboardState by remember { mutableStateOf<DashboardState>(DashboardState.Loading) }
@@ -74,6 +75,7 @@ fun DashboardScreen(
                 },
                 actions = {
                     ThemeMenu(themeMode, onThemeSelected)
+                    TextButton(onClick = onOpenSecuritySettings, modifier = Modifier.height(48.dp)) { Text("Segurança") }
                     TextButton(onClick = onLogout, modifier = Modifier.height(48.dp)) { Text("Sair") }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
