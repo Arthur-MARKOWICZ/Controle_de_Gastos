@@ -45,6 +45,7 @@ app:
     mfa:
       login-challenge-lifetime: ${AUTH_MFA_LOGIN_CHALLENGE_LIFETIME:5m}
       pending-setup-lifetime: ${AUTH_MFA_PENDING_SETUP_LIFETIME:10m}
+      recovery-session-lifetime: ${AUTH_MFA_RECOVERY_SESSION_LIFETIME:10m}
 
 management:
   endpoints:

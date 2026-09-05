@@ -16,6 +16,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 class SessionValidationFilter extends OncePerRequestFilter {
 
+    private static final String MFA_SCOPE_CLAIM = "mfa_scope";
+
     private final SessionService sessions;
     private final AuthenticationProblemWriter problems;
 
@@ -32,23 +34,43 @@ class SessionValidationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof JwtAuthenticationToken jwtAuthentication) {
-            try {
-                UUID userId = UUID.fromString(jwtAuthentication.getToken().getSubject());
-                UUID sessionId = UUID.fromString(jwtAuthentication.getToken().getClaimAsString("sid"));
-                if (!sessions.isActive(sessionId, userId)) {
+            String mfaScope = jwtAuthentication.getToken().getClaimAsString(MFA_SCOPE_CLAIM);
+            if (mfaScope != null) {
+                if (!isMfaSetupRequest(request)) {
+                    forbidden(response);
+                    return;
+                }
+            } else {
+                try {
+                    UUID userId = UUID.fromString(jwtAuthentication.getToken().getSubject());
+                    UUID sessionId = UUID.fromString(jwtAuthentication.getToken().getClaimAsString("sid"));
+                    if (!sessions.isActive(sessionId, userId)) {
+                        unauthorized(response);
+                        return;
+                    }
+                } catch (RuntimeException exception) {
                     unauthorized(response);
                     return;
                 }
-            } catch (RuntimeException exception) {
-                unauthorized(response);
-                return;
             }
         }
         filterChain.doFilter(request, response);
     }
 
+    private boolean isMfaSetupRequest(HttpServletRequest request) {
+        if (!"POST".equalsIgnoreCase(request.getMethod())) {
+            return false;
+        }
+        String path = request.getRequestURI();
+        return "/api/v1/mfa/enroll".equals(path) || "/api/v1/mfa/enroll/confirm".equals(path);
+    }
+
     private void unauthorized(HttpServletResponse response) throws IOException {
         SecurityContextHolder.clearContext();
         problems.write(response);
+    }
+
+    private void forbidden(HttpServletResponse response) throws IOException {
+        problems.writeForbidden(response);
     }
 }

@@ -34,7 +34,8 @@ class SecurityConfiguration {
                                 "/api/v1/auth/refresh",
                                 "/api/v1/auth/password-reset-requests",
                                 "/api/v1/auth/password-resets",
-                                "/api/v1/auth/mfa/verify"
+                                "/api/v1/auth/mfa/verify",
+                                "/api/v1/auth/mfa/recovery"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

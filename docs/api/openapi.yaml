@@ -67,6 +67,25 @@ paths:
               schema: { $ref: '#/components/schemas/Token' }
         '401': { $ref: '#/components/responses/AuthenticationFailed' }
         '429': { $ref: '#/components/responses/TooManyAttempts' }
+  /auth/mfa/recovery:
+    post:
+      summary: Consome um recovery code e inicia uma sessão restrita de recuperação
+      description: >-
+        A sessão restrita retornada só acessa /mfa/enroll e /mfa/enroll/confirm;
+        qualquer outro endpoint responde 403. Não cria auth_session nem Set-Cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MfaRecoveryRequest' }
+      responses:
+        '200':
+          description: Token restrito, válido apenas para concluir a configuração de um novo TOTP
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestrictedToken' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
   /auth/refresh:
     post:
       summary: Rotaciona o refresh e emite novo access token
@@ -114,7 +133,10 @@ paths:
   /mfa/enroll:
     post:
       summary: Inicia a configuração de MFA por TOTP
-      description: Exige a senha atual; invalida qualquer configuração pendente anterior.
+      description: >-
+        Exige a senha atual; invalida qualquer configuração pendente anterior.
+        Aceita tanto uma sessão normal quanto o token restrito emitido por
+        /auth/mfa/recovery; neste último caso substitui um TOTP já ativo.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -138,7 +160,9 @@ paths:
       summary: Confirma o primeiro código TOTP e ativa o MFA
       description: >-
         Em sucesso, revoga todas as sessões (inclusive a atual) e emite dez
-        recovery codes, exibidos apenas nesta resposta.
+        recovery codes, exibidos apenas nesta resposta. Aceita tanto uma
+        sessão normal quanto o token restrito de /auth/mfa/recovery; neste
+        caso nenhum token/cookie de login é retornado, exigindo novo login.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -166,6 +190,7 @@ paths:
       responses:
         '204': { description: MFA desativado e sessões revogadas }
         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/MfaNotEnabled' }
   /mfa/recovery-codes:
     post:
@@ -184,6 +209,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/MfaRecoveryCodes' }
         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '409': { $ref: '#/components/responses/MfaNotEnabled' }
   /mfa/status:
     get:
@@ -196,6 +222,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/MfaStatus' }
         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /users/me:
     get:
       summary: Retorna a conta autenticada
@@ -207,6 +234,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/CurrentUser' }
         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /income:
     put:
       summary: Configura ou altera a renda do mês corrente
@@ -582,6 +610,20 @@ components:
       properties:
         challengeId: { type: string, minLength: 1, maxLength: 512 }
         code: { type: string, minLength: 1, maxLength: 10 }
+    MfaRecoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId, recoveryCode]
+      properties:
+        challengeId: { type: string, minLength: 1, maxLength: 512 }
+        recoveryCode: { type: string, minLength: 1, maxLength: 32 }
+    RestrictedToken:
+      type: object
+      required: [restrictedToken, tokenType, expiresIn]
+      properties:
+        restrictedToken: { type: string }
+        tokenType: { type: string, const: Bearer }
+        expiresIn: { type: integer, const: 600 }
     PasswordConfirmation:
       type: object
       additionalProperties: false

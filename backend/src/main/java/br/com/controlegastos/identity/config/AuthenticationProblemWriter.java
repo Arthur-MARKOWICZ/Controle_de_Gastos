@@ -12,6 +12,8 @@ import tools.jackson.databind.ObjectMapper;
 class AuthenticationProblemWriter {
 
     private static final String DETAIL = "Não foi possível autenticar com os dados informados.";
+    private static final String RESTRICTED_SESSION_DETAIL =
+            "Esta sessão só permite concluir a configuração do MFA.";
     private final ObjectMapper objectMapper;
 
     AuthenticationProblemWriter(ObjectMapper objectMapper) {
@@ -23,6 +25,15 @@ class AuthenticationProblemWriter {
         problem.setTitle("Falha de autenticação");
         problem.setProperty("code", "AUTHENTICATION_FAILED");
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
+        response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+        objectMapper.writeValue(response.getOutputStream(), problem);
+    }
+
+    void writeForbidden(HttpServletResponse response) throws IOException {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, RESTRICTED_SESSION_DETAIL);
+        problem.setTitle("Sessão restrita");
+        problem.setProperty("code", "RESTRICTED_SESSION");
+        response.setStatus(HttpStatus.FORBIDDEN.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         objectMapper.writeValue(response.getOutputStream(), problem);
     }

@@ -119,6 +119,32 @@ public class AuthAttemptService {
     }
 
     @Transactional(readOnly = true)
+    public void assertMfaRecoveryAllowed(String remoteAddress) {
+        String key = key("MFA_RECOVERY", "*", remoteAddress);
+        if (attempts.findById(key).map(attempt -> attempt.isBlockedAt(clock.instant())).orElse(false)) {
+            throw new TooManyAttemptsException();
+        }
+    }
+
+    @Transactional
+    public void recordMfaRecoveryFailure(String remoteAddress) {
+        String key = key("MFA_RECOVERY", "*", remoteAddress);
+        attempts.lockKey(key);
+        Instant now = clock.instant();
+        attempts.deleteExpired(now);
+        AuthAttempt attempt = attempts.findById(key).orElseGet(() -> new AuthAttempt(key, now, RETENTION));
+        attempt.recordFailure(now, WINDOW, BLOCK_DURATION, RETENTION, LIMIT);
+        attempts.save(attempt);
+    }
+
+    @Transactional
+    public void clearMfaRecoveryFailures(String remoteAddress) {
+        String key = key("MFA_RECOVERY", "*", remoteAddress);
+        attempts.lockKey(key);
+        attempts.deleteById(key);
+    }
+
+    @Transactional(readOnly = true)
     public void assertMfaSetupAllowed(String remoteAddress) {
         String key = key("MFA_SETUP", "*", remoteAddress);
         if (attempts.findById(key).map(attempt -> attempt.isBlockedAt(clock.instant())).orElse(false)) {

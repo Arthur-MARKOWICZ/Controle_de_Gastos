@@ -1,14 +1,21 @@
 package br.com.controlegastos.identity.infrastructure;
 
 import br.com.controlegastos.identity.domain.RecoveryCode;
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RecoveryCodeRepository extends JpaRepository<RecoveryCode, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select code from RecoveryCode code where code.userId = :userId and code.codeHash = :codeHash")
+    Optional<RecoveryCode> findLockedByUserIdAndCodeHash(@Param("userId") UUID userId, @Param("codeHash") String codeHash);
 
     @Modifying
     @Query("update RecoveryCode code set code.invalidatedAt = :now "

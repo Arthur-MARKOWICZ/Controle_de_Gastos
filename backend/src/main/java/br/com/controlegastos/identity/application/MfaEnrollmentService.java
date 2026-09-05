@@ -58,10 +58,10 @@ public class MfaEnrollmentService {
     }
 
     @Transactional(noRollbackFor = {InvalidPasswordConfirmationException.class, MfaAlreadyEnabledException.class})
-    public EnrollmentStart start(UUID userId, String currentPassword, String remoteAddress) {
+    public EnrollmentStart start(UUID userId, String currentPassword, String remoteAddress, boolean restrictedSession) {
         attempts.assertMfaSetupAllowed(remoteAddress);
         try {
-            EnrollmentStart result = doStart(userId, currentPassword);
+            EnrollmentStart result = doStart(userId, currentPassword, restrictedSession);
             attempts.clearMfaSetupFailures(remoteAddress);
             return result;
         } catch (InvalidPasswordConfirmationException exception) {
@@ -70,13 +70,18 @@ public class MfaEnrollmentService {
         }
     }
 
-    private EnrollmentStart doStart(UUID userId, String currentPassword) {
+    private EnrollmentStart doStart(UUID userId, String currentPassword, boolean restrictedSession) {
         UserAccount user = requirePassword(userId, currentPassword);
         Instant now = clock.instant();
         TotpCredential credential = totpCredentials.findById(userId)
                 .orElseGet(() -> TotpCredential.initiallyDisabled(userId, now));
         if (credential.status() == TotpCredentialStatus.ENABLED) {
-            throw new MfaAlreadyEnabledException();
+            if (!restrictedSession) {
+                throw new MfaAlreadyEnabledException();
+            }
+            // Recuperação via recovery code: substitui o segredo perdido diretamente,
+            // sem exigir o fluxo normal de desabilitar e reconfigurar.
+            credential.disable(now);
         }
         TotpService.EnrollmentMaterial material = totp.generateEnrollmentMaterial(user.id());
         TotpSecretCipher.EncryptedSecret encrypted = cipher.encrypt(material.secret());

@@ -123,6 +123,10 @@ public class AuthenticationService {
         return UUID.fromString(currentAuthentication().getToken().getClaimAsString("sid"));
     }
 
+    public boolean isRestrictedMfaSession() {
+        return currentAuthentication().getToken().getClaimAsString("mfa_scope") != null;
+    }
+
     static void validatePassword(EmailAddress email, String password) {
         if (password == null || password.length() < MINIMUM_PASSWORD_LENGTH
                 || password.length() > MAXIMUM_PASSWORD_LENGTH) {

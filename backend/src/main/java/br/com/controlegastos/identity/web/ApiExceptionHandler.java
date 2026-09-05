@@ -3,6 +3,7 @@ package br.com.controlegastos.identity.web;
 import br.com.controlegastos.identity.application.InvalidCredentialsException;
 import br.com.controlegastos.identity.application.InvalidMfaChallengeException;
 import br.com.controlegastos.identity.application.InvalidPasswordConfirmationException;
+import br.com.controlegastos.identity.application.InvalidRecoveryCodeException;
 import br.com.controlegastos.identity.application.InvalidRefreshTokenException;
 import br.com.controlegastos.identity.application.InvalidPasswordResetTokenException;
 import br.com.controlegastos.identity.application.MfaAlreadyEnabledException;
@@ -72,6 +73,12 @@ class ApiExceptionHandler {
 
     @ExceptionHandler(InvalidMfaChallengeException.class)
     ProblemDetail invalidMfaChallenge() {
+        return problem(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED",
+                "Falha de autenticação", AUTHENTICATION_DETAIL);
+    }
+
+    @ExceptionHandler(InvalidRecoveryCodeException.class)
+    ProblemDetail invalidRecoveryCode() {
         return problem(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED",
                 "Falha de autenticação", AUTHENTICATION_DETAIL);
     }

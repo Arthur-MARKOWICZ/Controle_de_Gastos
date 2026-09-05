@@ -35,7 +35,8 @@ public class MfaController {
     ResponseEntity<EnrollmentStartResponse> enroll(@Valid @RequestBody PasswordConfirmationRequest request,
                                                     HttpServletRequest httpRequest) {
         MfaEnrollmentService.EnrollmentStart start = enrollment.start(
-                authentication.currentUserId(), request.password(), httpRequest.getRemoteAddr());
+                authentication.currentUserId(), request.password(), httpRequest.getRemoteAddr(),
+                authentication.isRestrictedMfaSession());
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(new EnrollmentStartResponse(
