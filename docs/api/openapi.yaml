@@ -30,6 +30,33 @@ paths:
             schema: { $ref: '#/components/schemas/LoginCredentials' }
       responses:
         '200':
+          description: >-
+            Sem MFA: access token, refresh enviado somente por Set-Cookie.
+            Com MFA ativo: desafio de segundo fator, sem Set-Cookie.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: >-
+                __Secure-refresh_token; Secure; HttpOnly; SameSite=Strict;
+                Path=/api/v1/auth. Ausente quando a resposta é um MfaChallenge.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Token'
+                  - $ref: '#/components/schemas/MfaChallenge'
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+  /auth/mfa/verify:
+    post:
+      summary: Confirma o segundo fator (TOTP) de um login pendente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MfaVerifyRequest' }
+      responses:
+        '200':
           description: Access token; refresh é enviado somente por Set-Cookie
           headers:
             Set-Cookie:
@@ -38,6 +65,25 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Token' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+  /auth/mfa/recovery:
+    post:
+      summary: Consome um recovery code e inicia uma sessão restrita de recuperação
+      description: >-
+        A sessão restrita retornada só acessa /mfa/enroll e /mfa/enroll/confirm;
+        qualquer outro endpoint responde 403. Não cria auth_session nem Set-Cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MfaRecoveryRequest' }
+      responses:
+        '200':
+          description: Token restrito, válido apenas para concluir a configuração de um novo TOTP
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RestrictedToken' }
         '401': { $ref: '#/components/responses/AuthenticationFailed' }
         '429': { $ref: '#/components/responses/TooManyAttempts' }
   /auth/refresh:
@@ -84,6 +130,99 @@ paths:
       responses:
         '204': { description: Senha alterada, sessões revogadas e refresh cookie removido }
         '400': { $ref: '#/components/responses/InvalidRequest' }
+  /mfa/enroll:
+    post:
+      summary: Inicia a configuração de MFA por TOTP
+      description: >-
+        Exige a senha atual; invalida qualquer configuração pendente anterior.
+        Aceita tanto uma sessão normal quanto o token restrito emitido por
+        /auth/mfa/recovery; neste último caso substitui um TOTP já ativo.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordConfirmation' }
+      responses:
+        '200':
+          description: QR Code e chave manual para configurar o aplicativo autenticador
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaEnrollmentStart' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '409': { $ref: '#/components/responses/MfaAlreadyEnabled' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+  /mfa/enroll/confirm:
+    post:
+      summary: Confirma o primeiro código TOTP e ativa o MFA
+      description: >-
+        Em sucesso, revoga todas as sessões (inclusive a atual) e emite dez
+        recovery codes, exibidos apenas nesta resposta. Aceita tanto uma
+        sessão normal quanto o token restrito de /auth/mfa/recovery; neste
+        caso nenhum token/cookie de login é retornado, exigindo novo login.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MfaCodeConfirmation' }
+      responses:
+        '200':
+          description: MFA ativo; recovery codes exibidos uma única vez
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaRecoveryCodes' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+  /mfa/disable:
+    post:
+      summary: Desativa o MFA
+      description: Exige a senha atual; revoga todas as sessões do usuário.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordConfirmation' }
+      responses:
+        '204': { description: MFA desativado e sessões revogadas }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/MfaNotEnabled' }
+  /mfa/recovery-codes:
+    post:
+      summary: Gera dez novos recovery codes, invalidando os anteriores
+      description: Exige a senha atual; não revoga sessões existentes.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordConfirmation' }
+      responses:
+        '200':
+          description: Novos recovery codes, exibidos uma única vez
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaRecoveryCodes' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/MfaNotEnabled' }
+  /mfa/status:
+    get:
+      summary: Consulta o estado atual do MFA da conta autenticada
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Estado do MFA
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MfaStatus' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /users/me:
     get:
       summary: Retorna a conta autenticada
@@ -95,6 +234,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/CurrentUser' }
         '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /income:
     put:
       summary: Configura ou altera a renda do mês corrente
@@ -456,6 +596,69 @@ components:
         accessToken: { type: string }
         tokenType: { type: string, const: Bearer }
         expiresIn: { type: integer, const: 900 }
+    MfaChallenge:
+      type: object
+      required: [mfaRequired, challengeId, expiresIn]
+      properties:
+        mfaRequired: { type: boolean, const: true }
+        challengeId: { type: string }
+        expiresIn: { type: integer, const: 300 }
+    MfaVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId, code]
+      properties:
+        challengeId: { type: string, minLength: 1, maxLength: 512 }
+        code: { type: string, minLength: 1, maxLength: 10 }
+    MfaRecoveryRequest:
+      type: object
+      additionalProperties: false
+      required: [challengeId, recoveryCode]
+      properties:
+        challengeId: { type: string, minLength: 1, maxLength: 512 }
+        recoveryCode: { type: string, minLength: 1, maxLength: 32 }
+    RestrictedToken:
+      type: object
+      required: [restrictedToken, tokenType, expiresIn]
+      properties:
+        restrictedToken: { type: string }
+        tokenType: { type: string, const: Bearer }
+        expiresIn: { type: integer, const: 600 }
+    PasswordConfirmation:
+      type: object
+      additionalProperties: false
+      required: [password]
+      properties:
+        password: { type: string, minLength: 1 }
+    MfaCodeConfirmation:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 10 }
+    MfaEnrollmentStart:
+      type: object
+      required: [otpauthUri, qrImageDataUri, manualEntryKey, pendingExpiresAt]
+      properties:
+        otpauthUri: { type: string }
+        qrImageDataUri: { type: string, description: PNG codificado em base64 (data URI) }
+        manualEntryKey: { type: string, description: Segredo TOTP em Base32 para configuração manual }
+        pendingExpiresAt: { type: string, format: date-time }
+    MfaRecoveryCodes:
+      type: object
+      required: [recoveryCodes]
+      properties:
+        recoveryCodes:
+          type: array
+          minItems: 10
+          maxItems: 10
+          items: { type: string }
+    MfaStatus:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [DISABLED, PENDING, ENABLED] }
+        pendingExpiresAt: { type: string, format: date-time, nullable: true }
     Message:
       type: object
       required: [message]
@@ -698,6 +901,16 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
     TooManyAttempts:
       description: Janela de tentativas excedida
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    MfaAlreadyEnabled:
+      description: MFA já está ativo para esta conta
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    MfaNotEnabled:
+      description: MFA não está ativo para esta conta
       content:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }

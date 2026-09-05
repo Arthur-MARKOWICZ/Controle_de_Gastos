@@ -18,6 +18,17 @@
 - Autorização no backend para cada recurso; ocultar botões não é controle de acesso.
 - Privilégios administrativos separados das contas comuns.
 - Revogar tokens push ao sair e ao excluir a conta.
+- MFA por TOTP opcional e configurável pelo titular, com QR Code e chave
+  manual gerados no backend; segredo cifrado com AES-256-GCM e nunca exposto
+  em texto claro após a configuração.
+- Login com MFA ativo não cria sessão, access token ou refresh cookie antes da
+  confirmação do segundo fator; o desafio de login é opaco, de uso único e de
+  curta duração.
+- Dez recovery codes de uso único, persistidos apenas como hash; consumir um
+  recovery code cria somente uma sessão restrita, que só acessa os endpoints
+  de configuração de um novo TOTP — nenhum outro recurso, financeiro ou geral.
+- Ativar, trocar ou desabilitar o MFA revoga todas as sessões da conta,
+  inclusive a atual.
 
 ## Dados
 
@@ -27,6 +38,10 @@
 - Segredo JWT somente por variável de runtime protegida, com pelo menos 32
   bytes; ele nunca entra no Git, logs ou imagens. Sua troca invalida os access
   tokens emitidos anteriormente.
+- Chave de cifragem TOTP (`AUTH_TOTP_ENCRYPTION_KEY`) somente por variável de
+  runtime protegida, com 32 bytes; nunca entra no Git, logs ou imagens. Sua
+  perda impede a decifragem dos segredos TOTP ativos (sem rotação sem
+  downtime neste corte).
 - Valores monetários em `BigDecimal` de BRL, com duas casas e sem arredondamento
   implícito; persistência `NUMERIC(19,2)` e JSON em string decimal.
 - Nenhum dado real em fixtures ou screenshots de desenvolvimento.
@@ -37,6 +52,8 @@
 - Não registrar token, senha, renda, descrição de gasto ou payload completo.
 - Não registrar DTOs de cadastro/login, hashes de senha/refresh/recuperação, cookies,
   cabeçalhos `Authorization` ou e-mails associados a falhas de autenticação.
+- Não registrar segredo TOTP (cifrado ou não), código informado, recovery code,
+  URI `otpauth://` nem o QR Code gerado.
 - Auditoria registra ator, ação, recurso, instante e resultado.
 - Acesso à auditoria é restrito e também auditado.
 

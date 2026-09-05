@@ -13,12 +13,18 @@ class MainActivity : ComponentActivity() {
         val authGateway = AndroidAuthGateway(applicationContext, BuildConfig.API_BASE_URL)
         val themeStore = AndroidThemePreferenceStore(applicationContext)
         setContent {
-            VerbasApp(authGateway, authGateway, themeStore) { dark ->
-                enableEdgeToEdge(
-                    statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
-                    navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
-                )
-            }
+            VerbasApp(
+                authGateway = authGateway,
+                financeGateway = authGateway,
+                themePreferenceStore = themeStore,
+                onThemeResolved = { dark ->
+                    enableEdgeToEdge(
+                        statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                        navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                    )
+                },
+                qrImageContent = { dataUri -> AndroidQrImage(dataUri) },
+            )
         }
     }
 }

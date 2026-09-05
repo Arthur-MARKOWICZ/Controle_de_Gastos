@@ -1,8 +1,10 @@
 package br.com.controlegastos.identity.application;
 
 import br.com.controlegastos.identity.domain.EmailAddress;
+import br.com.controlegastos.identity.domain.TotpCredential;
 import br.com.controlegastos.identity.domain.UserAccount;
 import br.com.controlegastos.identity.domain.UserStatus;
+import br.com.controlegastos.identity.infrastructure.TotpCredentialRepository;
 import br.com.controlegastos.identity.infrastructure.UserAccountRepository;
 import java.time.Clock;
 import java.util.UUID;
@@ -24,6 +26,8 @@ public class AuthenticationService {
     private final UserAccountRepository users;
     private final SessionService sessions;
     private final AuthAttemptService attempts;
+    private final TotpCredentialRepository totpCredentials;
+    private final MfaLoginService mfaLogin;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
     private final String dummyPasswordHash;
@@ -32,12 +36,16 @@ public class AuthenticationService {
             UserAccountRepository users,
             SessionService sessions,
             AuthAttemptService attempts,
+            TotpCredentialRepository totpCredentials,
+            MfaLoginService mfaLogin,
             PasswordEncoder passwordEncoder,
             Clock clock
     ) {
         this.users = users;
         this.sessions = sessions;
         this.attempts = attempts;
+        this.totpCredentials = totpCredentials;
+        this.mfaLogin = mfaLogin;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
         this.dummyPasswordHash = passwordEncoder.encode(DUMMY_PASSWORD);
@@ -57,22 +65,23 @@ public class AuthenticationService {
         }
         UserAccount user = UserAccount.register(email, passwordHash, clock.instant());
         users.save(user);
+        totpCredentials.save(TotpCredential.initiallyDisabled(user.id(), clock.instant()));
     }
 
     @Transactional(noRollbackFor = InvalidCredentialsException.class)
-    public SessionService.AuthenticatedSession login(String rawEmail, String password, String remoteAddress) {
+    public LoginOutcome login(String rawEmail, String password, String remoteAddress) {
         attempts.assertLoginAllowed(rawEmail, remoteAddress);
         try {
-            SessionService.AuthenticatedSession session = authenticate(rawEmail, password);
+            LoginOutcome outcome = authenticate(rawEmail, password);
             attempts.clearLoginFailures(rawEmail, remoteAddress);
-            return session;
+            return outcome;
         } catch (InvalidCredentialsException exception) {
             attempts.recordLoginFailure(rawEmail, remoteAddress);
             throw exception;
         }
     }
 
-    private SessionService.AuthenticatedSession authenticate(String rawEmail, String password) {
+    private LoginOutcome authenticate(String rawEmail, String password) {
         EmailAddress email;
         try {
             email = EmailAddress.from(rawEmail);
@@ -89,7 +98,13 @@ public class AuthenticationService {
         if (user == null || user.status() != UserStatus.ACTIVE || !passwordMatches) {
             throw new InvalidCredentialsException();
         }
-        return sessions.start(user.id());
+        boolean requiresMfa = totpCredentials.findById(user.id())
+                .map(TotpCredential::requiresMfaAtLogin)
+                .orElse(false);
+        if (requiresMfa) {
+            return new LoginOutcome(null, mfaLogin.createChallenge(user.id()));
+        }
+        return new LoginOutcome(sessions.start(user.id()), null);
     }
 
     public SessionService.AuthenticatedSession refresh(String rawRefreshToken) {
@@ -108,6 +123,10 @@ public class AuthenticationService {
         return UUID.fromString(currentAuthentication().getToken().getClaimAsString("sid"));
     }
 
+    public boolean isRestrictedMfaSession() {
+        return currentAuthentication().getToken().getClaimAsString("mfa_scope") != null;
+    }
+
     static void validatePassword(EmailAddress email, String password) {
         if (password == null || password.length() < MINIMUM_PASSWORD_LENGTH
                 || password.length() > MAXIMUM_PASSWORD_LENGTH) {
@@ -124,5 +143,11 @@ public class AuthenticationService {
             throw new IllegalStateException("Usuário não autenticado");
         }
         return jwt;
+    }
+
+    public record LoginOutcome(SessionService.AuthenticatedSession session, MfaLoginService.ChallengeIssued challenge) {
+        public boolean requiresMfa() {
+            return challenge != null;
+        }
     }
 }

@@ -153,6 +153,7 @@ jobs:
             AUTH_JWT_SECRET=validation-only-jwt-secret-at-least-32-bytes \
             AUTH_ALLOWED_ORIGINS=https://gastos.example.com \
             AUTH_ATTEMPT_HMAC_SECRET=validation-only-attempt-secret-at-least-32-bytes \
+            AUTH_TOTP_ENCRYPTION_KEY=validation-only-base64-totp-key \
             NEXT_PUBLIC_API_URL=https://gastos.example.com \
               docker compose --project-name controle-gastos -f compose.yaml.next config --quiet
             mv -f compose.yaml.next compose.yaml
@@ -170,6 +171,7 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           AUTH_JWT_SECRET: ${{ secrets.AUTH_JWT_SECRET }}
           AUTH_ATTEMPT_HMAC_SECRET: ${{ secrets.AUTH_ATTEMPT_HMAC_SECRET }}
+          AUTH_TOTP_ENCRYPTION_KEY: ${{ secrets.AUTH_TOTP_ENCRYPTION_KEY }}
           GMAIL_SMTP_USERNAME: ${{ secrets.GMAIL_SMTP_USERNAME }}
           GMAIL_SMTP_APP_PASSWORD: ${{ secrets.GMAIL_SMTP_APP_PASSWORD }}
         run: |
@@ -181,6 +183,7 @@ jobs:
           test -n "$POSTGRES_PASSWORD"
           test "${#AUTH_JWT_SECRET}" -ge 32
           test "${#AUTH_ATTEMPT_HMAC_SECRET}" -ge 32
+          test -n "$AUTH_TOTP_ENCRYPTION_KEY"
           test -n "$GMAIL_SMTP_USERNAME"
           test -n "$GMAIL_SMTP_APP_PASSWORD"
           case "$PUBLIC_APP_URL" in
@@ -197,7 +200,7 @@ jobs:
           case "$POSTGRES_USER" in
             *[!A-Za-z0-9_]*) echo "POSTGRES_USER aceita apenas letras, números e underscore" >&2; exit 1 ;;
           esac
-          for VALUE in "$PUBLIC_APP_URL" "$POSTGRES_DB" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$AUTH_JWT_SECRET" "$AUTH_ATTEMPT_HMAC_SECRET" "$GMAIL_SMTP_USERNAME" "$GMAIL_SMTP_APP_PASSWORD"; do
+          for VALUE in "$PUBLIC_APP_URL" "$POSTGRES_DB" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$AUTH_JWT_SECRET" "$AUTH_ATTEMPT_HMAC_SECRET" "$AUTH_TOTP_ENCRYPTION_KEY" "$GMAIL_SMTP_USERNAME" "$GMAIL_SMTP_APP_PASSWORD"; do
             case "$VALUE" in
               *$'\n'*) echo "Variáveis de produção não podem conter quebra de linha" >&2; exit 1 ;;
             esac
@@ -216,6 +219,7 @@ jobs:
             printf 'export POSTGRES_PASSWORD=%q\n' "$POSTGRES_PASSWORD"
             printf 'export AUTH_JWT_SECRET=%q\n' "$AUTH_JWT_SECRET"
             printf 'export AUTH_ATTEMPT_HMAC_SECRET=%q\n' "$AUTH_ATTEMPT_HMAC_SECRET"
+            printf 'export AUTH_TOTP_ENCRYPTION_KEY=%q\n' "$AUTH_TOTP_ENCRYPTION_KEY"
             printf 'export GMAIL_SMTP_USERNAME=%q\n' "$GMAIL_SMTP_USERNAME"
             printf 'export GMAIL_SMTP_APP_PASSWORD=%q\n' "$GMAIL_SMTP_APP_PASSWORD"
             cat <<'REMOTE_SCRIPT'

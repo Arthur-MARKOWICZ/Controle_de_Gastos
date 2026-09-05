@@ -80,6 +80,14 @@ dos requisitos jurídicos e operacionais listados em
 Rotação de chaves, benchmark Argon2id e retenção estão descritos em
 [`docs/privacy/operacao-de-autenticacao.md`](docs/privacy/operacao-de-autenticacao.md).
 
+MFA por TOTP é opcional e configurável pela conta autenticada (web em
+`/conta/seguranca`, mobile no botão "Segurança" do painel). Além do
+`AUTH_JWT_SECRET`, produção exige `AUTH_TOTP_ENCRYPTION_KEY` (32 bytes em
+base64, `openssl rand -base64 32`) para cifrar os segredos TOTP; veja
+[`docs/decisions/0019-mfa-totp.md`](docs/decisions/0019-mfa-totp.md) e a
+rotação dessa chave em
+[`docs/privacy/operacao-de-autenticacao.md`](docs/privacy/operacao-de-autenticacao.md).
+
 ## Deploy
 
 O GitHub Actions valida o projeto, constrói e transfere as imagens por SSH e

@@ -1,3 +1,7 @@
+---
+name: revisao_plano
+desc: Revisa o plano de desenvolvimento do projeto.
+---
 ## O que quero que a IA revise
 
 Não implemente nada ainda.

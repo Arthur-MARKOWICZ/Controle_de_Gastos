@@ -27,8 +27,83 @@ class AndroidAuthGateway(
     override suspend fun login(email: String, password: String): AuthUser {
         val result = request("POST", "/api/v1/auth/login", credentials(email, password), includeCookie = false)
         requireSuccess(result, "Não foi possível entrar")
+        val body = JSONObject(result.body)
+        if (body.optBoolean("mfaRequired", false)) {
+            throw MfaRequiredException(body.getString("challengeId"))
+        }
         rememberTokens(result)
         return currentUser(retry = true)
+    }
+
+    override suspend fun verifyMfa(challengeId: String, code: String): AuthUser {
+        val payload = JSONObject().put("challengeId", challengeId).put("code", code).toString()
+        val result = request("POST", "/api/v1/auth/mfa/verify", payload, includeCookie = false)
+        requireSuccess(result, "Não foi possível confirmar o código")
+        rememberTokens(result)
+        return currentUser(retry = true)
+    }
+
+    override suspend fun verifyRecoveryCode(challengeId: String, recoveryCode: String): String {
+        val payload = JSONObject().put("challengeId", challengeId).put("recoveryCode", recoveryCode).toString()
+        val result = request("POST", "/api/v1/auth/mfa/recovery", payload, includeCookie = false)
+        requireSuccess(result, "Não foi possível usar o código de recuperação")
+        return JSONObject(result.body).getString("restrictedToken")
+    }
+
+    override suspend fun startMfaEnrollment(password: String, restrictedToken: String?): MfaEnrollmentStart {
+        val payload = JSONObject().put("password", password).toString()
+        val result = request(
+            "POST", "/api/v1/mfa/enroll", payload,
+            bearer = restrictedToken ?: accessToken, includeCookie = false,
+        )
+        requireSuccess(result, "Não foi possível iniciar a configuração do MFA")
+        val body = JSONObject(result.body)
+        return MfaEnrollmentStart(
+            otpauthUri = body.getString("otpauthUri"),
+            qrImageDataUri = body.getString("qrImageDataUri"),
+            manualEntryKey = body.getString("manualEntryKey"),
+            pendingExpiresAt = body.getString("pendingExpiresAt"),
+        )
+    }
+
+    override suspend fun confirmMfaEnrollment(code: String, restrictedToken: String?): List<String> {
+        val payload = JSONObject().put("code", code).toString()
+        val result = request(
+            "POST", "/api/v1/mfa/enroll/confirm", payload,
+            bearer = restrictedToken ?: accessToken, includeCookie = false,
+        )
+        requireSuccess(result, "Não foi possível confirmar o MFA")
+        val codes = JSONObject(result.body).getJSONArray("recoveryCodes")
+        return List(codes.length()) { codes.getString(it) }
+    }
+
+    override suspend fun disableMfa(password: String) {
+        val payload = JSONObject().put("password", password).toString()
+        val result = request("POST", "/api/v1/mfa/disable", payload, bearer = accessToken, includeCookie = false)
+        requireSuccess(result, "Não foi possível desativar o MFA")
+    }
+
+    override suspend fun regenerateRecoveryCodes(password: String): List<String> {
+        val payload = JSONObject().put("password", password).toString()
+        val result = request(
+            "POST", "/api/v1/mfa/recovery-codes", payload,
+            bearer = accessToken, includeCookie = false,
+        )
+        requireSuccess(result, "Não foi possível gerar novos códigos")
+        val codes = JSONObject(result.body).getJSONArray("recoveryCodes")
+        return List(codes.length()) { codes.getString(it) }
+    }
+
+    override suspend fun mfaStatus(): MfaStatus {
+        val result = request("GET", "/api/v1/mfa/status", bearer = accessToken)
+        requireSuccess(result, "Não foi possível consultar o status do MFA")
+        val body = JSONObject(result.body)
+        val pendingExpiresAt = if (body.has("pendingExpiresAt") && !body.isNull("pendingExpiresAt")) {
+            body.getString("pendingExpiresAt")
+        } else {
+            null
+        }
+        return MfaStatus(body.getString("status"), pendingExpiresAt)
     }
 
     override suspend fun register(email: String, password: String) {

@@ -96,6 +96,11 @@ public class SessionService {
         sessions.revokeActiveByUserId(userId, clock.instant(), "PASSWORD_RESET");
     }
 
+    @Transactional
+    public void revokeAllForMfaChange(UUID userId) {
+        sessions.revokeActiveByUserId(userId, clock.instant(), "MFA_CHANGE");
+    }
+
     @Transactional(readOnly = true)
     public boolean isActive(UUID sessionId, UUID userId) {
         return sessions.findById(sessionId)

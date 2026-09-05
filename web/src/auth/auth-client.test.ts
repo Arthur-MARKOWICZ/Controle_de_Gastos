@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { AuthClient } from "./auth-client";
+import { AuthClient, AuthError } from "./auth-client";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -50,6 +50,58 @@ describe("AuthClient", () => {
       expect.objectContaining({ method: "POST", credentials: "include", body: JSON.stringify({ email: "pessoa@example.com" }) }));
     expect(fetchMock).toHaveBeenNthCalledWith(2, "http://api.test/api/v1/auth/password-resets",
       expect.objectContaining({ method: "POST", credentials: "include", body: JSON.stringify({ token: "token-seguro", newPassword: "uma senha nova segura" }) }));
+  });
+
+  it("lança AuthError mfa-required com o challengeId quando o login exige segundo fator", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      response({ mfaRequired: true, challengeId: "desafio-1", expiresIn: 300 }),
+    ));
+    const client = new AuthClient("http://api.test");
+
+    const error = await client.login("pessoa@example.com", "senha").catch((cause: unknown) => cause);
+
+    expect(error).toBeInstanceOf(AuthError);
+    expect((error as AuthError).kind).toBe("mfa-required");
+    expect((error as AuthError).challengeId).toBe("desafio-1");
+  });
+
+  it("verifica o código MFA e restaura a sessão normalmente", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ accessToken: "access-3", tokenType: "Bearer", expiresIn: 900 }))
+      .mockResolvedValueOnce(response({ id: "user-1", email: "pessoa@example.com", emailVerified: false,
+        createdAt: "2026-08-27T00:00:00Z", updatedAt: "2026-08-27T00:00:00Z" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new AuthClient("http://api.test");
+
+    const user = await client.verifyMfa("desafio-1", "123456");
+
+    expect(user.email).toBe("pessoa@example.com");
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://api.test/api/v1/auth/mfa/verify",
+      expect.objectContaining({ method: "POST", credentials: "include", body: JSON.stringify({ challengeId: "desafio-1", code: "123456" }) }));
+  });
+
+  it("consome um recovery code e devolve apenas o token restrito", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ restrictedToken: "token-restrito", tokenType: "Bearer", expiresIn: 600 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new AuthClient("http://api.test");
+
+    const restrictedToken = await client.verifyRecoveryCode("desafio-1", "ABCDE-FGHJK");
+
+    expect(restrictedToken).toBe("token-restrito");
+    expect(fetchMock).toHaveBeenCalledWith("http://api.test/api/v1/auth/mfa/recovery",
+      expect.objectContaining({ method: "POST", credentials: "include", body: JSON.stringify({ challengeId: "desafio-1", recoveryCode: "ABCDE-FGHJK" }) }));
+  });
+
+  it("usa o token restrito diretamente no enroll, sem depender do access token nem de retry em 401", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({}, 403));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new AuthClient("http://api.test");
+
+    await expect(client.startMfaEnrollment("senha", "token-restrito")).rejects.toBeInstanceOf(AuthError);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0];
+    expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer token-restrito");
   });
 });
 
