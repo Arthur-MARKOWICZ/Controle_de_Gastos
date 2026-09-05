@@ -74,6 +74,16 @@ export class AuthClient {
     return this.currentUser();
   }
 
+  async startOAuth(provider: "google" | "github"): Promise<void> {
+    const response = await fetch(`${this.apiUrl}/api/v1/auth/oauth/${provider}/authorize-url`, {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!response.ok) throw await this.error(response);
+    const body = await response.json() as { authorizationUrl: string };
+    window.location.href = body.authorizationUrl;
+  }
+
   async verifyMfa(challengeId: string, code: string): Promise<CurrentUser> {
     const response = await fetch(`${this.apiUrl}/api/v1/auth/mfa/verify`, {
       method: "POST",

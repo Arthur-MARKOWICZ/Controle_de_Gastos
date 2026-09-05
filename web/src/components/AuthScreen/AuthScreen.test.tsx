@@ -26,4 +26,21 @@ describe("AuthScreen", () => {
     expect((await screen.findByRole("status")).textContent).toMatch(/agora você pode entrar/i);
     expect(register).toHaveBeenCalledWith("Pessoa@Example.com", "frase segura de teste");
   });
+
+  it("não mostra login social quando nenhum manipulador é informado", () => {
+    render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn()} />);
+
+    expect(screen.queryByRole("button", { name: "Continuar com Google" })).toBeNull();
+  });
+
+  it("aciona o login social com o provedor escolhido", () => {
+    const onOAuthLogin = vi.fn();
+    render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn()} onOAuthLogin={onOAuthLogin} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Continuar com Google" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar com GitHub" }));
+
+    expect(onOAuthLogin).toHaveBeenNthCalledWith(1, "google");
+    expect(onOAuthLogin).toHaveBeenNthCalledWith(2, "github");
+  });
 });

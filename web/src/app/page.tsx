@@ -26,6 +26,7 @@ function AuthenticatedApp() {
       <AuthScreen
         onLogin={auth.login}
         onRegister={auth.register}
+        onOAuthLogin={auth.startOAuthLogin}
         externalError={auth.error ?? mfaEnabledNotice}
         expired={auth.state === "expired"}
       />

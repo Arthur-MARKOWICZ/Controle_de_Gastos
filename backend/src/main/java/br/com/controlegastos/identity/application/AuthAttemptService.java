@@ -170,6 +170,32 @@ public class AuthAttemptService {
         attempts.deleteById(key);
     }
 
+    @Transactional(readOnly = true)
+    public void assertOAuthCallbackAllowed(String remoteAddress) {
+        String key = key("OAUTH_CALLBACK", "*", remoteAddress);
+        if (attempts.findById(key).map(attempt -> attempt.isBlockedAt(clock.instant())).orElse(false)) {
+            throw new TooManyAttemptsException();
+        }
+    }
+
+    @Transactional
+    public void recordOAuthCallbackFailure(String remoteAddress) {
+        String key = key("OAUTH_CALLBACK", "*", remoteAddress);
+        attempts.lockKey(key);
+        Instant now = clock.instant();
+        attempts.deleteExpired(now);
+        AuthAttempt attempt = attempts.findById(key).orElseGet(() -> new AuthAttempt(key, now, RETENTION));
+        attempt.recordFailure(now, WINDOW, BLOCK_DURATION, RETENTION, LIMIT);
+        attempts.save(attempt);
+    }
+
+    @Transactional
+    public void clearOAuthCallbackFailures(String remoteAddress) {
+        String key = key("OAUTH_CALLBACK", "*", remoteAddress);
+        attempts.lockKey(key);
+        attempts.deleteById(key);
+    }
+
     private String key(String scope, String rawEmail, String remoteAddress) {
         String normalizedEmail;
         try {

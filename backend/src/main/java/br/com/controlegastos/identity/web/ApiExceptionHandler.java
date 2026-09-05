@@ -8,6 +8,7 @@ import br.com.controlegastos.identity.application.InvalidRefreshTokenException;
 import br.com.controlegastos.identity.application.InvalidPasswordResetTokenException;
 import br.com.controlegastos.identity.application.MfaAlreadyEnabledException;
 import br.com.controlegastos.identity.application.MfaNotEnabledException;
+import br.com.controlegastos.identity.application.OAuthLoginFailedException;
 import br.com.controlegastos.identity.application.TooManyAttemptsException;
 import java.time.Duration;
 import org.springframework.http.HttpHeaders;
@@ -102,6 +103,12 @@ class ApiExceptionHandler {
     ProblemDetail mfaNotEnabled() {
         return problem(HttpStatus.CONFLICT, "MFA_NOT_ENABLED",
                 "MFA não ativo", "A autenticação em duas etapas não está ativa para esta conta.");
+    }
+
+    @ExceptionHandler(OAuthLoginFailedException.class)
+    ProblemDetail oauthLoginFailed() {
+        return problem(HttpStatus.BAD_REQUEST, "OAUTH_LOGIN_FAILED",
+                "Falha no login social", "Não foi possível concluir a autenticação com o provedor.");
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,

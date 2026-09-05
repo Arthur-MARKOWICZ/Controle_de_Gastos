@@ -46,6 +46,13 @@ app:
       login-challenge-lifetime: ${AUTH_MFA_LOGIN_CHALLENGE_LIFETIME:5m}
       pending-setup-lifetime: ${AUTH_MFA_PENDING_SETUP_LIFETIME:10m}
       recovery-session-lifetime: ${AUTH_MFA_RECOVERY_SESSION_LIFETIME:10m}
+  oauth:
+    state-lifetime: ${AUTH_OAUTH_STATE_LIFETIME:10m}
+    web-base-url: ${AUTH_PUBLIC_APP_URL:http://localhost:3000}
+    google:
+      client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+      client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
+      redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:}
 
 management:
   endpoints:

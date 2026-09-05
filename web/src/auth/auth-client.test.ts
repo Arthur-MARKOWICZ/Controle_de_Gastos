@@ -92,6 +92,23 @@ describe("AuthClient", () => {
       expect.objectContaining({ method: "POST", credentials: "include", body: JSON.stringify({ challengeId: "desafio-1", recoveryCode: "ABCDE-FGHJK" }) }));
   });
 
+  it("busca a URL de autorização do provedor e redireciona o navegador", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      response({ authorizationUrl: "https://accounts.google.com/authorize?state=abc" }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const originalLocation = window.location;
+    Object.defineProperty(window, "location", { value: { href: "" }, writable: true, configurable: true });
+    const client = new AuthClient("http://api.test");
+
+    await client.startOAuth("google");
+
+    expect(fetchMock).toHaveBeenCalledWith("http://api.test/api/v1/auth/oauth/google/authorize-url",
+      expect.objectContaining({ method: "POST", credentials: "include" }));
+    expect(window.location.href).toBe("https://accounts.google.com/authorize?state=abc");
+    Object.defineProperty(window, "location", { value: originalLocation, configurable: true });
+  });
+
   it("usa o token restrito diretamente no enroll, sem depender do access token nem de retry em 401", async () => {
     const fetchMock = vi.fn().mockResolvedValue(response({}, 403));
     vi.stubGlobal("fetch", fetchMock);
