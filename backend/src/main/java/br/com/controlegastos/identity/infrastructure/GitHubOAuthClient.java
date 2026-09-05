@@ -12,12 +12,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
-@Component("googleOAuthClient")
-public class GoogleOAuthClient implements OAuthProviderClient {
+@Component("githubOAuthClient")
+public class GitHubOAuthClient implements OAuthProviderClient {
 
-    private static final String AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth";
-    private static final String TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
-    private static final String USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo";
+    private static final String AUTHORIZATION_ENDPOINT = "https://github.com/login/oauth/authorize";
+    private static final String TOKEN_ENDPOINT = "https://github.com/login/oauth/access_token";
+    private static final String USERINFO_ENDPOINT = "https://api.github.com/user";
     private static final int PROFILE_FETCH_ATTEMPTS = 3;
 
     private final RestClient restClient;
@@ -25,10 +25,10 @@ public class GoogleOAuthClient implements OAuthProviderClient {
     private final String clientSecret;
     private final String redirectUri;
 
-    public GoogleOAuthClient(
-            @Value("${app.oauth.google.client-id}") String clientId,
-            @Value("${app.oauth.google.client-secret}") String clientSecret,
-            @Value("${app.oauth.google.redirect-uri}") String redirectUri
+    public GitHubOAuthClient(
+            @Value("${app.oauth.github.client-id}") String clientId,
+            @Value("${app.oauth.github.client-secret}") String clientSecret,
+            @Value("${app.oauth.github.redirect-uri}") String redirectUri
     ) {
         this.restClient = RestClient.create();
         this.clientId = clientId;
@@ -38,7 +38,7 @@ public class GoogleOAuthClient implements OAuthProviderClient {
 
     @Override
     public OAuthProvider provider() {
-        return OAuthProvider.GOOGLE;
+        return OAuthProvider.GITHUB;
     }
 
     @Override
@@ -46,8 +46,6 @@ public class GoogleOAuthClient implements OAuthProviderClient {
         return UriComponentsBuilder.fromUriString(AUTHORIZATION_ENDPOINT)
                 .queryParam("client_id", clientId)
                 .queryParam("redirect_uri", redirectUri)
-                .queryParam("response_type", "code")
-                .queryParam("scope", "openid email")
                 .queryParam("state", rawState)
                 .build()
                 .toUriString();
@@ -60,11 +58,12 @@ public class GoogleOAuthClient implements OAuthProviderClient {
         TokenResponse response = restClient.post()
                 .uri(TOKEN_ENDPOINT)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .header("Accept", "application/json")
                 .body(tokenRequestBody(code))
                 .retrieve()
                 .body(TokenResponse.class);
         if (response == null || response.accessToken() == null) {
-            throw new IllegalStateException("Google não retornou um access token");
+            throw new IllegalStateException("GitHub não retornou um access token");
         }
         return response.accessToken();
     }
@@ -77,12 +76,15 @@ public class GoogleOAuthClient implements OAuthProviderClient {
                 UserInfoResponse info = restClient.get()
                         .uri(USERINFO_ENDPOINT)
                         .header("Authorization", "Bearer " + accessToken)
+                        .header("Accept", "application/vnd.github+json")
                         .retrieve()
                         .body(UserInfoResponse.class);
-                if (info == null || info.subject() == null) {
-                    throw new IllegalStateException("Google não retornou um perfil válido");
+                if (info == null || info.id() == null) {
+                    throw new IllegalStateException("GitHub não retornou um perfil válido");
                 }
-                return new ProviderProfile(info.subject(), info.email());
+                // Só usa o e-mail já público em GET /user; não consulta /user/emails
+                // quando ele vier nulo (decisão registrada no ADR-020).
+                return new ProviderProfile(String.valueOf(info.id()), info.email());
             } catch (RestClientException exception) {
                 lastFailure = exception;
             }
@@ -94,8 +96,7 @@ public class GoogleOAuthClient implements OAuthProviderClient {
         return "code=" + encode(code)
                 + "&client_id=" + encode(clientId)
                 + "&client_secret=" + encode(clientSecret)
-                + "&redirect_uri=" + encode(redirectUri)
-                + "&grant_type=authorization_code";
+                + "&redirect_uri=" + encode(redirectUri);
     }
 
     private static String encode(String value) {
@@ -105,6 +106,6 @@ public class GoogleOAuthClient implements OAuthProviderClient {
     private record TokenResponse(@JsonProperty("access_token") String accessToken) {
     }
 
-    private record UserInfoResponse(@JsonProperty("sub") String subject, @JsonProperty("email") String email) {
+    private record UserInfoResponse(@JsonProperty("id") Long id, @JsonProperty("email") String email) {
     }
 }

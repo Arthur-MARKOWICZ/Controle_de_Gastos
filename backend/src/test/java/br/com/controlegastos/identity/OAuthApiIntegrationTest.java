@@ -58,6 +58,9 @@ class OAuthApiIntegrationTest {
     @MockitoBean
     OAuthProviderClient googleOAuthClient;
 
+    @MockitoBean
+    OAuthProviderClient githubOAuthClient;
+
     @Test
     void authorizeUrlReturnsTheUrlBuiltByTheProviderClient() throws Exception {
         when(googleOAuthClient.provider()).thenReturn(OAuthProvider.GOOGLE);
@@ -92,6 +95,51 @@ class OAuthApiIntegrationTest {
                 .andExpect(cookie().exists("refresh_token"));
 
         assertThat(users.findByEmailNormalized("nova.pessoa@example.com")).isPresent();
+    }
+
+    @Test
+    void callbackForANewGitHubIdentityCreatesAnAccountAndRedirectsWithTheSessionCookie() throws Exception {
+        when(githubOAuthClient.provider()).thenReturn(OAuthProvider.GITHUB);
+        when(githubOAuthClient.authorizationUrl(any()))
+                .thenAnswer(invocation -> "https://github.com/login/oauth/authorize?state=" + invocation.getArgument(0));
+        when(githubOAuthClient.exchangeCode("valid-code")).thenReturn("access-token");
+        when(githubOAuthClient.fetchProfile("access-token"))
+                .thenReturn(new OAuthProviderClient.ProviderProfile("github-7", "nova.pessoa.gh@example.com"));
+
+        String authorizeUrlResponse = mockMvc.perform(post("/api/v1/auth/oauth/github/authorize-url"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String url = objectMapper.readTree(authorizeUrlResponse).get("authorizationUrl").asText();
+
+        mockMvc.perform(get("/api/v1/auth/oauth/github/callback")
+                        .param("code", "valid-code")
+                        .param("state", extractState(url)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "https://app.example.com/oauth/callback?status=ok"))
+                .andExpect(cookie().exists("refresh_token"));
+
+        assertThat(users.findByEmailNormalized("nova.pessoa.gh@example.com")).isPresent();
+    }
+
+    @Test
+    void callbackFailsGenericallyWhenGitHubDoesNotReturnAnEmail() throws Exception {
+        when(githubOAuthClient.provider()).thenReturn(OAuthProvider.GITHUB);
+        when(githubOAuthClient.authorizationUrl(any()))
+                .thenAnswer(invocation -> "https://github.com/login/oauth/authorize?state=" + invocation.getArgument(0));
+        when(githubOAuthClient.exchangeCode("valid-code")).thenReturn("access-token");
+        when(githubOAuthClient.fetchProfile("access-token"))
+                .thenReturn(new OAuthProviderClient.ProviderProfile("github-8", null));
+
+        String authorizeUrlResponse = mockMvc.perform(post("/api/v1/auth/oauth/github/authorize-url"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String url = objectMapper.readTree(authorizeUrlResponse).get("authorizationUrl").asText();
+
+        mockMvc.perform(get("/api/v1/auth/oauth/github/callback")
+                        .param("code", "valid-code")
+                        .param("state", extractState(url)))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "https://app.example.com/oauth/callback?error=oauth_failed"));
     }
 
     @Test
