@@ -30,6 +30,13 @@ export type MfaStatus = {
   pendingExpiresAt: string | null;
 };
 
+export type OAuthProviderName = "google" | "github";
+
+export type LoginMethods = {
+  hasPassword: boolean;
+  linkedProviders: OAuthProviderName[];
+};
+
 export class AuthError extends Error {
   constructor(
     public readonly kind: "credentials" | "expired" | "rate-limit" | "unexpected" | "mfa-required",
@@ -74,7 +81,7 @@ export class AuthClient {
     return this.currentUser();
   }
 
-  async startOAuth(provider: "google" | "github"): Promise<void> {
+  async startOAuth(provider: OAuthProviderName): Promise<void> {
     const response = await fetch(`${this.apiUrl}/api/v1/auth/oauth/${provider}/authorize-url`, {
       method: "POST",
       credentials: "include",
@@ -82,6 +89,37 @@ export class AuthClient {
     if (!response.ok) throw await this.error(response);
     const body = await response.json() as { authorizationUrl: string };
     window.location.href = body.authorizationUrl;
+  }
+
+  async connectOAuth(provider: OAuthProviderName): Promise<void> {
+    const response = await this.request(`/api/v1/auth/oauth/${provider}/authorize-url`, { method: "POST" });
+    if (!response.ok) throw new Error(await this.problemDetail(response));
+    const body = await response.json() as { authorizationUrl: string };
+    window.location.href = body.authorizationUrl;
+  }
+
+  async unlinkProvider(provider: OAuthProviderName): Promise<void> {
+    const response = await this.request(`/api/v1/auth/oauth/${provider}`, { method: "DELETE" });
+    if (!response.ok) throw new Error(await this.problemDetail(response));
+  }
+
+  async addPassword(password: string): Promise<void> {
+    const response = await this.request("/api/v1/auth/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    if (!response.ok) throw new Error(await this.problemDetail(response));
+  }
+
+  async loginMethods(): Promise<LoginMethods> {
+    const response = await this.request("/api/v1/auth/login-methods", {}, false, false);
+    if (!response.ok) throw await this.error(response);
+    const body = await response.json() as { hasPassword: boolean; linkedProviders: string[] };
+    return {
+      hasPassword: body.hasPassword,
+      linkedProviders: body.linkedProviders.map((provider) => provider.toLowerCase() as OAuthProviderName),
+    };
   }
 
   async verifyMfa(challengeId: string, code: string): Promise<CurrentUser> {
@@ -258,6 +296,15 @@ export class AuthClient {
 
   private remember(tokens: TokenResponse) {
     this.accessToken = tokens.accessToken;
+  }
+
+  private async problemDetail(response: Response): Promise<string> {
+    try {
+      const body = await response.json() as { detail?: string };
+      return body.detail ?? "Não foi possível concluir a operação.";
+    } catch {
+      return "Não foi possível concluir a operação.";
+    }
   }
 
   private async error(response: Response): Promise<AuthError> {

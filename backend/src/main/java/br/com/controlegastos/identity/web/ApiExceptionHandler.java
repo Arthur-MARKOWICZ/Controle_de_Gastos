@@ -6,9 +6,11 @@ import br.com.controlegastos.identity.application.InvalidPasswordConfirmationExc
 import br.com.controlegastos.identity.application.InvalidRecoveryCodeException;
 import br.com.controlegastos.identity.application.InvalidRefreshTokenException;
 import br.com.controlegastos.identity.application.InvalidPasswordResetTokenException;
+import br.com.controlegastos.identity.application.LastLoginMethodException;
 import br.com.controlegastos.identity.application.MfaAlreadyEnabledException;
 import br.com.controlegastos.identity.application.MfaNotEnabledException;
 import br.com.controlegastos.identity.application.OAuthLoginFailedException;
+import br.com.controlegastos.identity.application.PasswordAlreadySetException;
 import br.com.controlegastos.identity.application.TooManyAttemptsException;
 import java.time.Duration;
 import org.springframework.http.HttpHeaders;
@@ -109,6 +111,18 @@ class ApiExceptionHandler {
     ProblemDetail oauthLoginFailed() {
         return problem(HttpStatus.BAD_REQUEST, "OAUTH_LOGIN_FAILED",
                 "Falha no login social", "Não foi possível concluir a autenticação com o provedor.");
+    }
+
+    @ExceptionHandler(LastLoginMethodException.class)
+    ProblemDetail lastLoginMethod() {
+        return problem(HttpStatus.CONFLICT, "LAST_LOGIN_METHOD",
+                "Último método de login", "Não é possível remover o único método de login da conta.");
+    }
+
+    @ExceptionHandler(PasswordAlreadySetException.class)
+    ProblemDetail passwordAlreadySet() {
+        return problem(HttpStatus.CONFLICT, "PASSWORD_ALREADY_SET",
+                "Senha já cadastrada", "Esta conta já tem uma senha. Use a recuperação de senha para trocá-la.");
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,

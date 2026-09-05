@@ -2,16 +2,17 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import type { AuthClient, MfaStatus } from "../../auth/auth-client";
+import type { AuthClient, LoginMethods, MfaStatus, OAuthProviderName } from "../../auth/auth-client";
 import { MfaSettings } from "../MfaSettings/MfaSettings";
 import styles from "./SecuritySettings.module.css";
 
 type Props = {
   client: AuthClient;
+  connectionNotice?: string | null;
   onLoggedOut(): void;
 };
 
-export function SecuritySettings({ client, onLoggedOut }: Props) {
+export function SecuritySettings({ client, connectionNotice, onLoggedOut }: Props) {
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,10 +32,119 @@ export function SecuritySettings({ client, onLoggedOut }: Props) {
       <div className={styles.backRow}>
         <Link className={styles.back} href="/configuracoes">← Voltar</Link>
       </div>
+      <LinkedAccountsPanel client={client} connectionNotice={connectionNotice} />
       {status?.status === "ENABLED"
         ? <MfaEnabledPanel client={client} onLoggedOut={onLoggedOut} />
         : <MfaSettings client={client} onComplete={onLoggedOut} />}
     </>
+  );
+}
+
+const PROVIDER_LABELS: Record<OAuthProviderName, string> = { google: "Google", github: "GitHub" };
+const ALL_PROVIDERS: OAuthProviderName[] = ["google", "github"];
+
+function LinkedAccountsPanel({ client, connectionNotice }: { client: AuthClient; connectionNotice?: string | null }) {
+  const [status, setStatus] = useState<LoginMethods | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState<string | null>(connectionNotice ?? null);
+  const [busyProvider, setBusyProvider] = useState<OAuthProviderName | null>(null);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordBusy, setPasswordBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    client.loginMethods()
+      .then((result) => { if (active) setStatus(result); })
+      .catch(() => { if (active) setMessage("Não foi possível carregar as contas conectadas."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [client]);
+
+  if (loading || !status) return null;
+
+  const isOnlyRemainingMethod = (provider: OAuthProviderName) =>
+    !status.hasPassword && status.linkedProviders.length === 1 && status.linkedProviders[0] === provider;
+
+  async function connect(provider: OAuthProviderName) {
+    setMessage(null);
+    setBusyProvider(provider);
+    try {
+      await client.connectOAuth(provider);
+    } catch {
+      setMessage("Não foi possível iniciar a conexão. Tente novamente.");
+      setBusyProvider(null);
+    }
+  }
+
+  async function disconnect(provider: OAuthProviderName) {
+    setMessage(null);
+    setBusyProvider(provider);
+    try {
+      await client.unlinkProvider(provider);
+      setStatus((current) => current && {
+        ...current,
+        linkedProviders: current.linkedProviders.filter((linked) => linked !== provider),
+      });
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Não foi possível desconectar.");
+    } finally {
+      setBusyProvider(null);
+    }
+  }
+
+  async function submitPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPasswordBusy(true);
+    setMessage(null);
+    try {
+      await client.addPassword(password);
+      setStatus((current) => current && { ...current, hasPassword: true });
+      setShowPasswordForm(false);
+      setPassword("");
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : "Não foi possível cadastrar a senha.");
+    } finally {
+      setPasswordBusy(false);
+    }
+  }
+
+  return (
+    <section className={styles.card} aria-labelledby="linked-accounts-title">
+      <h1 id="linked-accounts-title">Contas conectadas</h1>
+      {message && <p className={styles.notice} role="status">{message}</p>}
+      <div className={styles.actions}>
+        {ALL_PROVIDERS.map((provider) => {
+          const linked = status.linkedProviders.includes(provider);
+          return linked ? (
+            <button key={provider} type="button"
+              disabled={busyProvider === provider || isOnlyRemainingMethod(provider)}
+              onClick={() => disconnect(provider)}>
+              {busyProvider === provider ? "Aguarde…" : `Desconectar ${PROVIDER_LABELS[provider]}`}
+            </button>
+          ) : (
+            <button key={provider} type="button" disabled={busyProvider === provider}
+              onClick={() => connect(provider)}>
+              {busyProvider === provider ? "Aguarde…" : `Conectar ${PROVIDER_LABELS[provider]}`}
+            </button>
+          );
+        })}
+      </div>
+
+      {!status.hasPassword && !showPasswordForm && (
+        <button type="button" onClick={() => setShowPasswordForm(true)}>Cadastrar senha</button>
+      )}
+      {!status.hasPassword && showPasswordForm && (
+        <form className={styles.form} onSubmit={submitPassword}>
+          <label htmlFor="new-password">Nova senha</label>
+          <input id="new-password" type="password" autoComplete="new-password" minLength={12} maxLength={128}
+            required value={password} onChange={(event) => setPassword(event.target.value)} />
+          <button className={styles.submit} type="submit" disabled={passwordBusy}>
+            {passwordBusy ? "Aguarde…" : "Salvar senha"}
+          </button>
+        </form>
+      )}
+    </section>
   );
 }
 

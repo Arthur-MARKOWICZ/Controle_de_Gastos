@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -61,19 +62,19 @@ public class OAuthLoginService {
     }
 
     @Transactional
-    public String buildAuthorizationUrl(OAuthProvider provider) {
+    public String buildAuthorizationUrl(OAuthProvider provider, UUID linkingUserId) {
         Instant now = clock.instant();
         String rawState = issueRawState();
-        states.save(OAuthAuthorizationState.issue(Sha256.hex(rawState), provider, null, now, stateLifetime));
+        states.save(OAuthAuthorizationState.issue(Sha256.hex(rawState), provider, linkingUserId, now, stateLifetime));
         return clientFor(provider).authorizationUrl(rawState);
     }
 
     @Transactional(noRollbackFor = OAuthLoginFailedException.class)
-    public AuthenticationService.LoginOutcome completeCallback(
+    public OAuthCallbackOutcome completeCallback(
             OAuthProvider provider, String code, String rawState, String remoteAddress) {
         attempts.assertOAuthCallbackAllowed(remoteAddress);
         try {
-            AuthenticationService.LoginOutcome outcome = doCompleteCallback(provider, code, rawState);
+            OAuthCallbackOutcome outcome = doCompleteCallback(provider, code, rawState);
             attempts.clearOAuthCallbackFailures(remoteAddress);
             return outcome;
         } catch (OAuthLoginFailedException exception) {
@@ -82,12 +83,13 @@ public class OAuthLoginService {
         }
     }
 
-    private AuthenticationService.LoginOutcome doCompleteCallback(OAuthProvider provider, String code, String rawState) {
+    private OAuthCallbackOutcome doCompleteCallback(OAuthProvider provider, String code, String rawState) {
         Instant now = clock.instant();
         OAuthAuthorizationState state = states.findLockedByStateHash(Sha256.hex(rawState))
                 .filter(candidate -> candidate.canBeConsumedAt(now) && candidate.provider() == provider)
                 .orElseThrow(OAuthLoginFailedException::new);
         state.consume(now);
+        UUID linkingUserId = state.linkingUserId();
 
         OAuthProviderClient client = clientFor(provider);
         String accessToken;
@@ -96,24 +98,50 @@ public class OAuthLoginService {
             accessToken = client.exchangeCode(code);
             profile = client.fetchProfile(accessToken);
         } catch (RuntimeException exception) {
-            throw new OAuthLoginFailedException();
+            throw failure(linkingUserId);
         }
         if (profile.email() == null) {
-            throw new OAuthLoginFailedException();
+            throw failure(linkingUserId);
         }
         EmailAddress email;
         try {
             email = EmailAddress.from(profile.email());
         } catch (IllegalArgumentException exception) {
-            throw new OAuthLoginFailedException();
+            throw failure(linkingUserId);
+        }
+
+        if (linkingUserId != null) {
+            linkProviderToExistingAccount(provider, profile.providerUserId(), linkingUserId, email, now);
+            return new OAuthCallbackOutcome.Linked(provider);
         }
 
         UUID userId = resolveUserId(provider, profile.providerUserId(), email, now);
         boolean requiresMfa = totpCredentials.findById(userId).map(TotpCredential::requiresMfaAtLogin).orElse(false);
         if (requiresMfa) {
-            return new AuthenticationService.LoginOutcome(null, mfaLogin.createChallenge(userId));
+            return new OAuthCallbackOutcome.LoggedIn(new AuthenticationService.LoginOutcome(null, mfaLogin.createChallenge(userId)));
         }
-        return new AuthenticationService.LoginOutcome(sessions.start(userId), null);
+        return new OAuthCallbackOutcome.LoggedIn(new AuthenticationService.LoginOutcome(sessions.start(userId), null));
+    }
+
+    private void linkProviderToExistingAccount(
+            OAuthProvider provider, String providerUserId, UUID linkingUserId, EmailAddress email, Instant now) {
+        Optional<IdentityProviderLink> existingLink = links.findByProviderAndProviderUserId(provider, providerUserId);
+        if (existingLink.isPresent()) {
+            if (!existingLink.get().userId().equals(linkingUserId)) {
+                throw new OAuthLinkFailedException();
+            }
+            return;
+        }
+        boolean alreadyHasThisProvider = links.findByUserId(linkingUserId).stream()
+                .anyMatch(link -> link.provider() == provider);
+        if (alreadyHasThisProvider) {
+            throw new OAuthLinkFailedException();
+        }
+        links.save(IdentityProviderLink.link(linkingUserId, provider, providerUserId, email.value(), now));
+    }
+
+    private RuntimeException failure(UUID linkingUserId) {
+        return linkingUserId != null ? new OAuthLinkFailedException() : new OAuthLoginFailedException();
     }
 
     private UUID resolveUserId(OAuthProvider provider, String providerUserId, EmailAddress email, Instant now) {

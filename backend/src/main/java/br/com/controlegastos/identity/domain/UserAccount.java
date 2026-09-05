@@ -98,4 +98,12 @@ public class UserAccount {
         if (emailVerifiedAt == null) emailVerifiedAt = now;
         updatedAt = now;
     }
+
+    public void attachPassword(String passwordHash, Instant now) {
+        if (hasPassword()) {
+            throw new IllegalStateException("A conta já tem uma senha definida");
+        }
+        passwordCredential = new PasswordCredential(passwordHash, now);
+        updatedAt = now;
+    }
 }

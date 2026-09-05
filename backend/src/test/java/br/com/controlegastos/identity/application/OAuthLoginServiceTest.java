@@ -61,8 +61,8 @@ class OAuthLoginServiceTest {
         OAuthLoginService service = new OAuthLoginService(
                 List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
 
-        AuthenticationService.LoginOutcome outcome =
-                service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1");
+        AuthenticationService.LoginOutcome outcome = loggedIn(
+                service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"));
 
         assertThat(outcome.requiresMfa()).isFalse();
         assertThat(outcome.session()).isEqualTo(session);
@@ -102,8 +102,8 @@ class OAuthLoginServiceTest {
         OAuthLoginService service = new OAuthLoginService(
                 List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
 
-        AuthenticationService.LoginOutcome outcome =
-                service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1");
+        AuthenticationService.LoginOutcome outcome = loggedIn(
+                service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"));
 
         assertThat(outcome.session()).isEqualTo(session);
         verify(users, never()).save(any());
@@ -138,8 +138,8 @@ class OAuthLoginServiceTest {
         OAuthLoginService service = new OAuthLoginService(
                 List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
 
-        AuthenticationService.LoginOutcome outcome =
-                service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1");
+        AuthenticationService.LoginOutcome outcome = loggedIn(
+                service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"));
 
         assertThat(outcome.requiresMfa()).isTrue();
         assertThat(outcome.challenge()).isEqualTo(challenge);
@@ -235,10 +235,133 @@ class OAuthLoginServiceTest {
         OAuthLoginService service = new OAuthLoginService(
                 List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
 
-        String url = service.buildAuthorizationUrl(OAuthProvider.GOOGLE);
+        String url = service.buildAuthorizationUrl(OAuthProvider.GOOGLE, null);
 
         assertThat(url).isEqualTo("https://accounts.google.com/authorize?state=x");
         verify(states).save(any(OAuthAuthorizationState.class));
+    }
+
+    @Test
+    void connectingANewProviderToAnAuthenticatedAccountLinksItWithoutStartingASession() {
+        UUID currentUserId = UUID.randomUUID();
+        OAuthProviderClient client = fakeGoogleClient(PROVIDER_USER_ID, EMAIL);
+        OAuthAuthorizationStateRepository states = mock(OAuthAuthorizationStateRepository.class);
+        IdentityProviderLinkRepository links = mock(IdentityProviderLinkRepository.class);
+        UserAccountRepository users = mock(UserAccountRepository.class);
+        TotpCredentialRepository totpCredentials = mock(TotpCredentialRepository.class);
+        MfaLoginService mfaLogin = mock(MfaLoginService.class);
+        SessionService sessions = mock(SessionService.class);
+        AuthAttemptService attempts = mock(AuthAttemptService.class);
+
+        OAuthAuthorizationState state =
+                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, NOW, STATE_LIFETIME);
+        when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
+        when(links.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, PROVIDER_USER_ID)).thenReturn(Optional.empty());
+        when(links.findByUserId(currentUserId)).thenReturn(List.of());
+
+        OAuthLoginService service = new OAuthLoginService(
+                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+
+        OAuthCallbackOutcome result = service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1");
+
+        assertThat(result).isInstanceOf(OAuthCallbackOutcome.Linked.class);
+        ArgumentCaptor<IdentityProviderLink> linkCaptor = ArgumentCaptor.forClass(IdentityProviderLink.class);
+        verify(links).save(linkCaptor.capture());
+        assertThat(linkCaptor.getValue().userId()).isEqualTo(currentUserId);
+        verify(sessions, never()).start(any());
+        verify(users, never()).save(any());
+    }
+
+    @Test
+    void rejectsConnectingAProviderIdentityAlreadyLinkedToAnotherAccount() {
+        UUID currentUserId = UUID.randomUUID();
+        UUID otherUserId = UUID.randomUUID();
+        OAuthProviderClient client = fakeGoogleClient(PROVIDER_USER_ID, EMAIL);
+        OAuthAuthorizationStateRepository states = mock(OAuthAuthorizationStateRepository.class);
+        IdentityProviderLinkRepository links = mock(IdentityProviderLinkRepository.class);
+        UserAccountRepository users = mock(UserAccountRepository.class);
+        TotpCredentialRepository totpCredentials = mock(TotpCredentialRepository.class);
+        MfaLoginService mfaLogin = mock(MfaLoginService.class);
+        SessionService sessions = mock(SessionService.class);
+        AuthAttemptService attempts = mock(AuthAttemptService.class);
+
+        OAuthAuthorizationState state =
+                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, NOW, STATE_LIFETIME);
+        IdentityProviderLink linkedToSomeoneElse =
+                IdentityProviderLink.link(otherUserId, OAuthProvider.GOOGLE, PROVIDER_USER_ID, EMAIL, NOW);
+        when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
+        when(links.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, PROVIDER_USER_ID))
+                .thenReturn(Optional.of(linkedToSomeoneElse));
+
+        OAuthLoginService service = new OAuthLoginService(
+                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+
+        assertThatThrownBy(() -> service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"))
+                .isInstanceOf(OAuthLinkFailedException.class);
+
+        verify(links, never()).save(any());
+    }
+
+    @Test
+    void rejectsConnectingAProviderTheAccountAlreadyHasLinked() {
+        UUID currentUserId = UUID.randomUUID();
+        OAuthProviderClient client = fakeGoogleClient(PROVIDER_USER_ID, EMAIL);
+        OAuthAuthorizationStateRepository states = mock(OAuthAuthorizationStateRepository.class);
+        IdentityProviderLinkRepository links = mock(IdentityProviderLinkRepository.class);
+        UserAccountRepository users = mock(UserAccountRepository.class);
+        TotpCredentialRepository totpCredentials = mock(TotpCredentialRepository.class);
+        MfaLoginService mfaLogin = mock(MfaLoginService.class);
+        SessionService sessions = mock(SessionService.class);
+        AuthAttemptService attempts = mock(AuthAttemptService.class);
+
+        OAuthAuthorizationState state =
+                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, NOW, STATE_LIFETIME);
+        IdentityProviderLink alreadyLinkedToAnotherGoogleAccount =
+                IdentityProviderLink.link(currentUserId, OAuthProvider.GOOGLE, "google-other-id", EMAIL, NOW);
+        when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
+        when(links.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, PROVIDER_USER_ID)).thenReturn(Optional.empty());
+        when(links.findByUserId(currentUserId)).thenReturn(List.of(alreadyLinkedToAnotherGoogleAccount));
+
+        OAuthLoginService service = new OAuthLoginService(
+                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+
+        assertThatThrownBy(() -> service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"))
+                .isInstanceOf(OAuthLinkFailedException.class);
+
+        verify(links, never()).save(any());
+    }
+
+    @Test
+    void reconnectingTheSameProviderIdentityToTheSameAccountIsIdempotent() {
+        UUID currentUserId = UUID.randomUUID();
+        OAuthProviderClient client = fakeGoogleClient(PROVIDER_USER_ID, EMAIL);
+        OAuthAuthorizationStateRepository states = mock(OAuthAuthorizationStateRepository.class);
+        IdentityProviderLinkRepository links = mock(IdentityProviderLinkRepository.class);
+        UserAccountRepository users = mock(UserAccountRepository.class);
+        TotpCredentialRepository totpCredentials = mock(TotpCredentialRepository.class);
+        MfaLoginService mfaLogin = mock(MfaLoginService.class);
+        SessionService sessions = mock(SessionService.class);
+        AuthAttemptService attempts = mock(AuthAttemptService.class);
+
+        OAuthAuthorizationState state =
+                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, NOW, STATE_LIFETIME);
+        IdentityProviderLink existingLink =
+                IdentityProviderLink.link(currentUserId, OAuthProvider.GOOGLE, PROVIDER_USER_ID, EMAIL, NOW);
+        when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
+        when(links.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, PROVIDER_USER_ID))
+                .thenReturn(Optional.of(existingLink));
+
+        OAuthLoginService service = new OAuthLoginService(
+                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+
+        OAuthCallbackOutcome result = service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1");
+
+        assertThat(result).isInstanceOf(OAuthCallbackOutcome.Linked.class);
+        verify(links, never()).save(any());
+    }
+
+    private AuthenticationService.LoginOutcome loggedIn(OAuthCallbackOutcome outcome) {
+        return ((OAuthCallbackOutcome.LoggedIn) outcome).outcome();
     }
 
     private OAuthProviderClient fakeGoogleClient(String providerUserId, String email) {

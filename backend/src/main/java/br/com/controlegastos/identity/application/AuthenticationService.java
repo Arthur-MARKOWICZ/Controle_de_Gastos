@@ -119,6 +119,14 @@ public class AuthenticationService {
         return UUID.fromString(currentAuthentication().getToken().getSubject());
     }
 
+    public UUID currentUserIdOrNull() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!(authentication instanceof JwtAuthenticationToken jwt)) {
+            return null;
+        }
+        return UUID.fromString(jwt.getToken().getSubject());
+    }
+
     public UUID currentSessionId() {
         return UUID.fromString(currentAuthentication().getToken().getClaimAsString("sid"));
     }
