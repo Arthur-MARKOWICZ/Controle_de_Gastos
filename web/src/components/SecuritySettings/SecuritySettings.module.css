@@ -1,0 +1,17 @@
+.page{min-height:100svh;display:grid;place-items:start center;padding:clamp(1.25rem,5vw,3rem)}
+.card{width:min(100%,32rem);padding:clamp(1.5rem,5vw,2.5rem);border:1px solid var(--border);border-radius:var(--radius-lg);color:var(--text-primary);background:var(--surface);box-shadow:var(--shadow-lg)}
+.card h1{margin:0 0 1rem;font-size:clamp(1.5rem,3.5vw,2rem);line-height:1.1;letter-spacing:-.04em}
+.supporting{margin-bottom:1.25rem;color:var(--text-muted);line-height:1.55}
+.notice{margin-bottom:1rem;padding:.8rem 1rem;border-left:.25rem solid var(--accent);border-radius:var(--radius-xs);color:var(--text-primary);background:var(--surface-muted);line-height:1.5}
+.actions{display:grid;gap:.6rem}
+.actions button{min-height:3rem;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);background:var(--surface-raised);font-weight:750;cursor:pointer}
+.form{display:grid;gap:.6rem}
+.form label{margin-top:.55rem;font-size:.8125rem;font-weight:750}
+.form input{width:100%;min-height:3.25rem;padding:.75rem .9rem;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);background:var(--surface-raised)}
+.form input:focus{border-color:var(--focus);box-shadow:0 0 0 .2rem color-mix(in srgb,var(--focus) 20%,transparent);outline:0}
+.submit{min-height:3.25rem;margin-top:.4rem;border:1px solid var(--accent);border-radius:var(--radius-sm);color:var(--on-accent);background:var(--accent);font-weight:800;cursor:pointer}
+.submit:disabled{cursor:wait;opacity:.65}
+.cancel{min-height:2.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);background:transparent;cursor:pointer}
+.codes{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:0 0 1.5rem;padding:1rem;border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--surface-muted);list-style:none}
+.codes code{font-weight:750;letter-spacing:.03em}
+.back{display:inline-block;margin-bottom:1.5rem;color:var(--accent-strong);font-weight:750;text-decoration:underline;text-underline-offset:.18em}
