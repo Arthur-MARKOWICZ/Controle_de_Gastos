@@ -21,10 +21,13 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestControllerAdvice
 class ApiExceptionHandler {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ApiExceptionHandler.class);
     private static final String AUTHENTICATION_DETAIL =
             "Não foi possível autenticar com os dados informados.";
     private final String cookieName;
@@ -109,7 +112,8 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    ProblemDetail internalError() {
+    ProblemDetail internalError(Exception exception) {
+        LOG.error("Erro não tratado ao processar a requisição", exception);
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR",
                 "Erro interno", "Não foi possível concluir a operação.");
     }

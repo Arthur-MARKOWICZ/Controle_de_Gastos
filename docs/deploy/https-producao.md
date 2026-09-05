@@ -46,16 +46,25 @@ Environments**, crie `production` e cadastre:
 | `POSTGRES_PASSWORD` | Secret | Sim | Senha aleatória nova do banco |
 | `AUTH_JWT_SECRET` | Secret | Sim | Segredo HS256 aleatório com pelo menos 32 bytes |
 | `AUTH_ATTEMPT_HMAC_SECRET` | Secret | Sim | Segredo HMAC distinto, com pelo menos 32 bytes |
+| `AUTH_TOTP_ENCRYPTION_KEY` | Secret | Sim | Base64 de exatamente 32 bytes; cifra os segredos TOTP do MFA |
 | `GMAIL_SMTP_USERNAME` | Secret | Sim | Conta Gmail remetente exclusiva do serviço |
 | `GMAIL_SMTP_APP_PASSWORD` | Secret | Sim | App password de 16 dígitos da conta remetente |
 
-Gere valores diferentes para as três credenciais:
+Gere valores diferentes para as quatro credenciais:
 
 ```bash
 openssl rand -base64 48
 openssl rand -base64 48
+openssl rand -base64 32
 openssl rand -base64 48
 ```
+
+`AUTH_TOTP_ENCRYPTION_KEY` precisa ser exatamente 32 bytes (use `-base64 32`,
+não 48) e nunca deve trocar depois de configurado: alterá-lo torna
+indecifráveis os segredos TOTP já cifrados no banco de todas as contas com
+MFA ativo (ver [`ADR-019`](../decisions/0019-mfa-totp.md)). Se for
+comprometido ou perdido, siga o procedimento de rotação em
+[`docs/privacy/operacao-de-autenticacao.md`](../privacy/operacao-de-autenticacao.md).
 
 O workflow transmite os valores pelo `stdin` de uma sessão SSH, executa o
 Compose com `COMPOSE_DISABLE_ENV_FILE=1` e não cria `.env` na VPS. O Docker

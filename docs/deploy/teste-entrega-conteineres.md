@@ -88,6 +88,11 @@ Para reduzir o número de variáveis neste teste, a Action usa a tag fixa
 | `AUTH_SESSION_ABSOLUTE_LIFETIME` | Não | `365d` | Vida máxima da sessão |
 | `AUTH_ALLOWED_ORIGINS` | Não | `http://localhost:3000` | Origem CORS permitida |
 | `AUTH_ATTEMPT_HMAC_SECRET` | Não | valor de teste | Segredo do rate limit; trocar antes de uso real |
+| `AUTH_TOTP_ENCRYPTION_KEY` | Não | valor exclusivo de teste | Cifra os segredos TOTP do MFA; base64 de 32 bytes, nunca trocar depois de configurado em uso real |
+| `AUTH_TOTP_ENCRYPTION_KEY_VERSION` | Não | `1` | Versão da chave de cifragem TOTP |
+| `AUTH_MFA_LOGIN_CHALLENGE_LIFETIME` | Não | `5m` | Validade do desafio de login MFA |
+| `AUTH_MFA_PENDING_SETUP_LIFETIME` | Não | `10m` | Validade da configuração de MFA pendente |
+| `AUTH_MFA_RECOVERY_SESSION_LIFETIME` | Não | `10m` | Validade da sessão restrita de recuperação de MFA |
 | `NEXT_PUBLIC_API_URL` | Não | `http://localhost:8080` | URL da API no runtime web; o valor de build vem de `TEST_API_URL` |
 
 Não há variável obrigatória no Compose para este teste: todas têm valores
