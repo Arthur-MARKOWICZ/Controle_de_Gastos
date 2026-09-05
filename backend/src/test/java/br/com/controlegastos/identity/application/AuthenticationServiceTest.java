@@ -2,6 +2,7 @@ package br.com.controlegastos.identity.application;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import br.com.controlegastos.identity.infrastructure.TotpCredentialRepository;
 import br.com.controlegastos.identity.infrastructure.UserAccountRepository;
 import java.time.Clock;
 import java.util.UUID;
@@ -34,6 +35,7 @@ class AuthenticationServiceTest {
                 Mockito.mock(UserAccountRepository.class),
                 Mockito.mock(SessionService.class),
                 Mockito.mock(AuthAttemptService.class),
+                Mockito.mock(TotpCredentialRepository.class),
                 Mockito.mock(org.springframework.security.crypto.password.PasswordEncoder.class),
                 Clock.systemUTC()
         );

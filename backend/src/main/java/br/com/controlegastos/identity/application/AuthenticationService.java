@@ -1,8 +1,10 @@
 package br.com.controlegastos.identity.application;
 
 import br.com.controlegastos.identity.domain.EmailAddress;
+import br.com.controlegastos.identity.domain.TotpCredential;
 import br.com.controlegastos.identity.domain.UserAccount;
 import br.com.controlegastos.identity.domain.UserStatus;
+import br.com.controlegastos.identity.infrastructure.TotpCredentialRepository;
 import br.com.controlegastos.identity.infrastructure.UserAccountRepository;
 import java.time.Clock;
 import java.util.UUID;
@@ -24,6 +26,7 @@ public class AuthenticationService {
     private final UserAccountRepository users;
     private final SessionService sessions;
     private final AuthAttemptService attempts;
+    private final TotpCredentialRepository totpCredentials;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
     private final String dummyPasswordHash;
@@ -32,12 +35,14 @@ public class AuthenticationService {
             UserAccountRepository users,
             SessionService sessions,
             AuthAttemptService attempts,
+            TotpCredentialRepository totpCredentials,
             PasswordEncoder passwordEncoder,
             Clock clock
     ) {
         this.users = users;
         this.sessions = sessions;
         this.attempts = attempts;
+        this.totpCredentials = totpCredentials;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
         this.dummyPasswordHash = passwordEncoder.encode(DUMMY_PASSWORD);
@@ -57,6 +62,7 @@ public class AuthenticationService {
         }
         UserAccount user = UserAccount.register(email, passwordHash, clock.instant());
         users.save(user);
+        totpCredentials.save(TotpCredential.initiallyDisabled(user.id(), clock.instant()));
     }
 
     @Transactional(noRollbackFor = InvalidCredentialsException.class)

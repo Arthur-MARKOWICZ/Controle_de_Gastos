@@ -1,5 +1,6 @@
 package br.com.controlegastos.identity.config;
 
+import br.com.controlegastos.identity.infrastructure.TotpSecretCipher;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.KeyUse;
@@ -9,6 +10,7 @@ import com.nimbusds.jose.proc.SecurityContext;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Clock;
+import java.util.Base64;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +35,7 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 class AuthConfiguration {
 
     private final byte[] generatedJwtSecret = generatedSecret();
+    private final byte[] generatedTotpEncryptionKey = generatedSecret();
 
     @Value("${app.auth.issuer}")
     private String issuer;
@@ -43,9 +46,20 @@ class AuthConfiguration {
     @Value("${app.auth.jwt-secret:}")
     private String jwtSecret;
 
+    @Value("${app.auth.totp.encryption-key:}")
+    private String totpEncryptionKey;
+
+    @Value("${app.auth.totp.encryption-key-version:1}")
+    private int totpEncryptionKeyVersion;
+
     @Bean
     Clock clock() {
         return Clock.systemUTC();
+    }
+
+    @Bean
+    TotpSecretCipher totpSecretCipher() {
+        return new TotpSecretCipher(totpEncryptionKeyBytes(), totpEncryptionKeyVersion);
     }
 
     @Bean
@@ -94,6 +108,17 @@ class AuthConfiguration {
         byte[] value = jwtSecret.getBytes(StandardCharsets.UTF_8);
         if (value.length < 32) {
             throw new IllegalStateException("AUTH_JWT_SECRET deve ter ao menos 32 bytes");
+        }
+        return value;
+    }
+
+    private byte[] totpEncryptionKeyBytes() {
+        if (totpEncryptionKey == null || totpEncryptionKey.isBlank()) {
+            return generatedTotpEncryptionKey.clone();
+        }
+        byte[] value = Base64.getDecoder().decode(totpEncryptionKey);
+        if (value.length != 32) {
+            throw new IllegalStateException("AUTH_TOTP_ENCRYPTION_KEY deve decodificar para 32 bytes");
         }
         return value;
     }

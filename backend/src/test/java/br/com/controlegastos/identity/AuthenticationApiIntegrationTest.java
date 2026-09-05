@@ -305,6 +305,20 @@ class AuthenticationApiIntegrationTest {
     }
 
     @Test
+    void registrationCreatesADisabledMfaCredential() throws Exception {
+        register("mfa-disabled@example.com", PASSWORD);
+        var user = users.findByEmailNormalized("mfa-disabled@example.com").orElseThrow();
+
+        String status = jdbcTemplate.queryForObject(
+                "SELECT status FROM totp_credential WHERE user_id = ?",
+                String.class,
+                user.id()
+        );
+
+        assertThat(status).isEqualTo("DISABLED");
+    }
+
+    @Test
     void persistedCredentialIsStoredWithTheUserAndNeverContainsThePassword() throws Exception {
         register("hash@example.com", PASSWORD);
         var user = users.findByEmailNormalized("hash@example.com").orElseThrow();

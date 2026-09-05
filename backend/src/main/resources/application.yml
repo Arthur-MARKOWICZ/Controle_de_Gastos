@@ -39,6 +39,9 @@ app:
       public-url: ${AUTH_PUBLIC_APP_URL:}
       mail-enabled: ${AUTH_PASSWORD_RESET_MAIL_ENABLED:false}
       from: ${GMAIL_SMTP_FROM:}
+    totp:
+      encryption-key: ${AUTH_TOTP_ENCRYPTION_KEY:}
+      encryption-key-version: ${AUTH_TOTP_ENCRYPTION_KEY_VERSION:1}
 
 management:
   endpoints:
