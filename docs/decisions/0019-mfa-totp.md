@@ -42,9 +42,14 @@ contrato público, exigindo decisão explícita antes da implementação.
   tratamento de segredo de produção que `AUTH_JWT_SECRET`. Este corte não
   implementa rotação de chave: `key_version` existe como "seam" para uma
   decisão futura, mas só há uma chave ativa para decifragem por vez.
-- "Substituir" um TOTP já ativo é modelado como desabilitar e reiniciar a
-  configuração, não uma transição direta `ENABLED → PENDING`: `startEnrollment`
-  lança exceção se o estado já for `ENABLED`.
+- "Substituir" um TOTP já ativo em uma sessão normal é modelado como
+  desabilitar e reiniciar a configuração, não uma transição direta
+  `ENABLED → PENDING`: `startEnrollment` lança exceção se o estado já for
+  `ENABLED`. A única exceção é a sessão restrita de recuperação (ver abaixo):
+  como ela existe justamente para substituir um TOTP cujo autenticador foi
+  perdido, `/mfa/enroll` chamado com esse token desabilita e reinicia a
+  configuração automaticamente em vez de exigir a etapa normal de
+  desabilitar antes.
 - Recovery codes seguem o mesmo padrão de `PasswordResetToken`: nunca
   persistidos em texto claro, apenas o hash SHA-256, uso único.
 - O desafio de login MFA (`mfa_login_challenge`) é o mesmo artefato consumido
