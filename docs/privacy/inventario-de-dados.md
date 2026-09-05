@@ -17,6 +17,10 @@ Este documento é uma base de engenharia, não uma definição definitiva de bas
 | Participação em verba (`envelope_participant`: envelope_id, user_id, added_at, added_by) | Compartilhamento e autorização (participante visualiza e registra `EXPENSE`; só `owner` faz `CONTRIBUTION`, arquiva e convida) | API/PostgreSQL | Até remoção/encerramento | PK composta `(envelope_id, user_id)`; preserva `author_id` em `ledger_entry` para auditoria |
 | Token push | Entregar notificações | API/PostgreSQL | Até logout/revogação | Nunca registrar em logs |
 | Eventos de auditoria | Segurança e responsabilização | API/PostgreSQL | Prazo a definir | Sem tokens ou payload financeiro completo |
+| Segredo TOTP cifrado (AES-256-GCM) + nonce + keyVersion | Validar o segundo fator de login (MFA) | API/PostgreSQL | Até desabilitar o MFA ou excluir a conta | Nunca sai em texto claro do backend após a configuração; nonce aleatório por segredo; keyVersion existe para uma futura rotação da chave de runtime |
+| Hash de recovery code (10 por ativação) | Autorizar acesso restrito de recuperação de MFA, uso único | API/PostgreSQL | Até 24 horas após consumo ou invalidação | Código bruto é exibido uma única vez ao titular; nunca em localStorage, logs ou telemetria |
+| Hash de desafio de login MFA | Vincular a etapa de senha à etapa de segundo fator sem expor sessão | API/PostgreSQL | Até 24 horas após expiração ou consumo | Curta duração (5 minutos); nunca contém o código TOTP nem o recovery code |
+| `AUTH_TOTP_ENCRYPTION_KEY` | Cifrar e decifrar segredos TOTP | Variável protegida no runtime | Enquanto houver segredos TOTP cifrados com essa versão de chave | Nunca entra no Git, logs ou imagens; perda da chave impede a decifragem de todos os segredos TOTP ativos |
 
 ## Operador para recuperação de senha
 
