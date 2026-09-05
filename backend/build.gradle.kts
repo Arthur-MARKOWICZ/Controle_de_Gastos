@@ -36,6 +36,9 @@ dependencies {
     implementation("org.springframework.modulith:spring-modulith-starter-core")
     implementation("org.bouncycastle:bcprov-jdk18on:1.84")
     implementation("org.apache.poi:poi-ooxml:5.5.1")
+    implementation("dev.samstevens.totp:totp:1.7.1")
+    implementation("com.google.zxing:core:3.5.4")
+    implementation("com.google.zxing:javase:3.5.4")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 

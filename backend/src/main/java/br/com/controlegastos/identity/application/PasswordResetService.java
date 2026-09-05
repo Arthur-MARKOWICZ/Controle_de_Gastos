@@ -6,15 +6,11 @@ import br.com.controlegastos.identity.domain.UserAccount;
 import br.com.controlegastos.identity.domain.UserStatus;
 import br.com.controlegastos.identity.infrastructure.PasswordResetTokenRepository;
 import br.com.controlegastos.identity.infrastructure.UserAccountRepository;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.HexFormat;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -95,10 +91,7 @@ public class PasswordResetService {
     }
 
     private String hash(String rawToken) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(String.valueOf(rawToken).getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) { throw new IllegalStateException("SHA-256 indisponível", exception); }
+        return Sha256.hex(rawToken);
     }
 
     private static void afterCommit(Runnable action) {

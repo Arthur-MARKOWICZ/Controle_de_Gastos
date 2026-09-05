@@ -1,6 +1,7 @@
 package br.com.controlegastos.identity.web;
 
 import br.com.controlegastos.identity.application.AuthenticationService;
+import br.com.controlegastos.identity.application.MfaLoginService;
 import br.com.controlegastos.identity.application.SessionService;
 import br.com.controlegastos.identity.application.PasswordResetService;
 import jakarta.validation.Valid;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthenticationService authentication;
+    private final MfaLoginService mfaLogin;
     private final String cookieName;
     private final boolean cookieSecure;
     private final Duration refreshIdleLifetime;
@@ -34,12 +36,14 @@ public class AuthController {
 
     public AuthController(
             AuthenticationService authentication,
+            MfaLoginService mfaLogin,
             PasswordResetService passwordResets,
             @Value("${app.auth.cookie-name}") String cookieName,
             @Value("${app.auth.cookie-secure}") boolean cookieSecure,
             @Value("${app.auth.refresh-idle-lifetime}") Duration refreshIdleLifetime
     ) {
         this.authentication = authentication;
+        this.mfaLogin = mfaLogin;
         this.passwordResets = passwordResets;
         this.cookieName = cookieName;
         this.cookieSecure = cookieSecure;
@@ -56,8 +60,19 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    ResponseEntity<TokenResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        return tokenResponse(authentication.login(request.email(), request.password(), httpRequest.getRemoteAddr()));
+    ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        AuthenticationService.LoginOutcome outcome =
+                authentication.login(request.email(), request.password(), httpRequest.getRemoteAddr());
+        if (outcome.requiresMfa()) {
+            return ResponseEntity.ok(new MfaChallengeResponse(
+                    true, outcome.challenge().challengeId(), outcome.challenge().expiresIn()));
+        }
+        return tokenResponse(outcome.session());
+    }
+
+    @PostMapping("/mfa/verify")
+    ResponseEntity<TokenResponse> verifyMfa(@Valid @RequestBody MfaVerifyRequest request, HttpServletRequest httpRequest) {
+        return tokenResponse(mfaLogin.verify(request.challengeId(), request.code(), httpRequest.getRemoteAddr()));
     }
 
     @PostMapping("/refresh")
@@ -137,6 +152,15 @@ public class AuthController {
             @NotNull String email,
             @NotNull String password
     ) {
+    }
+
+    public record MfaVerifyRequest(
+            @NotBlank @Size(max = 512) String challengeId,
+            @NotBlank @Size(max = 10) String code
+    ) {
+    }
+
+    public record MfaChallengeResponse(boolean mfaRequired, String challengeId, long expiresIn) {
     }
 
     public record PasswordResetRequest(@NotNull String email) { }

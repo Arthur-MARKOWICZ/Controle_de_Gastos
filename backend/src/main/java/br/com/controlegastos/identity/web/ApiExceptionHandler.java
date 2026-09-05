@@ -1,8 +1,12 @@
 package br.com.controlegastos.identity.web;
 
 import br.com.controlegastos.identity.application.InvalidCredentialsException;
+import br.com.controlegastos.identity.application.InvalidMfaChallengeException;
+import br.com.controlegastos.identity.application.InvalidPasswordConfirmationException;
 import br.com.controlegastos.identity.application.InvalidRefreshTokenException;
 import br.com.controlegastos.identity.application.InvalidPasswordResetTokenException;
+import br.com.controlegastos.identity.application.MfaAlreadyEnabledException;
+import br.com.controlegastos.identity.application.MfaNotEnabledException;
 import br.com.controlegastos.identity.application.TooManyAttemptsException;
 import java.time.Duration;
 import org.springframework.http.HttpHeaders;
@@ -64,6 +68,30 @@ class ApiExceptionHandler {
     ProblemDetail invalidPasswordResetToken() {
         return problem(HttpStatus.BAD_REQUEST, "PASSWORD_RESET_INVALID",
                 "Link indisponível", "O link de redefinição é inválido ou expirou.");
+    }
+
+    @ExceptionHandler(InvalidMfaChallengeException.class)
+    ProblemDetail invalidMfaChallenge() {
+        return problem(HttpStatus.UNAUTHORIZED, "AUTHENTICATION_FAILED",
+                "Falha de autenticação", AUTHENTICATION_DETAIL);
+    }
+
+    @ExceptionHandler(InvalidPasswordConfirmationException.class)
+    ProblemDetail invalidPasswordConfirmation() {
+        return problem(HttpStatus.UNAUTHORIZED, "PASSWORD_REQUIRED_INVALID",
+                "Senha incorreta", "Senha atual incorreta.");
+    }
+
+    @ExceptionHandler(MfaAlreadyEnabledException.class)
+    ProblemDetail mfaAlreadyEnabled() {
+        return problem(HttpStatus.CONFLICT, "MFA_ALREADY_ENABLED",
+                "MFA já ativo", "A autenticação em duas etapas já está ativa para esta conta.");
+    }
+
+    @ExceptionHandler(MfaNotEnabledException.class)
+    ProblemDetail mfaNotEnabled() {
+        return problem(HttpStatus.CONFLICT, "MFA_NOT_ENABLED",
+                "MFA não ativo", "A autenticação em duas etapas não está ativa para esta conta.");
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,

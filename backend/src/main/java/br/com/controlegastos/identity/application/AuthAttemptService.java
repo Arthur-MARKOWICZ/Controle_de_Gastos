@@ -92,6 +92,58 @@ public class AuthAttemptService {
         return true;
     }
 
+    @Transactional(readOnly = true)
+    public void assertMfaVerifyAllowed(String remoteAddress) {
+        String key = key("MFA_VERIFY", "*", remoteAddress);
+        if (attempts.findById(key).map(attempt -> attempt.isBlockedAt(clock.instant())).orElse(false)) {
+            throw new TooManyAttemptsException();
+        }
+    }
+
+    @Transactional
+    public void recordMfaVerifyFailure(String remoteAddress) {
+        String key = key("MFA_VERIFY", "*", remoteAddress);
+        attempts.lockKey(key);
+        Instant now = clock.instant();
+        attempts.deleteExpired(now);
+        AuthAttempt attempt = attempts.findById(key).orElseGet(() -> new AuthAttempt(key, now, RETENTION));
+        attempt.recordFailure(now, WINDOW, BLOCK_DURATION, RETENTION, LIMIT);
+        attempts.save(attempt);
+    }
+
+    @Transactional
+    public void clearMfaVerifyFailures(String remoteAddress) {
+        String key = key("MFA_VERIFY", "*", remoteAddress);
+        attempts.lockKey(key);
+        attempts.deleteById(key);
+    }
+
+    @Transactional(readOnly = true)
+    public void assertMfaSetupAllowed(String remoteAddress) {
+        String key = key("MFA_SETUP", "*", remoteAddress);
+        if (attempts.findById(key).map(attempt -> attempt.isBlockedAt(clock.instant())).orElse(false)) {
+            throw new TooManyAttemptsException();
+        }
+    }
+
+    @Transactional
+    public void recordMfaSetupFailure(String remoteAddress) {
+        String key = key("MFA_SETUP", "*", remoteAddress);
+        attempts.lockKey(key);
+        Instant now = clock.instant();
+        attempts.deleteExpired(now);
+        AuthAttempt attempt = attempts.findById(key).orElseGet(() -> new AuthAttempt(key, now, RETENTION));
+        attempt.recordFailure(now, WINDOW, BLOCK_DURATION, RETENTION, LIMIT);
+        attempts.save(attempt);
+    }
+
+    @Transactional
+    public void clearMfaSetupFailures(String remoteAddress) {
+        String key = key("MFA_SETUP", "*", remoteAddress);
+        attempts.lockKey(key);
+        attempts.deleteById(key);
+    }
+
     private String key(String scope, String rawEmail, String remoteAddress) {
         String normalizedEmail;
         try {

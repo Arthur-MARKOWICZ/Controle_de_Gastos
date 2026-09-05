@@ -27,6 +27,7 @@ public class AuthenticationService {
     private final SessionService sessions;
     private final AuthAttemptService attempts;
     private final TotpCredentialRepository totpCredentials;
+    private final MfaLoginService mfaLogin;
     private final PasswordEncoder passwordEncoder;
     private final Clock clock;
     private final String dummyPasswordHash;
@@ -36,6 +37,7 @@ public class AuthenticationService {
             SessionService sessions,
             AuthAttemptService attempts,
             TotpCredentialRepository totpCredentials,
+            MfaLoginService mfaLogin,
             PasswordEncoder passwordEncoder,
             Clock clock
     ) {
@@ -43,6 +45,7 @@ public class AuthenticationService {
         this.sessions = sessions;
         this.attempts = attempts;
         this.totpCredentials = totpCredentials;
+        this.mfaLogin = mfaLogin;
         this.passwordEncoder = passwordEncoder;
         this.clock = clock;
         this.dummyPasswordHash = passwordEncoder.encode(DUMMY_PASSWORD);
@@ -66,19 +69,19 @@ public class AuthenticationService {
     }
 
     @Transactional(noRollbackFor = InvalidCredentialsException.class)
-    public SessionService.AuthenticatedSession login(String rawEmail, String password, String remoteAddress) {
+    public LoginOutcome login(String rawEmail, String password, String remoteAddress) {
         attempts.assertLoginAllowed(rawEmail, remoteAddress);
         try {
-            SessionService.AuthenticatedSession session = authenticate(rawEmail, password);
+            LoginOutcome outcome = authenticate(rawEmail, password);
             attempts.clearLoginFailures(rawEmail, remoteAddress);
-            return session;
+            return outcome;
         } catch (InvalidCredentialsException exception) {
             attempts.recordLoginFailure(rawEmail, remoteAddress);
             throw exception;
         }
     }
 
-    private SessionService.AuthenticatedSession authenticate(String rawEmail, String password) {
+    private LoginOutcome authenticate(String rawEmail, String password) {
         EmailAddress email;
         try {
             email = EmailAddress.from(rawEmail);
@@ -95,7 +98,13 @@ public class AuthenticationService {
         if (user == null || user.status() != UserStatus.ACTIVE || !passwordMatches) {
             throw new InvalidCredentialsException();
         }
-        return sessions.start(user.id());
+        boolean requiresMfa = totpCredentials.findById(user.id())
+                .map(TotpCredential::requiresMfaAtLogin)
+                .orElse(false);
+        if (requiresMfa) {
+            return new LoginOutcome(null, mfaLogin.createChallenge(user.id()));
+        }
+        return new LoginOutcome(sessions.start(user.id()), null);
     }
 
     public SessionService.AuthenticatedSession refresh(String rawRefreshToken) {
@@ -130,5 +139,11 @@ public class AuthenticationService {
             throw new IllegalStateException("Usuário não autenticado");
         }
         return jwt;
+    }
+
+    public record LoginOutcome(SessionService.AuthenticatedSession session, MfaLoginService.ChallengeIssued challenge) {
+        public boolean requiresMfa() {
+            return challenge != null;
+        }
     }
 }

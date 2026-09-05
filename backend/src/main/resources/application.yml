@@ -42,6 +42,9 @@ app:
     totp:
       encryption-key: ${AUTH_TOTP_ENCRYPTION_KEY:}
       encryption-key-version: ${AUTH_TOTP_ENCRYPTION_KEY_VERSION:1}
+    mfa:
+      login-challenge-lifetime: ${AUTH_MFA_LOGIN_CHALLENGE_LIFETIME:5m}
+      pending-setup-lifetime: ${AUTH_MFA_PENDING_SETUP_LIFETIME:10m}
 
 management:
   endpoints:
