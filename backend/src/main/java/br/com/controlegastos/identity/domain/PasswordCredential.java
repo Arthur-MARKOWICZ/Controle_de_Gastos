@@ -8,10 +8,10 @@ import java.util.Objects;
 @Embeddable
 public class PasswordCredential {
 
-    @Column(name = "password_hash", nullable = false, length = 255)
+    @Column(name = "password_hash", length = 255)
     private String passwordHash;
 
-    @Column(name = "password_changed_at", nullable = false)
+    @Column(name = "password_changed_at")
     private Instant passwordChangedAt;
 
     protected PasswordCredential() {

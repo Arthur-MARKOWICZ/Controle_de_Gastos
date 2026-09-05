@@ -45,11 +45,15 @@ public class UserAccount {
         this.status = UserStatus.ACTIVE;
         this.createdAt = now;
         this.updatedAt = now;
-        this.passwordCredential = new PasswordCredential(passwordHash, now);
+        this.passwordCredential = passwordHash == null ? null : new PasswordCredential(passwordHash, now);
     }
 
     public static UserAccount register(EmailAddress email, String passwordHash, Instant now) {
         return new UserAccount(UUID.randomUUID(), email.value(), passwordHash, now);
+    }
+
+    public static UserAccount registerWithProvider(EmailAddress email, Instant now) {
+        return new UserAccount(UUID.randomUUID(), email.value(), null, now);
     }
 
     public UUID id() {
@@ -78,6 +82,10 @@ public class UserAccount {
 
     public PasswordCredential passwordCredential() {
         return passwordCredential;
+    }
+
+    public boolean hasPassword() {
+        return passwordCredential != null;
     }
 
     public void block(Instant now) {

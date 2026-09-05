@@ -3,6 +3,7 @@ package br.com.controlegastos.identity.application;
 import br.com.controlegastos.identity.application.SessionRepository;
 import br.com.controlegastos.identity.infrastructure.AuthAttemptRepository;
 import br.com.controlegastos.identity.infrastructure.MfaLoginChallengeRepository;
+import br.com.controlegastos.identity.infrastructure.OAuthAuthorizationStateRepository;
 import br.com.controlegastos.identity.infrastructure.PasswordResetTokenRepository;
 import br.com.controlegastos.identity.infrastructure.RecoveryCodeRepository;
 import br.com.controlegastos.identity.infrastructure.TotpCredentialRepository;
@@ -23,6 +24,7 @@ public class IdentityRetentionService {
     private final MfaLoginChallengeRepository mfaLoginChallenges;
     private final RecoveryCodeRepository recoveryCodes;
     private final TotpCredentialRepository totpCredentials;
+    private final OAuthAuthorizationStateRepository oauthAuthorizationStates;
     private final Clock clock;
 
     public IdentityRetentionService(AuthAttemptRepository attempts, SessionRepository sessions,
@@ -30,6 +32,7 @@ public class IdentityRetentionService {
                                     MfaLoginChallengeRepository mfaLoginChallenges,
                                     RecoveryCodeRepository recoveryCodes,
                                     TotpCredentialRepository totpCredentials,
+                                    OAuthAuthorizationStateRepository oauthAuthorizationStates,
                                     Clock clock) {
         this.attempts = attempts;
         this.sessions = sessions;
@@ -37,6 +40,7 @@ public class IdentityRetentionService {
         this.mfaLoginChallenges = mfaLoginChallenges;
         this.recoveryCodes = recoveryCodes;
         this.totpCredentials = totpCredentials;
+        this.oauthAuthorizationStates = oauthAuthorizationStates;
         this.clock = clock;
     }
 
@@ -50,5 +54,6 @@ public class IdentityRetentionService {
         mfaLoginChallenges.deleteEndedBefore(now.minus(MFA_ARTIFACT_RETENTION));
         recoveryCodes.deleteEndedBefore(now.minus(MFA_ARTIFACT_RETENTION));
         totpCredentials.discardAbandonedPending(now);
+        oauthAuthorizationStates.deleteEndedBefore(now.minus(MFA_ARTIFACT_RETENTION));
     }
 }

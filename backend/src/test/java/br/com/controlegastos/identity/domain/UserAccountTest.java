@@ -19,5 +19,19 @@ class UserAccountTest {
 
         assertThat(account.passwordCredential().passwordHash()).isEqualTo("$argon2id$encoded-password");
         assertThat(account.passwordCredential().passwordChangedAt()).isEqualTo(registeredAt);
+        assertThat(account.hasPassword()).isTrue();
+    }
+
+    @Test
+    void registrationViaProviderHasNoPassword() {
+        Instant registeredAt = Instant.parse("2026-09-05T12:00:00Z");
+
+        UserAccount account = UserAccount.registerWithProvider(
+                EmailAddress.from("pessoa@example.com"),
+                registeredAt
+        );
+
+        assertThat(account.hasPassword()).isFalse();
+        assertThat(account.passwordCredential()).isNull();
     }
 }

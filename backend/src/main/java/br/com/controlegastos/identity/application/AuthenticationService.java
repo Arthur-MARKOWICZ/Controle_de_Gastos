@@ -91,7 +91,7 @@ public class AuthenticationService {
         }
 
         UserAccount user = users.findByEmailNormalized(email.value()).orElse(null);
-        String storedHash = user == null
+        String storedHash = (user == null || !user.hasPassword())
                 ? dummyPasswordHash
                 : user.passwordCredential().passwordHash();
         boolean passwordMatches = password != null && passwordEncoder.matches(password, storedHash);
