@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ThemeSelector } from "../../theme/ThemeSelector";
 import styles from "./AppShell.module.css";
 
-type Destination = "overview" | "envelopes" | "goals" | "annual" | "expenses" | "reports" | "security";
+type Destination = "overview" | "envelopes" | "goals" | "annual" | "expenses" | "reports" | "settings";
 
 const destinations: Array<{ id: Destination; href: string; index: string; label: string }> = [
   { id: "overview", href: "/", index: "01", label: "Visão geral" },
@@ -13,6 +13,7 @@ const destinations: Array<{ id: Destination; href: string; index: string; label:
   { id: "annual", href: "/gastos-anuais", index: "04", label: "Gastos anuais" },
   { id: "expenses", href: "/gastos", index: "05", label: "Gastos" },
   { id: "reports", href: "/relatorios", index: "06", label: "Relatórios" },
+  { id: "settings", href: "/configuracoes", index: "07", label: "Configurações" },
 ];
 
 export function AppShell({ current, email, onLogout, children }: {
@@ -46,7 +47,6 @@ export function AppShell({ current, email, onLogout, children }: {
             <span className={styles.avatar} aria-hidden="true">{email.slice(0, 1).toUpperCase()}</span>
             <span>
               <strong>{email}</strong>
-              <Link href="/conta/seguranca" aria-current={current === "security" ? "page" : undefined}>Segurança</Link>
               <button type="button" onClick={onLogout}>Sair da conta</button>
             </span>
           </div>

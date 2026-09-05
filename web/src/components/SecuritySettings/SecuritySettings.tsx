@@ -28,7 +28,9 @@ export function SecuritySettings({ client, onLoggedOut }: Props) {
 
   return (
     <>
-      <Link className={styles.back} href="/">← Voltar</Link>
+      <div className={styles.backRow}>
+        <Link className={styles.back} href="/configuracoes">← Voltar</Link>
+      </div>
       {status?.status === "ENABLED"
         ? <MfaEnabledPanel client={client} onLoggedOut={onLoggedOut} />
         : <MfaSettings client={client} onComplete={onLoggedOut} />}

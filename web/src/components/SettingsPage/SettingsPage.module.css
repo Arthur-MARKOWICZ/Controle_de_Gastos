@@ -1,0 +1,8 @@
+.list{display:grid;gap:.75rem;max-width:40rem;margin:0;padding:0;list-style:none}
+.item{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.25rem 1.5rem;border:1px solid var(--border);border-radius:var(--radius-lg);color:var(--text-primary);background:var(--surface);box-shadow:var(--shadow-sm)}
+.item:hover{border-color:var(--accent)}
+.item:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.itemLabel{display:grid;gap:.2rem}
+.itemLabel strong{font-size:1.0625rem}
+.itemLabel span{color:var(--text-muted);font-size:.875rem}
+.chevron{color:var(--text-muted);font-size:1.25rem}
