@@ -93,6 +93,8 @@ class ReportingApiIntegrationTest {
         MvcResult xlsxStart = mockMvc.perform(get("/api/v1/reports/expenses-by-purpose?from=2026-01-01&to=2026-01-31&format=xlsx")
                         .header("Authorization", "Bearer " + token))
                 .andReturn();
+        assertThat(xlsxStart.getRequest().isAsyncStarted()).isTrue();
+        xlsxStart.getAsyncResult();
         MvcResult xlsx = mockMvc.perform(asyncDispatch(xlsxStart))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
