@@ -27,6 +27,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -80,8 +81,8 @@ class ReportingApiIntegrationTest {
         UUID deletedOnly = insertEnvelope(owner, "Excluída", "LIMIT", "100.00");
         insertEntry(deletedOnly, owner, "EXPENSE", "150.00", LocalDate.of(2026, 1, 17), Instant.now());
 
-        MvcResult csv = mockMvc.perform(get("/api/v1/reports/expenses-by-purpose?from=2026-01-01&to=2026-01-31&format=csv")
-                        .header("Authorization", "Bearer " + token))
+        MvcResult csv = performReportDispatch(
+                        "/api/v1/reports/expenses-by-purpose?from=2026-01-01&to=2026-01-31&format=csv", token)
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("text/csv"))
                 .andExpect(header().string("Cache-Control", "no-store"))
@@ -90,12 +91,8 @@ class ReportingApiIntegrationTest {
         String csvText = new String(csv.getResponse().getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
         assertThat(csvText).contains("'=Mercado").contains("120,00").doesNotContain("10,00");
 
-        MvcResult xlsxStart = mockMvc.perform(get("/api/v1/reports/expenses-by-purpose?from=2026-01-01&to=2026-01-31&format=xlsx")
-                        .header("Authorization", "Bearer " + token))
-                .andReturn();
-        assertThat(xlsxStart.getRequest().isAsyncStarted()).isTrue();
-        xlsxStart.getAsyncResult();
-        MvcResult xlsx = mockMvc.perform(asyncDispatch(xlsxStart))
+        MvcResult xlsx = performReportDispatch(
+                        "/api/v1/reports/expenses-by-purpose?from=2026-01-01&to=2026-01-31&format=xlsx", token)
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .andReturn();
@@ -103,8 +100,8 @@ class ReportingApiIntegrationTest {
             assertThat(workbook.getSheetAt(0).getRow(1).getCell(1).getStringCellValue()).isEqualTo("'=Mercado");
         }
 
-        MvcResult limits = mockMvc.perform(get("/api/v1/reports/limit-exceeded-months?from=2026-01-01&to=2026-01-31&format=csv")
-                        .header("Authorization", "Bearer " + token))
+        MvcResult limits = performReportDispatch(
+                        "/api/v1/reports/limit-exceeded-months?from=2026-01-01&to=2026-01-31&format=csv", token)
                 .andExpect(status().isOk()).andReturn();
         assertThat(new String(limits.getResponse().getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8))
                 .contains("'=Mercado").doesNotContain("Excluída");
@@ -121,8 +118,8 @@ class ReportingApiIntegrationTest {
                 envelope, participant, Timestamp.from(Instant.now()), owner);
         insertEntry(envelope, owner, "CONTRIBUTION", "30.00", LocalDate.of(2026, 1, 15), null);
 
-        MvcResult report = mockMvc.perform(get("/api/v1/reports/goals-below-target?from=2026-01-01&to=2026-01-31&format=csv")
-                        .header("Authorization", "Bearer " + participantToken))
+        MvcResult report = performReportDispatch(
+                        "/api/v1/reports/goals-below-target?from=2026-01-01&to=2026-01-31&format=csv", participantToken)
                 .andExpect(status().isOk()).andReturn();
         assertThat(new String(report.getResponse().getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8))
                 .contains("Viagem;1;80,00;30,00;50,00");
@@ -131,6 +128,18 @@ class ReportingApiIntegrationTest {
                         .header("Authorization", "Bearer " + ownerToken))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    // Todo relatório bem-sucedido é um StreamingResponseBody assíncrono: o corpo só termina
+    // de ser escrito numa thread separada. Ler a resposta sem despachar o resultado
+    // assíncrono é uma corrida — às vezes o corpo ainda está vazio/parcial (AssertionError),
+    // às vezes duas threads escrevem cabeçalhos ao mesmo tempo no MockHttpServletResponse,
+    // que não é thread-safe (ConcurrentModificationException). Aguardar aqui elimina as duas.
+    private ResultActions performReportDispatch(String url, String token) throws Exception {
+        MvcResult started = mockMvc.perform(get(url).header("Authorization", "Bearer " + token)).andReturn();
+        assertThat(started.getRequest().isAsyncStarted()).isTrue();
+        started.getAsyncResult();
+        return mockMvc.perform(asyncDispatch(started));
     }
 
     private UUID insertEnvelope(UUID owner, String name, String purpose, String amount) {
