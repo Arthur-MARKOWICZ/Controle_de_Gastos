@@ -1,11 +1,13 @@
 package br.com.controlegastos.identity.web;
 
 import br.com.controlegastos.identity.application.AuthenticationService;
+import br.com.controlegastos.identity.application.LoginMethodsService;
 import br.com.controlegastos.identity.application.MfaLoginService;
 import br.com.controlegastos.identity.application.RecoveryLoginService;
 import br.com.controlegastos.identity.application.RestrictedSessionTokenService;
 import br.com.controlegastos.identity.application.SessionService;
 import br.com.controlegastos.identity.application.PasswordResetService;
+import br.com.controlegastos.identity.domain.OAuthProvider;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,12 +16,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,6 +36,7 @@ public class AuthController {
     private final AuthenticationService authentication;
     private final MfaLoginService mfaLogin;
     private final RecoveryLoginService recoveryLogin;
+    private final LoginMethodsService loginMethods;
     private final String cookieName;
     private final boolean cookieSecure;
     private final Duration refreshIdleLifetime;
@@ -41,6 +46,7 @@ public class AuthController {
             AuthenticationService authentication,
             MfaLoginService mfaLogin,
             RecoveryLoginService recoveryLogin,
+            LoginMethodsService loginMethods,
             PasswordResetService passwordResets,
             @Value("${app.auth.cookie-name}") String cookieName,
             @Value("${app.auth.cookie-secure}") boolean cookieSecure,
@@ -49,6 +55,7 @@ public class AuthController {
         this.authentication = authentication;
         this.mfaLogin = mfaLogin;
         this.recoveryLogin = recoveryLogin;
+        this.loginMethods = loginMethods;
         this.passwordResets = passwordResets;
         this.cookieName = cookieName;
         this.cookieSecure = cookieSecure;
@@ -113,6 +120,18 @@ public class AuthController {
     ResponseEntity<Void> resetPassword(@Valid @RequestBody PasswordResetConfirmation request) {
         passwordResets.reset(request.token(), request.newPassword());
         return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, deleteRefreshCookie().toString()).build();
+    }
+
+    @PostMapping("/password")
+    ResponseEntity<Void> addPassword(@Valid @RequestBody AddPasswordRequest request) {
+        loginMethods.addPassword(authentication.currentUserId(), request.password());
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/login-methods")
+    LoginMethodsResponse loginMethodsStatus() {
+        LoginMethodsService.LoginMethods status = loginMethods.status(authentication.currentUserId());
+        return new LoginMethodsResponse(status.hasPassword(), status.linkedProviders());
     }
 
     private ResponseEntity<TokenResponse> tokenResponse(SessionService.AuthenticatedSession session) {
@@ -187,6 +206,9 @@ public class AuthController {
     public record PasswordResetRequest(@NotNull String email) { }
     public record PasswordResetConfirmation(@NotBlank @Size(max = 256) String token,
                                             @NotNull @Size(min = 12, max = 128) String newPassword) { }
+
+    public record AddPasswordRequest(@NotNull @Size(min = 12, max = 128) String password) { }
+    public record LoginMethodsResponse(boolean hasPassword, List<OAuthProvider> linkedProviders) { }
 
     public record TokenResponse(String accessToken, String tokenType, long expiresIn) {
     }

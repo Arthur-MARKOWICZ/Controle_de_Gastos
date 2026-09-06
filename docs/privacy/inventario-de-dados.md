@@ -21,6 +21,8 @@ Este documento é uma base de engenharia, não uma definição definitiva de bas
 | Hash de recovery code (10 por ativação) | Autorizar acesso restrito de recuperação de MFA, uso único | API/PostgreSQL | Até 24 horas após consumo ou invalidação | Código bruto é exibido uma única vez ao titular; nunca em localStorage, logs ou telemetria |
 | Hash de desafio de login MFA | Vincular a etapa de senha à etapa de segundo fator sem expor sessão | API/PostgreSQL | Até 24 horas após expiração ou consumo | Curta duração (5 minutos); nunca contém o código TOTP nem o recovery code |
 | `AUTH_TOTP_ENCRYPTION_KEY` | Cifrar e decifrar segredos TOTP | Variável protegida no runtime | Enquanto houver segredos TOTP cifrados com essa versão de chave | Nunca entra no Git, logs ou imagens; perda da chave impede a decifragem de todos os segredos TOTP ativos |
+| Vínculo de provedor social (`identity_provider_link`: id, user_id, provider, provider_user_id, provider_email, linked_at) | Autenticar por Google/GitHub sem duplicar conta; permitir múltiplos métodos de login por usuário | API/PostgreSQL | Até desvincular o provedor ou excluir a conta | `provider_user_id` nunca é usado como chave de recurso financeiro, só o UUID interno; `provider_email` é somente informativo (data do vínculo), nunca chave de busca; único por `(provider, provider_user_id)` e por `(user_id, provider)` |
+| Hash de `state` de autorização OAuth (`oauth_authorization_state`) | Proteger o fluxo de login/vínculo social contra CSRF (RFC 6749 §10.12) | API/PostgreSQL | Até 24 horas após expiração ou consumo | Curta duração (10 minutos); `linking_user_id` só é preenchido quando a origem é "conectar provedor" a partir de uma sessão já autenticada |
 
 ## Operador para recuperação de senha
 
@@ -31,6 +33,17 @@ somente como Secret no GitHub Environment; token, URL e senha jamais entram em
 logs, backups de diagnóstico ou dados de teste. Finalidade, contrato,
 região/transferência, retenção, descarte e resposta a incidentes do operador
 continuam pendentes de registro pelo controlador antes da abertura pública.
+
+## Operadores de login social
+
+Google e GitHub recebem, durante o fluxo de autorização OAuth, o e-mail e o
+identificador de conta da pessoa que opta por entrar com esse provedor —
+ambos dados pessoais. Nenhum segredo do provedor (token de acesso) é
+persistido pela API além do necessário para concluir a troca do código de
+autorização. Finalidade, contrato, região/transferência, retenção, descarte e
+resposta a incidentes de cada operador continuam pendentes de registro pelo
+controlador antes da abertura pública, na mesma linha do operador Gmail SMTP
+acima.
 
 ## Regras
 

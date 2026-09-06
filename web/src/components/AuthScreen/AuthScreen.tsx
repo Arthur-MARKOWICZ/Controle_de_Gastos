@@ -8,11 +8,12 @@ import { ThemeSelector } from "../../theme/ThemeSelector";
 type Props = {
   onLogin(email: string, password: string): Promise<void>;
   onRegister(email: string, password: string): Promise<void>;
+  onOAuthLogin?(provider: "google" | "github"): void;
   externalError?: string | null;
   expired?: boolean;
 };
 
-export function AuthScreen({ onLogin, onRegister, externalError, expired = false }: Props) {
+export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, expired = false }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -84,6 +85,14 @@ export function AuthScreen({ onLogin, onRegister, externalError, expired = false
             {busy ? "Aguarde…" : mode === "login" ? "Entrar com segurança" : "Concluir cadastro"}
           </button>
         </form>
+
+        {onOAuthLogin && (
+          <div className={styles.oauth}>
+            <p className={styles.oauthDivider}>ou</p>
+            <button type="button" onClick={() => onOAuthLogin("google")}>Continuar com Google</button>
+            <button type="button" onClick={() => onOAuthLogin("github")}>Continuar com GitHub</button>
+          </div>
+        )}
       </section>
     </main>
   );

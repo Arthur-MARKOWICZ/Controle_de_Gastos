@@ -46,6 +46,21 @@ app:
       login-challenge-lifetime: ${AUTH_MFA_LOGIN_CHALLENGE_LIFETIME:5m}
       pending-setup-lifetime: ${AUTH_MFA_PENDING_SETUP_LIFETIME:10m}
       recovery-session-lifetime: ${AUTH_MFA_RECOVERY_SESSION_LIFETIME:10m}
+  oauth:
+    state-lifetime: ${AUTH_OAUTH_STATE_LIFETIME:10m}
+    web-base-url: ${AUTH_PUBLIC_APP_URL:http://localhost:3000}
+    # Origem pública do próprio backend, usada para montar o redirect_uri enviado ao
+    # provider. Em produção é a MESMA origem do web (ADR-012: um único domínio, nginx
+    # roteia /api/ para o backend) — por isso reaproveita AUTH_PUBLIC_APP_URL em vez de
+    # exigir uma variável própria. Localmente o backend e o web ficam em portas
+    # diferentes, daí o valor padrão distinto do de web-base-url.
+    callback-base-url: ${AUTH_PUBLIC_APP_URL:http://localhost:8080}
+    google:
+      client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+      client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
+    github:
+      client-id: ${GITHUB_OAUTH_CLIENT_ID:}
+      client-secret: ${GITHUB_OAUTH_CLIENT_SECRET:}
 
 management:
   endpoints:

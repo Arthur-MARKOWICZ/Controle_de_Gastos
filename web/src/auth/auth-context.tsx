@@ -20,11 +20,15 @@ type AuthContextValue = {
   verifyMfa(code: string): Promise<void>;
   verifyRecoveryCode(code: string): Promise<void>;
   finishMfaRecoverySetup(): void;
+  startOAuthLogin(provider: "google" | "github"): void;
+  completeOAuthCallback(params: URLSearchParams): Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider(
+  { children, skipInitialRestore = false }: { children: React.ReactNode; skipInitialRestore?: boolean },
+) {
   const [state, setState] = useState<AuthState>("loading");
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [client]);
 
   useEffect(() => {
+    if (skipInitialRestore) return;
     let active = true;
     void client.restore().then((restored) => {
       if (!active) return;
@@ -49,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setState(restored ? "authenticated" : "anonymous");
     });
     return () => { active = false; };
-  }, [client]);
+  }, [client, skipInitialRestore]);
 
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
@@ -137,6 +142,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(null);
       setUser(null);
       setState("anonymous");
+    },
+    startOAuthLogin(provider) {
+      setError(null);
+      void client.startOAuth(provider).catch(() => {
+        setError("Não foi possível iniciar o login com esse provedor.");
+      });
+    },
+    async completeOAuthCallback(params) {
+      setError(null);
+      if (params.get("error")) {
+        setError("Não foi possível entrar com esse provedor. Tente novamente.");
+        setState("anonymous");
+        return;
+      }
+      if (params.get("mfaRequired") === "true") {
+        setMfaChallengeId(params.get("challengeId"));
+        setState("mfa-pending");
+        return;
+      }
+      await restore();
     },
   };
 

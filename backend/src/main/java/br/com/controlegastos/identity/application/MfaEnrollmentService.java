@@ -159,7 +159,7 @@ public class MfaEnrollmentService {
 
     private UserAccount requirePassword(UUID userId, String currentPassword) {
         UserAccount user = users.findById(userId).orElseThrow(InvalidPasswordConfirmationException::new);
-        if (currentPassword == null
+        if (currentPassword == null || !user.hasPassword()
                 || !passwordEncoder.matches(currentPassword, user.passwordCredential().passwordHash())) {
             throw new InvalidPasswordConfirmationException();
         }

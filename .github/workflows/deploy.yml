@@ -174,6 +174,10 @@ jobs:
           AUTH_TOTP_ENCRYPTION_KEY: ${{ secrets.AUTH_TOTP_ENCRYPTION_KEY }}
           GMAIL_SMTP_USERNAME: ${{ secrets.GMAIL_SMTP_USERNAME }}
           GMAIL_SMTP_APP_PASSWORD: ${{ secrets.GMAIL_SMTP_APP_PASSWORD }}
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+          GITHUB_OAUTH_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
         run: |
           set -Eeuo pipefail
           set +x
@@ -186,6 +190,8 @@ jobs:
           test -n "$AUTH_TOTP_ENCRYPTION_KEY"
           test -n "$GMAIL_SMTP_USERNAME"
           test -n "$GMAIL_SMTP_APP_PASSWORD"
+          # Login social é um método adicional, não obrigatório para o deploy: os quatro
+          # valores abaixo podem ficar vazios até o Google/GitHub OAuth App ser configurado.
           case "$PUBLIC_APP_URL" in
             https://*) ;;
             *) echo "PUBLIC_APP_URL deve iniciar com https://" >&2; exit 1 ;;
@@ -200,7 +206,7 @@ jobs:
           case "$POSTGRES_USER" in
             *[!A-Za-z0-9_]*) echo "POSTGRES_USER aceita apenas letras, números e underscore" >&2; exit 1 ;;
           esac
-          for VALUE in "$PUBLIC_APP_URL" "$POSTGRES_DB" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$AUTH_JWT_SECRET" "$AUTH_ATTEMPT_HMAC_SECRET" "$AUTH_TOTP_ENCRYPTION_KEY" "$GMAIL_SMTP_USERNAME" "$GMAIL_SMTP_APP_PASSWORD"; do
+          for VALUE in "$PUBLIC_APP_URL" "$POSTGRES_DB" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$AUTH_JWT_SECRET" "$AUTH_ATTEMPT_HMAC_SECRET" "$AUTH_TOTP_ENCRYPTION_KEY" "$GMAIL_SMTP_USERNAME" "$GMAIL_SMTP_APP_PASSWORD" "$GOOGLE_OAUTH_CLIENT_ID" "$GOOGLE_OAUTH_CLIENT_SECRET" "$GITHUB_OAUTH_CLIENT_ID" "$GITHUB_OAUTH_CLIENT_SECRET"; do
             case "$VALUE" in
               *$'\n'*) echo "Variáveis de produção não podem conter quebra de linha" >&2; exit 1 ;;
             esac
@@ -222,6 +228,10 @@ jobs:
             printf 'export AUTH_TOTP_ENCRYPTION_KEY=%q\n' "$AUTH_TOTP_ENCRYPTION_KEY"
             printf 'export GMAIL_SMTP_USERNAME=%q\n' "$GMAIL_SMTP_USERNAME"
             printf 'export GMAIL_SMTP_APP_PASSWORD=%q\n' "$GMAIL_SMTP_APP_PASSWORD"
+            printf 'export GOOGLE_OAUTH_CLIENT_ID=%q\n' "$GOOGLE_OAUTH_CLIENT_ID"
+            printf 'export GOOGLE_OAUTH_CLIENT_SECRET=%q\n' "$GOOGLE_OAUTH_CLIENT_SECRET"
+            printf 'export GITHUB_OAUTH_CLIENT_ID=%q\n' "$GITHUB_OAUTH_CLIENT_ID"
+            printf 'export GITHUB_OAUTH_CLIENT_SECRET=%q\n' "$GITHUB_OAUTH_CLIENT_SECRET"
             cat <<'REMOTE_SCRIPT'
             set -Eeuo pipefail
             set +x

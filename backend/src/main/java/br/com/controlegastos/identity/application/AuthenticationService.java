@@ -91,7 +91,7 @@ public class AuthenticationService {
         }
 
         UserAccount user = users.findByEmailNormalized(email.value()).orElse(null);
-        String storedHash = user == null
+        String storedHash = (user == null || !user.hasPassword())
                 ? dummyPasswordHash
                 : user.passwordCredential().passwordHash();
         boolean passwordMatches = password != null && passwordEncoder.matches(password, storedHash);
@@ -117,6 +117,14 @@ public class AuthenticationService {
 
     public UUID currentUserId() {
         return UUID.fromString(currentAuthentication().getToken().getSubject());
+    }
+
+    public UUID currentUserIdOrNull() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (!(authentication instanceof JwtAuthenticationToken jwt)) {
+            return null;
+        }
+        return UUID.fromString(jwt.getToken().getSubject());
     }
 
     public UUID currentSessionId() {
