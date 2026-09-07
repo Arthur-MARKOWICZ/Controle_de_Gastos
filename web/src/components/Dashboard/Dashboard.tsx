@@ -16,6 +16,7 @@ import { EnvelopeCard } from "../EnvelopeCard/EnvelopeCard";
 import { Dialog } from "../ui/Dialog";
 import { EnvelopeForm } from "../EnvelopeForm/EnvelopeForm";
 import { ExpenseForm } from "../ExpenseForm/ExpenseForm";
+import { Glossary } from "../Glossary/Glossary";
 import type { EnvelopeDTO } from "../../lib/api";
 import { createApiClient } from "../../lib/api";
 import { useAuth } from "../../auth/auth-context";
@@ -37,6 +38,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
   const [showNewEnvelope, setShowNewEnvelope] = useState(false);
   const [showIncomeForm, setShowIncomeForm] = useState(false);
   const [expenseTarget, setExpenseTarget] = useState<EnvelopeDTO | null>(null);
+  const [showGlossary, setShowGlossary] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const loading = envelopesLoading || summaryLoading || incomeLoading;
@@ -99,6 +101,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
           <div className={styles.headerActions}>
             <button type="button" className={styles.primaryAction} onClick={() => setShowNewEnvelope(true)}>Nova verba</button>
             <button type="button" className={styles.secondaryAction} onClick={() => setShowIncomeForm(true)} aria-label="Configurar renda">Configurar renda</button>
+            <button type="button" className={styles.secondaryAction} onClick={() => setShowGlossary(true)}>Glossário de verbas</button>
           </div>
         </header>
 
@@ -161,6 +164,10 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
 
         <Dialog open={!!expenseTarget} onClose={() => setExpenseTarget(null)} title={expenseTarget ? `Registrar gasto em ${expenseTarget.name}` : "Registrar gasto"}>
           {expenseTarget && <ExpenseForm envelope={expenseTarget} onSuccess={handleExpenseSuccess} onCancel={() => setExpenseTarget(null)} />}
+        </Dialog>
+
+        <Dialog open={showGlossary} onClose={() => setShowGlossary(false)} title="Glossário de verbas">
+          <Glossary />
         </Dialog>
     </AppShell>
   );

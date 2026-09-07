@@ -22,7 +22,7 @@ function fakeClient(
 describe("SecuritySettings - contas conectadas", () => {
   it("mostra os dois provedores e permite conectar um que ainda não está vinculado", async () => {
     const client = fakeClient({ hasPassword: true, linkedProviders: [] });
-    render(<SecuritySettings client={client} onLoggedOut={vi.fn()} />);
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
 
     const connectButton = await screen.findByRole("button", { name: "Conectar Google" });
     fireEvent.click(connectButton);
@@ -32,7 +32,7 @@ describe("SecuritySettings - contas conectadas", () => {
 
   it("desabilita desconectar quando é o único método de login restante", async () => {
     const client = fakeClient({ hasPassword: false, linkedProviders: ["google"] });
-    render(<SecuritySettings client={client} onLoggedOut={vi.fn()} />);
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
 
     const disconnectButton = await screen.findByRole("button", { name: "Desconectar Google" });
 
@@ -41,7 +41,7 @@ describe("SecuritySettings - contas conectadas", () => {
 
   it("permite desconectar quando ainda sobra outro método de login", async () => {
     const client = fakeClient({ hasPassword: false, linkedProviders: ["google", "github"] });
-    render(<SecuritySettings client={client} onLoggedOut={vi.fn()} />);
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
 
     const disconnectButton = await screen.findByRole("button", { name: "Desconectar Google" });
     expect(disconnectButton).toHaveProperty("disabled", false);
@@ -53,7 +53,7 @@ describe("SecuritySettings - contas conectadas", () => {
 
   it("oferece cadastrar senha só quando a conta ainda não tem uma, e salva com sucesso", async () => {
     const client = fakeClient({ hasPassword: false, linkedProviders: ["google"] });
-    render(<SecuritySettings client={client} onLoggedOut={vi.fn()} />);
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Cadastrar senha" }));
     fireEvent.change(screen.getByLabelText("Nova senha"), { target: { value: "uma frase bem segura" } });
@@ -66,7 +66,7 @@ describe("SecuritySettings - contas conectadas", () => {
 
   it("mostra o aviso de conexão vindo do retorno do provedor", async () => {
     const client = fakeClient({ hasPassword: true, linkedProviders: ["google"] });
-    render(<SecuritySettings client={client} connectionNotice="Conta Google conectada com sucesso." onLoggedOut={vi.fn()} />);
+    render(<SecuritySettings client={client} email="ana@example.com" connectionNotice="Conta Google conectada com sucesso." onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
 
     expect(await screen.findByText("Conta Google conectada com sucesso.")).toBeDefined();
   });

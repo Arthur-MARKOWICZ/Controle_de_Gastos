@@ -1,6 +1,11 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Dashboard } from "./Dashboard";
+
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) { this.open = true; });
+  HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) { this.open = false; });
+});
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => ({ get: () => null }),
@@ -81,5 +86,15 @@ describe("Dashboard", () => {
     expect(screen.getAllByRole("progressbar")).toHaveLength(3);
     expect(screen.getByRole("progressbar", { name: "Progresso de Combustível" })
       .getAttribute("value")).toBe("60");
+  });
+
+  it("abre o glossário de verbas explicando os tipos de verba", () => {
+    render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Glossário de verbas" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Glossário de verbas" });
+    expect(within(dialog).getByText("Limite de gasto")).toBeDefined();
+    expect(within(dialog).getByText("Meta de aporte")).toBeDefined();
   });
 });

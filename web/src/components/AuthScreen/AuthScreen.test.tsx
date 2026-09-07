@@ -43,4 +43,14 @@ describe("AuthScreen", () => {
     expect(onOAuthLogin).toHaveBeenNthCalledWith(1, "google");
     expect(onOAuthLogin).toHaveBeenNthCalledWith(2, "github");
   });
+
+  it("orienta quem está entrando pela primeira vez a ir para a tela de cadastro", () => {
+    render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn()} onOAuthLogin={vi.fn()} />);
+
+    expect(screen.getByText(/Primeira vez por aqui/)).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Crie sua conta" }));
+
+    expect(screen.getByRole("heading", { name: "Crie sua conta" })).toBeDefined();
+    expect(screen.queryByText(/Primeira vez por aqui/)).toBeNull();
+  });
 });

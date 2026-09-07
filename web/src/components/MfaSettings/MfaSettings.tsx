@@ -8,11 +8,12 @@ type Props = {
   client: AuthClient;
   restrictedToken?: string;
   onComplete(): void;
+  embedded?: boolean;
 };
 
 type Step = "password" | "confirm" | "codes";
 
-export function MfaSettings({ client, restrictedToken, onComplete }: Props) {
+export function MfaSettings({ client, restrictedToken, onComplete, embedded = false }: Props) {
   const [step, setStep] = useState<Step>("password");
   const [password, setPassword] = useState("");
   const [enrollment, setEnrollment] = useState<MfaEnrollmentStart | null>(null);
@@ -68,9 +69,8 @@ export function MfaSettings({ client, restrictedToken, onComplete }: Props) {
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
 
-  return (
-    <main className={styles.page}>
-      <section className={styles.card} aria-labelledby="mfa-settings-title">
+  const content = (
+      <section className={embedded ? styles.embeddedCard : styles.card} aria-labelledby="mfa-settings-title">
         <h1 id="mfa-settings-title">Configurar autenticação em duas etapas</h1>
 
         {step === "password" && (
@@ -148,6 +148,7 @@ export function MfaSettings({ client, restrictedToken, onComplete }: Props) {
           </>
         )}
       </section>
-    </main>
   );
+
+  return embedded ? content : <main className={styles.page}>{content}</main>;
 }

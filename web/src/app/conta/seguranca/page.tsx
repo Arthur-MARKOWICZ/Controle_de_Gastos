@@ -33,7 +33,9 @@ function AuthenticatedSecuritySettings() {
   return (
     <SecuritySettings
       client={auth.client}
+      email={auth.user.email}
       connectionNotice={connectionNoticeFrom(searchParams)}
+      onLogout={() => void auth.logout()}
       onLoggedOut={async () => {
         await auth.logout();
         router.push("/?notice=mfa-enabled");

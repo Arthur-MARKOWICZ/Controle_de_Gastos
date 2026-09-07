@@ -1,5 +1,6 @@
 .page{display:grid;place-items:start center;padding:1.25rem}
 .card{width:min(100%,32rem);padding:clamp(1.5rem,5vw,2.5rem);border:1px solid var(--border);border-radius:var(--radius-lg);color:var(--text-primary);background:var(--surface);box-shadow:var(--shadow-lg)}
+.embeddedCard{padding:clamp(1.25rem,4vw,2rem);border:1px solid var(--border);border-radius:var(--radius-lg);color:var(--text-primary);background:var(--surface);box-shadow:var(--shadow-sm)}
 .card h1{margin:0 0 1rem;font-size:clamp(1.5rem,3.5vw,2rem);line-height:1.1;letter-spacing:-.04em}
 .supporting{margin-bottom:1.25rem;color:var(--text-muted);line-height:1.55}
 .notice{margin-bottom:1rem;padding:.8rem 1rem;border-left:.25rem solid var(--accent);border-radius:var(--radius-xs);color:var(--text-primary);background:var(--surface-muted);line-height:1.5}

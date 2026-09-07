@@ -89,8 +89,22 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, e
         {onOAuthLogin && (
           <div className={styles.oauth}>
             <p className={styles.oauthDivider}>ou</p>
-            <button type="button" onClick={() => onOAuthLogin("google")}>Continuar com Google</button>
-            <button type="button" onClick={() => onOAuthLogin("github")}>Continuar com GitHub</button>
+            <div className={styles.oauthButtons}>
+              <button type="button" onClick={() => onOAuthLogin("google")}>Continuar com Google</button>
+              <button type="button" onClick={() => onOAuthLogin("github")}>Continuar com GitHub</button>
+            </div>
+            {mode === "login" && (
+              <p className={styles.oauthHint}>
+                Primeira vez por aqui?{" "}
+                <button
+                  type="button"
+                  className={styles.oauthHintLink}
+                  onClick={() => { setMode("register"); setMessage(null); setEmail(""); setPassword(""); }}
+                >
+                  Crie sua conta
+                </button>
+              </p>
+            )}
           </div>
         )}
       </section>

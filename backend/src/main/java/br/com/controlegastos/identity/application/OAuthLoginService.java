@@ -18,12 +18,16 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class OAuthLoginService {
+
+    private static final Logger LOG = LoggerFactory.getLogger(OAuthLoginService.class);
 
     private final List<OAuthProviderClient> clients;
     private final OAuthAuthorizationStateRepository states;
@@ -87,7 +91,10 @@ public class OAuthLoginService {
         Instant now = clock.instant();
         OAuthAuthorizationState state = states.findLockedByStateHash(Sha256.hex(rawState))
                 .filter(candidate -> candidate.canBeConsumedAt(now) && candidate.provider() == provider)
-                .orElseThrow(OAuthLoginFailedException::new);
+                .orElseThrow(() -> {
+                    LOG.warn("Falha no login OAuth: state ausente, expirado, já consumido ou de outro provider (provider={})", provider);
+                    return new OAuthLoginFailedException();
+                });
         state.consume(now);
         UUID linkingUserId = state.linkingUserId();
 
@@ -98,15 +105,19 @@ public class OAuthLoginService {
             accessToken = client.exchangeCode(code);
             profile = client.fetchProfile(accessToken);
         } catch (RuntimeException exception) {
+            LOG.warn("Falha no login OAuth: erro ao trocar o código ou buscar o perfil no provider (provider={})",
+                    provider, exception);
             throw failure(linkingUserId);
         }
         if (profile.email() == null) {
+            LOG.warn("Falha no login OAuth: provider não retornou e-mail (provider={})", provider);
             throw failure(linkingUserId);
         }
         EmailAddress email;
         try {
             email = EmailAddress.from(profile.email());
         } catch (IllegalArgumentException exception) {
+            LOG.warn("Falha no login OAuth: e-mail retornado pelo provider é inválido (provider={})", provider);
             throw failure(linkingUserId);
         }
 
@@ -128,6 +139,7 @@ public class OAuthLoginService {
         Optional<IdentityProviderLink> existingLink = links.findByProviderAndProviderUserId(provider, providerUserId);
         if (existingLink.isPresent()) {
             if (!existingLink.get().userId().equals(linkingUserId)) {
+                LOG.warn("Falha ao conectar provider: identidade já vinculada a outra conta (provider={})", provider);
                 throw new OAuthLinkFailedException();
             }
             return;
@@ -135,6 +147,7 @@ public class OAuthLoginService {
         boolean alreadyHasThisProvider = links.findByUserId(linkingUserId).stream()
                 .anyMatch(link -> link.provider() == provider);
         if (alreadyHasThisProvider) {
+            LOG.warn("Falha ao conectar provider: a conta já tem esse provider vinculado (provider={})", provider);
             throw new OAuthLinkFailedException();
         }
         links.save(IdentityProviderLink.link(linkingUserId, provider, providerUserId, email.value(), now));
@@ -149,6 +162,8 @@ public class OAuthLoginService {
                 .map(IdentityProviderLink::userId)
                 .orElseGet(() -> {
                     if (users.findByEmailNormalized(email.value()).isPresent()) {
+                        LOG.warn("Falha no login OAuth: e-mail já pertence a uma conta sem vínculo com este "
+                                + "provider, vínculo automático não é permitido (provider={})", provider);
                         throw new OAuthLoginFailedException();
                     }
                     UserAccount user = UserAccount.registerWithProvider(email, now);
@@ -163,7 +178,10 @@ public class OAuthLoginService {
         return clients.stream()
                 .filter(client -> client.provider() == provider)
                 .findFirst()
-                .orElseThrow(OAuthLoginFailedException::new);
+                .orElseThrow(() -> {
+                    LOG.warn("Falha no login OAuth: nenhum client configurado para o provider {}", provider);
+                    return new OAuthLoginFailedException();
+                });
     }
 
     private String issueRawState() {

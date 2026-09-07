@@ -31,7 +31,7 @@
   cursor: pointer;
 }
 .close:hover { background: var(--surface-raised); }
-.body { padding: 1.5rem; }
+.body { padding: 1.5rem; max-height: 70vh; overflow-y: auto; }
 
 @media (max-width: 48rem) {
   .dialog {

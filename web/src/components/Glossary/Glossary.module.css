@@ -1,0 +1,6 @@
+.intro{margin-bottom:1.25rem;color:var(--text-muted);line-height:1.55}
+.list{display:grid;gap:1rem;margin:0}
+.item{padding-bottom:1rem;border-bottom:1px solid var(--border)}
+.item:last-child{padding-bottom:0;border-bottom:0}
+.item dt{margin-bottom:.25rem;font-weight:800}
+.item dd{margin:0;color:var(--text-muted);font-size:.875rem;line-height:1.5}

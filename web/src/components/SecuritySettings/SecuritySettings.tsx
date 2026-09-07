@@ -3,16 +3,20 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import type { AuthClient, LoginMethods, MfaStatus, OAuthProviderName } from "../../auth/auth-client";
+import { AppShell } from "../AppShell/AppShell";
 import { MfaSettings } from "../MfaSettings/MfaSettings";
+import pageStyles from "../VerbasPage/Verbas.module.css";
 import styles from "./SecuritySettings.module.css";
 
 type Props = {
   client: AuthClient;
+  email: string;
   connectionNotice?: string | null;
   onLoggedOut(): void;
+  onLogout(): void;
 };
 
-export function SecuritySettings({ client, connectionNotice, onLoggedOut }: Props) {
+export function SecuritySettings({ client, email, connectionNotice, onLoggedOut, onLogout }: Props) {
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -25,18 +29,27 @@ export function SecuritySettings({ client, connectionNotice, onLoggedOut }: Prop
     return () => { active = false; };
   }, [client]);
 
-  if (loading) return <main aria-busy="true"><p role="status">Carregando…</p></main>;
-
   return (
-    <>
-      <div className={styles.backRow}>
-        <Link className={styles.back} href="/configuracoes">← Voltar</Link>
-      </div>
-      <LinkedAccountsPanel client={client} connectionNotice={connectionNotice} />
-      {status?.status === "ENABLED"
-        ? <MfaEnabledPanel client={client} onLoggedOut={onLoggedOut} />
-        : <MfaSettings client={client} onComplete={onLoggedOut} />}
-    </>
+    <AppShell current="settings" email={email} onLogout={onLogout}>
+      <header className={pageStyles.pageHeader}>
+        <div>
+          <p className={pageStyles.eyebrow}>Configurações</p>
+          <h1>Segurança</h1>
+          <p>Contas conectadas, senha e autenticação em duas etapas.</p>
+        </div>
+      </header>
+      <Link className={styles.back} href="/configuracoes">← Voltar para configurações</Link>
+      {loading ? (
+        <p role="status" aria-busy="true">Carregando…</p>
+      ) : (
+        <div className={styles.sections}>
+          <LinkedAccountsPanel client={client} connectionNotice={connectionNotice} />
+          {status?.status === "ENABLED"
+            ? <MfaEnabledPanel client={client} onLoggedOut={onLoggedOut} />
+            : <MfaSettings client={client} onComplete={onLoggedOut} embedded />}
+        </div>
+      )}
+    </AppShell>
   );
 }
 
@@ -177,51 +190,49 @@ function MfaEnabledPanel({ client, onLoggedOut }: { client: AuthClient; onLogged
   }
 
   return (
-    <main className={styles.page}>
-      <section className={styles.card} aria-labelledby="mfa-enabled-title">
-        <h1 id="mfa-enabled-title">Autenticação em duas etapas</h1>
-        <p className={styles.supporting}>A autenticação em duas etapas está ativa na sua conta.</p>
+    <section className={styles.card} aria-labelledby="mfa-enabled-title">
+      <h1 id="mfa-enabled-title">Autenticação em duas etapas</h1>
+      <p className={styles.supporting}>A autenticação em duas etapas está ativa na sua conta.</p>
 
-        {recoveryCodes && (
-          <>
-            <p className={styles.supporting}>
-              Novos códigos de recuperação. Guarde-os em local seguro; eles não serão mostrados novamente.
-            </p>
-            <ul className={styles.codes}>
-              {recoveryCodes.map((code) => <li key={code}><code>{code}</code></li>)}
-            </ul>
-            <button className={styles.submit} type="button" onClick={() => setRecoveryCodes(null)}>
-              Concluído
-            </button>
-          </>
-        )}
+      {recoveryCodes && (
+        <>
+          <p className={styles.supporting}>
+            Novos códigos de recuperação. Guarde-os em local seguro; eles não serão mostrados novamente.
+          </p>
+          <ul className={styles.codes}>
+            {recoveryCodes.map((code) => <li key={code}><code>{code}</code></li>)}
+          </ul>
+          <button className={styles.submit} type="button" onClick={() => setRecoveryCodes(null)}>
+            Concluído
+          </button>
+        </>
+      )}
 
-        {!recoveryCodes && action === "none" && (
-          <div className={styles.actions}>
-            <button type="button" onClick={() => setAction("regenerate")}>Gerar novos recovery codes</button>
-            <button type="button" onClick={() => setAction("disable")}>Desativar MFA</button>
-          </div>
-        )}
+      {!recoveryCodes && action === "none" && (
+        <div className={styles.actions}>
+          <button type="button" onClick={() => setAction("regenerate")}>Gerar novos recovery codes</button>
+          <button type="button" onClick={() => setAction("disable")}>Desativar MFA</button>
+        </div>
+      )}
 
-        {!recoveryCodes && action !== "none" && (
-          <form className={styles.form} onSubmit={submit}>
-            <label htmlFor="mfa-action-password">Senha atual</label>
-            <input
-              id="mfa-action-password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            {message && <p className={styles.notice} role="status">{message}</p>}
-            <button className={styles.submit} type="submit" disabled={busy}>
-              {busy ? "Aguarde…" : action === "disable" ? "Confirmar desativação" : "Gerar novos códigos"}
-            </button>
-            <button className={styles.cancel} type="button" onClick={() => setAction("none")}>Cancelar</button>
-          </form>
-        )}
-      </section>
-    </main>
+      {!recoveryCodes && action !== "none" && (
+        <form className={styles.form} onSubmit={submit}>
+          <label htmlFor="mfa-action-password">Senha atual</label>
+          <input
+            id="mfa-action-password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+          {message && <p className={styles.notice} role="status">{message}</p>}
+          <button className={styles.submit} type="submit" disabled={busy}>
+            {busy ? "Aguarde…" : action === "disable" ? "Confirmar desativação" : "Gerar novos códigos"}
+          </button>
+          <button className={styles.cancel} type="button" onClick={() => setAction("none")}>Cancelar</button>
+        </form>
+      )}
+    </section>
   );
 }
