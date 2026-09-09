@@ -39,24 +39,37 @@ mobile (KMP) ──────┘          │
    `backend/` e `web/` antes de recriar os serviços afetados.
 5. Abra `mobile/` no Android Studio e execute `androidApp`.
 
-### API HTTPS no Android
+### Ambientes da API no Android
 
-Para testar o aplicativo com a API publicada, defina a URL pública HTTPS no
-arquivo local ignorado pelo Git `mobile/local.properties`:
+O app escolhe a URL da API em tempo de build, a partir de `mobile/.env`. Copie o
+exemplo versionado e ajuste os valores:
 
-```properties
-API_BASE_URL=https://<SUBDOMINIO>
+```bash
+cp mobile/.env.example mobile/.env
 ```
 
-Use somente a origem, sem `/api`, caminho ou barra final. Por exemplo,
-`https://gastos.exemplo.com`. Não use placeholders de configuração do Spring,
-como `${api_base_url:...}`: o Gradle não os expande e interrompe o build porque
-o valor não é uma URL HTTP(S). A mesma URL pode ser passada em linha de comando
-com `-PAPI_BASE_URL=https://<SUBDOMINIO>`.
+```properties
+API_ENV=local
+API_BASE_URL_LOCAL=http://10.0.2.2:8080
+API_BASE_URL_PROD=https://<SUBDOMINIO>
+```
 
-O certificado do subdomínio deve ser público e válido; a configuração de Nginx
-e Certbot está no [runbook de HTTPS](docs/deploy/https-producao.md). O build de
-debug mantém HTTP liberado apenas para a API local do emulador.
+Alterne entre os ambientes trocando `API_ENV` para `local` ou `prod`. A
+precedência é `-PAPI_ENV`/`-PAPI_BASE_URL` na linha de comando, depois o `.env`,
+depois `API_BASE_URL` em `mobile/local.properties` e, por fim, o emulador.
+
+Em `prod`, use somente a origem HTTPS, sem porta, caminho, query ou barra final —
+por exemplo `https://gastos.exemplo.com`. O build rejeita as demais formas: a API
+fica em loopback atrás do Nginx e a porta 8080 não é publicada, conforme o
+[runbook de HTTPS](docs/deploy/https-producao.md). Não use placeholders de
+configuração do Spring, como `${api_base_url:...}`: o Gradle não os expande e
+interrompe o build porque o valor não é uma URL HTTP(S).
+
+O certificado do subdomínio deve ser público e válido. O build release exige uma
+URL HTTPS. O build debug libera HTTP apenas para os hosts em
+`mobile/androidApp/src/debug/res/xml/network_security_config.xml` — o emulador e
+o `localhost`; acrescente ali o IP da sua máquina para testar em aparelho físico
+contra a API local.
 
 ## Comandos
 
