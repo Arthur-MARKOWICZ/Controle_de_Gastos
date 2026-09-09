@@ -1,56 +1,88 @@
 package br.com.controlegastos.app
 
-data class MoneyView(val amount: String)
-
-data class GoalProgressView(
-    val plannedAmount: MoneyView,
-    val contributedAmount: MoneyView,
-    val remainingAmount: MoneyView,
-    val percent: Int,
-)
-
-data class EnvelopeView(
-    val id: String,
-    val name: String,
-    val purpose: String,
-    val baseAmount: MoneyView,
-    val available: MoneyView,
-    val isNegative: Boolean,
-    val goalProgress: GoalProgressView? = null,
-)
-
-data class FinancialDashboard(
-    val income: MoneyView?,
-    val allocated: MoneyView,
-    val unallocated: MoneyView,
-    val usagePct: Double,
-    val envelopes: List<EnvelopeView>,
-)
-
-interface FinanceGateway {
-    suspend fun loadDashboard(): FinancialDashboard
-}
-
-object UnavailableFinanceGateway : FinanceGateway {
-    override suspend fun loadDashboard(): FinancialDashboard = error("Dados financeiros não configurados para esta plataforma")
-}
-
 sealed interface DashboardState {
     data object Loading : DashboardState
     data class Content(val dashboard: FinancialDashboard) : DashboardState
     data class Error(val message: String) : DashboardState
 }
 
-class FinanceDashboardController(private val gateway: FinanceGateway) {
+/**
+ * Estado financeiro de um mês: saldos, verbas e as operações que os alteram.
+ *
+ * O mês corrente é enviado como `null` para o backend resolver o fuso de
+ * referência; navegar para outro mês passa a enviá-lo explicitamente.
+ * Toda escrita recarrega o mês, porque saldo e não alocado derivam do servidor.
+ */
+class FinanceDashboardController(
+    private val ledger: LedgerGateway,
+    private val currentMonth: YearMonth,
+    private val envelopes: EnvelopeGateway = UnavailableGateway,
+    private val income: IncomeGateway = UnavailableGateway,
+) {
+    var month: YearMonth = currentMonth
+        private set
+
     var state: DashboardState = DashboardState.Loading
         private set
+
+    /** Última falha de carga, para a casca distinguir sessão expirada de erro comum. */
+    var lastFailure: Throwable? = null
+        private set
+
+    val isCurrentMonth: Boolean get() = month == currentMonth
+
+    val dashboard: FinancialDashboard? get() = (state as? DashboardState.Content)?.dashboard
 
     suspend fun refresh() {
         state = DashboardState.Loading
         state = try {
-            DashboardState.Content(gateway.loadDashboard())
-        } catch (_: Throwable) {
-            DashboardState.Error("Não foi possível carregar suas verbas.")
+            lastFailure = null
+            DashboardState.Content(ledger.loadDashboard(month.takeUnless { it == currentMonth }))
+        } catch (failure: Throwable) {
+            lastFailure = failure
+            DashboardState.Error(describeFailure(failure, "Não foi possível carregar suas verbas."))
         }
+    }
+
+    suspend fun showPreviousMonth() {
+        month = month.previous()
+        refresh()
+    }
+
+    suspend fun showNextMonth() {
+        month = month.next()
+        refresh()
+    }
+
+    /** @return `true` quando o aporte fechou a meta, para a tela comemorar. */
+    suspend fun registerEntry(envelopeId: String, entry: NewLedgerEntry): Boolean {
+        val created = ledger.createEntry(envelopeId, entry)
+        refresh()
+        return created.targetJustReached
+    }
+
+    suspend fun createEnvelope(envelope: NewEnvelope) {
+        envelopes.createEnvelope(envelope)
+        refresh()
+    }
+
+    suspend fun updateEnvelope(id: String, edit: EnvelopeEdit) {
+        envelopes.updateEnvelope(id, edit)
+        refresh()
+    }
+
+    suspend fun archiveEnvelope(id: String) {
+        envelopes.archiveEnvelope(id)
+        refresh()
+    }
+
+    suspend fun saveIncome(amount: Money) {
+        income.saveIncome(amount)
+        refresh()
+    }
+
+    fun envelopesOf(vararg purposes: EnvelopePurpose): List<EnvelopeView> {
+        val wanted = purposes.map(EnvelopePurpose::api).toSet()
+        return dashboard?.envelopes.orEmpty().filter { it.purpose in wanted }
     }
 }

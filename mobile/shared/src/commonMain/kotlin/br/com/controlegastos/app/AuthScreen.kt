@@ -37,8 +37,10 @@ fun AuthScreen(
     onThemeSelected: (ThemeMode) -> Unit,
     onLogin: (String, String, (String?) -> Unit) -> Unit,
     onRegister: (String, String, (String?) -> Unit) -> Unit,
+    onRecoverPassword: (String, (String?) -> Unit) -> Unit,
 ) {
     var registerMode by remember { mutableStateOf(false) }
+    var recovering by remember { mutableStateOf(false) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -66,7 +68,7 @@ fun AuthScreen(
                 Column(Modifier.fillMaxWidth().padding(20.dp)) {
                     Text(if (registerMode) "Crie sua conta" else "Entre na sua conta", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        if (registerMode) "O e-mail ainda não será verificado e não há recuperação de senha."
+                        if (registerMode) "O e-mail ainda não será verificado. Você pode redefinir a senha por e-mail se precisar."
                         else "Acesse rapidamente suas verbas e saldos do mês.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
@@ -96,7 +98,8 @@ fun AuthScreen(
                     if (registerMode) Text("Use de 12 a 128 caracteres; espaços e Unicode são aceitos.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
                     message?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp).semantics { contentDescription = it }) }
                     Button(
-                        enabled = !busy && email.isNotBlank() && password.length in 12..128,
+                        enabled = !busy && email.isNotBlank() &&
+                            (if (registerMode) password.length in 12..128 else password.isNotEmpty()),
                         onClick = {
                             busy = true; message = null
                             val result: (String?) -> Unit = { error ->
@@ -108,6 +111,13 @@ fun AuthScreen(
                         },
                         modifier = Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp),
                     ) { Text(if (busy) "Aguarde…" else if (registerMode) "Concluir cadastro" else "Entrar com segurança") }
+                    if (!registerMode) {
+                        TextButton(
+                            onClick = { recovering = true; message = null },
+                            enabled = !busy,
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                        ) { Text("Esqueci minha senha") }
+                    }
                 }
             }
         }
@@ -117,5 +127,70 @@ fun AuthScreen(
                 Text("Saldo não usado acumula. Gasto acima do planejado vira alerta, não bloqueio.", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.bodyMedium)
             }
         }
+    }
+
+    if (recovering) {
+        PasswordRecoveryDialog(
+            initialEmail = email,
+            onSubmit = onRecoverPassword,
+            onDismiss = { recovering = false },
+        )
+    }
+}
+
+/**
+ * Solicitação de redefinição de senha.
+ *
+ * O link chega por e-mail e abre a versão web: o backend aponta o endereço para
+ * `PUBLIC_APP_URL` e o aplicativo ainda não registra um App Link para recebê-lo.
+ */
+@Composable
+private fun PasswordRecoveryDialog(
+    initialEmail: String,
+    onSubmit: (String, (String?) -> Unit) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var email by remember { mutableStateOf(initialEmail) }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var sent by remember { mutableStateOf(false) }
+
+    if (sent) {
+        ConfirmDialog(
+            title = "Verifique seu e-mail",
+            message = "Se houver uma conta com esse endereço, enviamos um link para redefinir a senha. " +
+                "Abra o link no navegador para escolher a nova senha.",
+            confirmLabel = "Entendi",
+            onConfirm = onDismiss,
+            onDismiss = onDismiss,
+        )
+        return
+    }
+
+    FormDialog(
+        title = "Redefinir senha",
+        confirmLabel = "Enviar link",
+        confirmEnabled = email.isNotBlank(),
+        busy = busy,
+        message = message,
+        onConfirm = {
+            busy = true
+            message = null
+            onSubmit(email.trim()) { error ->
+                busy = false
+                message = error
+                if (error == null) sent = true
+            }
+        },
+        onDismiss = onDismiss,
+    ) {
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("E-mail") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }

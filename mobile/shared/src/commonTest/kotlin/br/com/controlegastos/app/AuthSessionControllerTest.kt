@@ -109,14 +109,9 @@ class AuthSessionControllerTest {
         override suspend fun disableMfa(password: String) = error("not used")
         override suspend fun regenerateRecoveryCodes(password: String): List<String> = error("not used")
         override suspend fun mfaStatus(): MfaStatus = error("not used")
+        override suspend fun requestPasswordReset(email: String) = error("not used")
+        override suspend fun loginMethods(): LoginMethods = error("not used")
+        override suspend fun addPassword(password: String) = error("not used")
+        override suspend fun unlinkProvider(provider: OAuthProvider) = error("not used")
     }
-}
-
-private fun runSuspend(block: suspend () -> Unit) {
-    var failure: Throwable? = null
-    block.startCoroutine(object : kotlin.coroutines.Continuation<Unit> {
-        override val context = kotlin.coroutines.EmptyCoroutineContext
-        override fun resumeWith(result: Result<Unit>) { failure = result.exceptionOrNull() }
-    })
-    failure?.let { throw it }
 }

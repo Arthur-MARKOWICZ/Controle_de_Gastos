@@ -18,6 +18,26 @@ data class MfaStatus(
     val pendingExpiresAt: String?,
 )
 
+enum class OAuthProvider(val api: String, val label: String) {
+    GOOGLE("google", "Google"),
+    GITHUB("github", "GitHub"),
+    ;
+
+    companion object {
+        fun fromApiOrNull(api: String): OAuthProvider? =
+            entries.firstOrNull { it.api.equals(api, ignoreCase = true) }
+    }
+}
+
+/** Como esta conta consegue entrar hoje: senha, provedores vinculados ou ambos. */
+data class LoginMethods(
+    val hasPassword: Boolean,
+    val linkedProviders: List<OAuthProvider>,
+) {
+    /** Remover o último método deixaria a conta inacessível; o backend recusa. */
+    val isLastMethod: Boolean get() = linkedProviders.size + (if (hasPassword) 1 else 0) <= 1
+}
+
 interface AuthGateway {
     suspend fun restore(): AuthUser?
     suspend fun login(email: String, password: String): AuthUser
@@ -30,6 +50,10 @@ interface AuthGateway {
     suspend fun disableMfa(password: String)
     suspend fun regenerateRecoveryCodes(password: String): List<String>
     suspend fun mfaStatus(): MfaStatus
+    suspend fun requestPasswordReset(email: String)
+    suspend fun loginMethods(): LoginMethods
+    suspend fun addPassword(password: String)
+    suspend fun unlinkProvider(provider: OAuthProvider)
 }
 
 class MfaRequiredException(val challengeId: String) : RuntimeException("Segundo fator necessário")
@@ -109,5 +133,13 @@ object UnavailableAuthGateway : AuthGateway {
     override suspend fun regenerateRecoveryCodes(password: String): List<String> =
         error("Autenticação não configurada para esta plataforma")
     override suspend fun mfaStatus(): MfaStatus =
+        error("Autenticação não configurada para esta plataforma")
+    override suspend fun requestPasswordReset(email: String) =
+        error("Autenticação não configurada para esta plataforma")
+    override suspend fun loginMethods(): LoginMethods =
+        error("Autenticação não configurada para esta plataforma")
+    override suspend fun addPassword(password: String) =
+        error("Autenticação não configurada para esta plataforma")
+    override suspend fun unlinkProvider(provider: OAuthProvider) =
         error("Autenticação não configurada para esta plataforma")
 }
