@@ -40,8 +40,11 @@ deploy valida `PUBLIC_APP_URL` como origem HTTPS sem porta nem caminho
   `API_BASE_URL_PROD`, e escolher entre eles pela chave `API_ENV`, com valores
   `local` e `prod`.
 - Aplicar esta precedência: `-PAPI_BASE_URL`, depois `-PAPI_ENV` ou `API_ENV` do
-  `.env` resolvendo a chave correspondente, depois `API_BASE_URL` de
-  `local.properties`, e por fim `http://10.0.2.2:8080`.
+  `.env` resolvendo a chave correspondente, e por fim `http://10.0.2.2:8080`.
+- Manter `local.properties` restrito ao caminho do SDK. Um `API_BASE_URL` ali
+  interrompe o build com instrução de migração, em vez de ser silenciosamente
+  ignorado: duas fontes para a mesma URL fazem quem edita a errada não entender
+  por que nada muda.
 - Falhar o build, e não o aplicativo em execução, quando a configuração estiver
   errada:
   - qualquer ambiente: a URL precisa casar `https?://[^\s"\\]+`;
@@ -51,8 +54,8 @@ deploy valida `PUBLIC_APP_URL` como origem HTTPS sem porta nem caminho
 - Restringir cleartext ao build debug e apenas aos hosts da API local, por
   `network_security_config.xml` com `10.0.2.2`, `localhost` e `127.0.0.1`, em
   vez do `usesCleartextTraffic="true"` global anterior.
-- Manter `-PAPI_BASE_URL` como override de linha de comando e continuar lendo
-  `local.properties`, para não quebrar quem já configurou a máquina.
+- Manter `-PAPI_BASE_URL` como override de linha de comando, útil em CI e para
+  um teste pontual sem editar arquivo.
 
 ## Consequências
 
@@ -61,6 +64,8 @@ deploy valida `PUBLIC_APP_URL` como origem HTTPS sem porta nem caminho
 - Alternar entre API local e publicada é trocar uma palavra em `API_ENV`.
 - Um clone novo tem um exemplo versionado e explicado, sem segredo no Git: a URL
   pública não é credencial, e `mobile/.env` continua fora do versionamento.
+- Quem já tinha a URL em `local.properties` precisa movê-la uma vez, orientado
+  pela mensagem do build.
 - Testar contra a API local em aparelho físico passa a exigir acrescentar o IP da
   máquina em `network_security_config.xml`, além de `API_BASE_URL_LOCAL`. É um
   passo a mais, aceito em troca de o build debug não liberar HTTP para qualquer

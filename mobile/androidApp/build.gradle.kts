@@ -20,11 +20,18 @@ val apiEnv = (providers.gradleProperty("API_ENV").orNull ?: dotEnv.getProperty("
     .lowercase()
     .also { require(it == "local" || it == "prod") { "API_ENV deve ser 'local' ou 'prod', mas era '$it'" } }
 
-// Precedência: -PAPI_BASE_URL, .env do ambiente escolhido, local.properties (legado), emulador.
+// local.properties existe para o caminho do SDK. Ter a URL em dois arquivos
+// deixaria a edição de um deles sem efeito e sem explicação, então recusamos.
+require(localProperties.getProperty("API_BASE_URL") == null) {
+    "API_BASE_URL saiu de local.properties e agora vive em .env. Remova a linha de " +
+        "mobile/local.properties e defina API_ENV e API_BASE_URL_LOCAL/_PROD em mobile/.env " +
+        "(copie mobile/.env.example)."
+}
+
+// Precedência: -PAPI_BASE_URL, .env do ambiente escolhido, emulador.
 val apiBaseUrl = (
     providers.gradleProperty("API_BASE_URL").orNull
         ?: dotEnv.getProperty(if (apiEnv == "prod") "API_BASE_URL_PROD" else "API_BASE_URL_LOCAL")
-        ?: localProperties.getProperty("API_BASE_URL")
         ?: "http://10.0.2.2:8080"
     ).trim()
 

@@ -55,8 +55,10 @@ API_BASE_URL_PROD=https://<SUBDOMINIO>
 ```
 
 Alterne entre os ambientes trocando `API_ENV` para `local` ou `prod`. A
-precedência é `-PAPI_ENV`/`-PAPI_BASE_URL` na linha de comando, depois o `.env`,
-depois `API_BASE_URL` em `mobile/local.properties` e, por fim, o emulador.
+precedência é `-PAPI_ENV`/`-PAPI_BASE_URL` na linha de comando, depois o `.env`
+e, por fim, o emulador. `mobile/local.properties` serve só para o caminho do
+SDK: definir `API_BASE_URL` ali interrompe o build, porque a URL em dois
+arquivos deixaria a edição de um deles sem efeito e sem explicação.
 
 Em `prod`, use somente a origem HTTPS, sem porta, caminho, query ou barra final —
 por exemplo `https://gastos.exemplo.com`. O build rejeita as demais formas: a API
