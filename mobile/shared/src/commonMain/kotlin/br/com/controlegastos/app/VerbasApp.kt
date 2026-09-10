@@ -275,7 +275,7 @@ private fun SignedInApp(
                 )
                 Route.History -> HistoryScreen(
                     controller = historyController,
-                    envelopes = financeController.dashboard?.envelopes.orEmpty(),
+                    envelopeGateway = gateways.envelopes,
                     onSessionExpired = onSessionExpired,
                 )
                 Route.More -> MoreScreen(

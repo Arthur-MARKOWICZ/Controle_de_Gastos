@@ -99,12 +99,14 @@ class AndroidApiClient(
     /**
      * Adota a sessão entregue no corpo, como faz o handoff do login social.
      *
-     * O cookie é montado localmente com o nome que a API usa nesta origem, para
-     * o `POST /auth/refresh` seguinte continuar funcionando como sempre.
+     * O refresh vem no corpo porque o navegador do sistema não compartilha
+     * cookies com o aplicativo. Guardá-lo no formato de cookie, com o nome que a
+     * própria resposta informa, deixa o `POST /auth/refresh` seguinte igual ao
+     * do login por senha.
      */
     fun adoptSession(body: JSONObject) {
         accessToken = body.getString("accessToken")
-        val cookieName = if (baseUrl.startsWith("https://")) "__Secure-refresh_token" else "refresh_token"
+        val cookieName = body.getString("refreshCookieName")
         refreshStore.save("$cookieName=${body.getString("refreshToken")}")
     }
 

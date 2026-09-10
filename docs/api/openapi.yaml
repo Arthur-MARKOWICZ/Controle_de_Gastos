@@ -727,7 +727,7 @@ components:
         code: { type: string, minLength: 1, maxLength: 512 }
     MobileSession:
       type: object
-      required: [accessToken, tokenType, expiresIn, refreshToken]
+      required: [accessToken, tokenType, expiresIn, refreshToken, refreshCookieName]
       properties:
         accessToken: { type: string }
         tokenType: { type: string, const: Bearer }
@@ -735,6 +735,11 @@ components:
         refreshToken:
           type: string
           description: Guardado pelo aplicativo com proteção da plataforma; nunca é registrado em log.
+        refreshCookieName:
+          type: string
+          description: >-
+            Nome sob o qual o aplicativo deve enviar o refresh em /auth/refresh.
+            É configurável por AUTH_COOKIE_NAME, por isso vem na resposta.
     Token:
       type: object
       required: [accessToken, tokenType, expiresIn]

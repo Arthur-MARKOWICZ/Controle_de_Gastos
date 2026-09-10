@@ -38,20 +38,26 @@ private sealed interface HistoryDialog {
 @Composable
 internal fun HistoryScreen(
     controller: HistoryController,
-    envelopes: List<EnvelopeView>,
+    envelopeGateway: EnvelopeGateway,
     onSessionExpired: () -> Unit = {},
 ) {
+    // A tela carrega as próprias verbas em vez de receber as do painel: o
+    // histórico pode ser a primeira aba aberta, e aí o painel nunca carregou.
+    var envelopes by remember(envelopeGateway) { mutableStateOf<List<EnvelopeView>>(emptyList()) }
     var state by remember(controller) { mutableStateOf(controller.state) }
     var dialog by remember { mutableStateOf<HistoryDialog?>(null) }
     val scope = rememberCoroutineScope()
 
-    fun run(action: suspend () -> Unit) = scope.launch {
+    fun reloading(action: suspend () -> Unit) = scope.launch {
         action()
         state = controller.state
         if (controller.lastFailure?.isSessionExpired() == true) onSessionExpired()
     }
 
-    LaunchedEffect(controller) { run { controller.refresh() } }
+    LaunchedEffect(controller) { reloading { controller.refresh() } }
+    LaunchedEffect(envelopeGateway, controller.month) {
+        envelopes = runCatching { envelopeGateway.listEnvelopes(controller.month) }.getOrDefault(envelopes)
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -62,12 +68,12 @@ internal fun HistoryScreen(
         item {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 TextButton(
-                    onClick = { run { controller.showPreviousMonth() } },
+                    onClick = { reloading { controller.showPreviousMonth() } },
                     modifier = Modifier.height(TouchTarget),
                 ) { Text("‹ Anterior") }
                 Text(controller.month.label(), fontWeight = FontWeight.Bold)
                 TextButton(
-                    onClick = { run { controller.showNextMonth() } },
+                    onClick = { reloading { controller.showNextMonth() } },
                     modifier = Modifier.height(TouchTarget),
                 ) { Text("Próximo ›") }
             }
@@ -76,14 +82,14 @@ internal fun HistoryScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(
                     checked = controller.includeDeleted,
-                    onCheckedChange = { include -> run { controller.showDeleted(include) } },
+                    onCheckedChange = { include -> reloading { controller.showDeleted(include) } },
                 )
                 Text("Mostrar lançamentos excluídos")
             }
         }
         when (val current = state) {
             HistoryState.Loading -> item { LoadingBox("Carregando histórico", Modifier.fillMaxWidth()) }
-            is HistoryState.Error -> item { ErrorCard(current.message) { run { controller.refresh() } } }
+            is HistoryState.Error -> item { ErrorCard(current.message) { reloading { controller.refresh() } } }
             is HistoryState.Content -> {
                 item { PeriodSummaryCard(current.summary) }
                 if (current.summary.purposeTotals.isNotEmpty()) {
@@ -113,12 +119,12 @@ internal fun HistoryScreen(
                     item {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             TextButton(
-                                onClick = { run { controller.previousPage() } },
+                                onClick = { reloading { controller.previousPage() } },
                                 enabled = controller.page > 0,
                                 modifier = Modifier.height(TouchTarget),
                             ) { Text("‹ Anteriores") }
                             TextButton(
-                                onClick = { run { controller.nextPage() } },
+                                onClick = { reloading { controller.nextPage() } },
                                 enabled = current.page.hasNext,
                                 modifier = Modifier.height(TouchTarget),
                             ) { Text("Próximos ›") }
@@ -151,7 +157,7 @@ internal fun HistoryScreen(
             confirmLabel = "Excluir",
             onConfirm = {
                 dialog = null
-                run { controller.deleteEntry(open.item.entry.id) }
+                reloading { controller.deleteEntry(open.item.entry.id) }
             },
             onDismiss = { dialog = null },
         )

@@ -102,8 +102,10 @@ public class OAuthController {
     ) {
         SessionService.AuthenticatedSession session =
                 oauthLogin.redeemMobileHandoff(request.code(), httpRequest.getRemoteAddr());
+        // O nome do cookie é configurável e o aplicativo precisa dele para o
+        // /auth/refresh seguinte; adivinhá-lo pelo esquema quebraria em silêncio.
         return ResponseEntity.ok(new MobileSessionResponse(
-                session.accessToken(), "Bearer", session.expiresIn(), session.refreshToken()));
+                session.accessToken(), "Bearer", session.expiresIn(), session.refreshToken(), cookieName));
     }
 
     @GetMapping("/{provider}/callback")
@@ -206,6 +208,6 @@ public class OAuthController {
     }
 
     public record MobileSessionResponse(
-            String accessToken, String tokenType, long expiresIn, String refreshToken) {
+            String accessToken, String tokenType, long expiresIn, String refreshToken, String refreshCookieName) {
     }
 }

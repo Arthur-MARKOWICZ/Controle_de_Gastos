@@ -64,7 +64,11 @@ internal fun MonthWorkspaceScreen(
         if (controller.lastFailure?.isSessionExpired() == true) onSessionExpired()
     }
 
-    androidx.compose.runtime.LaunchedEffect(controller) { reload() }
+    // O controlador é compartilhado pelas quatro abas de mês; recarregar a cada
+    // troca faria quatro chamadas para os mesmos dados e piscaria a tela.
+    androidx.compose.runtime.LaunchedEffect(controller) {
+        if (controller.dashboard == null) reload()
+    }
 
     /** Executa a escrita, devolve a mensagem de erro à tela e sincroniza o estado. */
     fun submit(result: FormResult, action: suspend () -> String?) {
