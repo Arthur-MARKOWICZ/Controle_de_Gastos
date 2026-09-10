@@ -70,6 +70,10 @@ android {
 
     defaultConfig {
         applicationId = "br.com.controlegastos.app"
+        // O App Link do login social vive no mesmo domínio da API, porque é o
+        // backend que redireciona o navegador do sistema de volta (ADR-020).
+        manifestPlaceholders["oauthCallbackHost"] = URI(apiBaseUrl).host
+        manifestPlaceholders["oauthCallbackScheme"] = URI(apiBaseUrl).scheme
         minSdk = 24
         targetSdk = 37
         versionCode = 1
@@ -102,6 +106,7 @@ dependencies {
     implementation(project(":shared"))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core)
+    implementation(libs.androidx.browser)
     implementation(libs.kotlinx.coroutines.core)
     implementation("org.jetbrains.compose.foundation:foundation:1.12.0")
     implementation("org.jetbrains.compose.ui:ui:1.12.0")

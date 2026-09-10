@@ -52,6 +52,11 @@ fun VerbasApp(
     onThemeResolved: (Boolean) -> Unit = {},
     qrImageContent: @Composable (dataUri: String) -> Unit = { uri -> Text(uri) },
     onOpenReport: (DownloadedReport) -> Unit = {},
+    /** Abre a URL no navegador do sistema. Vazio desabilita o login social. */
+    onOpenInBrowser: ((String) -> Unit)? = null,
+    /** Resultado do App Link do login social, entregue pelo sistema. */
+    oauthCallback: OAuthCallback? = null,
+    onOAuthCallbackHandled: () -> Unit = {},
 ) {
     val authController = remember(gateways) { AuthSessionController(gateways.auth) }
     val themeController = remember(themePreferenceStore) { ThemePreferenceController(themePreferenceStore) }
@@ -62,6 +67,27 @@ fun VerbasApp(
 
     LaunchedEffect(authController) { authState = authController.restore() }
     SideEffect { onThemeResolved(darkTheme) }
+
+    // O sistema entregou o App Link do login social: troca o código pela sessão
+    // ou entra no segundo fator, e consome o evento para não repetir.
+    LaunchedEffect(oauthCallback) {
+        when (val callback = oauthCallback) {
+            null -> Unit
+            is OAuthCallback.Code -> {
+                authState = runCatching { authController.completeOAuthHandoff(callback.code) }
+                    .getOrElse { AuthState.Anonymous }
+                onOAuthCallbackHandled()
+            }
+            is OAuthCallback.MfaRequired -> {
+                authState = authController.requireMfa(callback.challengeId)
+                onOAuthCallbackHandled()
+            }
+            OAuthCallback.Failed -> {
+                authState = AuthState.Anonymous
+                onOAuthCallbackHandled()
+            }
+        }
+    }
 
     fun selectTheme(next: ThemeMode) {
         themeController.select(next)
@@ -97,6 +123,10 @@ fun VerbasApp(
                             .onSuccess { onResult(null) }
                             .onFailure { onResult(describeFailure(it, "Não foi possível enviar o e-mail agora.")) }
                     }
+                },
+                socialProviders = if (onOpenInBrowser == null) emptyList() else OAuthProvider.entries,
+                onSocialLogin = { provider ->
+                    onOpenInBrowser?.invoke(gateways.auth.oauthStartUrl(provider))
                 },
             )
             is AuthState.MfaRequired -> MfaLoginScreen(

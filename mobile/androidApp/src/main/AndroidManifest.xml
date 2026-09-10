@@ -8,10 +8,28 @@
         android:theme="@style/Theme.Verbas">
         <activity
             android:name=".MainActivity"
+            android:launchMode="singleTask"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+              Retorno do login social. É um App Link verificado pelo sistema, no
+              domínio do backend, e não um custom scheme, que qualquer aplicativo
+              poderia registrar e sequestrar (ADR-020). A verificação exige
+              /.well-known/assetlinks.json publicado nesse domínio; sem ele o
+              link abre no navegador e o login social não conclui no aplicativo.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="${oauthCallbackScheme}"
+                    android:host="${oauthCallbackHost}"
+                    android:path="/app/oauth/callback" />
             </intent-filter>
         </activity>
 

@@ -36,9 +36,15 @@ class SecurityConfiguration {
                                 "/api/v1/auth/password-resets",
                                 "/api/v1/auth/mfa/verify",
                                 "/api/v1/auth/mfa/recovery",
-                                "/api/v1/auth/oauth/*/authorize-url"
+                                "/api/v1/auth/oauth/*/authorize-url",
+                                "/api/v1/auth/oauth/mobile-handoff"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/oauth/*/callback").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/auth/oauth/*/callback",
+                                // O navegador do sistema abre esta rota sem token; com
+                                // Bearer presente, ela vira vínculo em vez de login.
+                                "/api/v1/auth/oauth/*/start"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptions -> exceptions

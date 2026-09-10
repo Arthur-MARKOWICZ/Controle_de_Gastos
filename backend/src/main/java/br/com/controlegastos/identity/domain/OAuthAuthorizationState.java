@@ -28,6 +28,10 @@ public class OAuthAuthorizationState {
     @Column(name = "linking_user_id")
     private UUID linkingUserId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    private OAuthClientKind client;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -41,18 +45,19 @@ public class OAuthAuthorizationState {
     }
 
     private OAuthAuthorizationState(String stateHash, OAuthProvider provider, UUID linkingUserId,
-                                     Instant now, Duration lifetime) {
+                                     OAuthClientKind client, Instant now, Duration lifetime) {
         this.id = UUID.randomUUID();
         this.stateHash = Objects.requireNonNull(stateHash);
         this.provider = Objects.requireNonNull(provider);
         this.linkingUserId = linkingUserId;
+        this.client = Objects.requireNonNull(client);
         this.createdAt = Objects.requireNonNull(now);
         this.expiresAt = now.plus(Objects.requireNonNull(lifetime));
     }
 
     public static OAuthAuthorizationState issue(String stateHash, OAuthProvider provider, UUID linkingUserId,
-                                                 Instant now, Duration lifetime) {
-        return new OAuthAuthorizationState(stateHash, provider, linkingUserId, now, lifetime);
+                                                 OAuthClientKind client, Instant now, Duration lifetime) {
+        return new OAuthAuthorizationState(stateHash, provider, linkingUserId, client, now, lifetime);
     }
 
     public boolean canBeConsumedAt(Instant now) {
@@ -80,6 +85,10 @@ public class OAuthAuthorizationState {
 
     public UUID linkingUserId() {
         return linkingUserId;
+    }
+
+    public OAuthClientKind client() {
+        return client;
     }
 
     public Instant expiresAt() {

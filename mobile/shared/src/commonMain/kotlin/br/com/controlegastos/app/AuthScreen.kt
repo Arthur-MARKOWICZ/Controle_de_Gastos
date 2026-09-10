@@ -38,6 +38,8 @@ fun AuthScreen(
     onLogin: (String, String, (String?) -> Unit) -> Unit,
     onRegister: (String, String, (String?) -> Unit) -> Unit,
     onRecoverPassword: (String, (String?) -> Unit) -> Unit,
+    socialProviders: List<OAuthProvider> = emptyList(),
+    onSocialLogin: (OAuthProvider) -> Unit = {},
 ) {
     var registerMode by remember { mutableStateOf(false) }
     var recovering by remember { mutableStateOf(false) }
@@ -117,6 +119,21 @@ fun AuthScreen(
                             enabled = !busy,
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                         ) { Text("Esqueci minha senha") }
+                    }
+                    if (socialProviders.isNotEmpty()) {
+                        Text(
+                            "ou entre com",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
+                        )
+                        socialProviders.forEach { provider ->
+                            androidx.compose.material3.OutlinedButton(
+                                onClick = { onSocialLogin(provider) },
+                                enabled = !busy,
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(48.dp),
+                            ) { Text("Continuar com ${provider.label}") }
+                        }
                     }
                 }
             }

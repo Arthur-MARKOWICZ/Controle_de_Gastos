@@ -3,11 +3,14 @@ package br.com.controlegastos.identity.application;
 import br.com.controlegastos.identity.domain.EmailAddress;
 import br.com.controlegastos.identity.domain.IdentityProviderLink;
 import br.com.controlegastos.identity.domain.OAuthAuthorizationState;
+import br.com.controlegastos.identity.domain.OAuthClientKind;
+import br.com.controlegastos.identity.domain.OAuthMobileHandoff;
 import br.com.controlegastos.identity.domain.OAuthProvider;
 import br.com.controlegastos.identity.domain.TotpCredential;
 import br.com.controlegastos.identity.domain.UserAccount;
 import br.com.controlegastos.identity.infrastructure.IdentityProviderLinkRepository;
 import br.com.controlegastos.identity.infrastructure.OAuthAuthorizationStateRepository;
+import br.com.controlegastos.identity.infrastructure.OAuthMobileHandoffRepository;
 import br.com.controlegastos.identity.infrastructure.TotpCredentialRepository;
 import br.com.controlegastos.identity.infrastructure.UserAccountRepository;
 import java.security.SecureRandom;
@@ -31,6 +34,7 @@ public class OAuthLoginService {
 
     private final List<OAuthProviderClient> clients;
     private final OAuthAuthorizationStateRepository states;
+    private final OAuthMobileHandoffRepository mobileHandoffs;
     private final IdentityProviderLinkRepository links;
     private final UserAccountRepository users;
     private final TotpCredentialRepository totpCredentials;
@@ -39,11 +43,13 @@ public class OAuthLoginService {
     private final AuthAttemptService attempts;
     private final Clock clock;
     private final Duration stateLifetime;
+    private final Duration mobileHandoffLifetime;
     private final SecureRandom random = new SecureRandom();
 
     public OAuthLoginService(
             List<OAuthProviderClient> providerClients,
             OAuthAuthorizationStateRepository states,
+            OAuthMobileHandoffRepository mobileHandoffs,
             IdentityProviderLinkRepository links,
             UserAccountRepository users,
             TotpCredentialRepository totpCredentials,
@@ -51,10 +57,12 @@ public class OAuthLoginService {
             SessionService sessions,
             AuthAttemptService attempts,
             Clock clock,
-            @Value("${app.oauth.state-lifetime}") Duration stateLifetime
+            @Value("${app.oauth.state-lifetime}") Duration stateLifetime,
+            @Value("${app.oauth.mobile-handoff-lifetime}") Duration mobileHandoffLifetime
     ) {
         this.clients = providerClients;
         this.states = states;
+        this.mobileHandoffs = mobileHandoffs;
         this.links = links;
         this.users = users;
         this.totpCredentials = totpCredentials;
@@ -63,14 +71,51 @@ public class OAuthLoginService {
         this.attempts = attempts;
         this.clock = clock;
         this.stateLifetime = stateLifetime;
+        this.mobileHandoffLifetime = mobileHandoffLifetime;
     }
 
     @Transactional
     public String buildAuthorizationUrl(OAuthProvider provider, UUID linkingUserId) {
+        return buildAuthorizationUrl(provider, linkingUserId, OAuthClientKind.WEB);
+    }
+
+    @Transactional
+    public String buildAuthorizationUrl(OAuthProvider provider, UUID linkingUserId, OAuthClientKind client) {
         Instant now = clock.instant();
         String rawState = issueRawState();
-        states.save(OAuthAuthorizationState.issue(Sha256.hex(rawState), provider, linkingUserId, now, stateLifetime));
+        states.save(OAuthAuthorizationState.issue(
+                Sha256.hex(rawState), provider, linkingUserId, client, now, stateLifetime));
         return clientFor(provider).authorizationUrl(rawState);
+    }
+
+    /**
+     * Troca o código de handoff pela sessão, uma única vez.
+     *
+     * <p>O aplicativo nativo recebe o código pelo App Link e o apresenta aqui.
+     * Os tokens voltam no corpo, não em cookie, porque o navegador do sistema
+     * não compartilha cookies com o aplicativo. Ver ADR-020.
+     */
+    @Transactional
+    public SessionService.AuthenticatedSession redeemMobileHandoff(String rawCode, String remoteAddress) {
+        attempts.assertOAuthCallbackAllowed(remoteAddress);
+        Instant now = clock.instant();
+        OAuthMobileHandoff handoff = mobileHandoffs.findLockedByCodeHash(Sha256.hex(rawCode))
+                .filter(candidate -> candidate.canBeConsumedAt(now))
+                .orElseThrow(() -> {
+                    attempts.recordOAuthCallbackFailure(remoteAddress);
+                    LOG.warn("Falha no handoff móvel: código ausente, expirado ou já consumido");
+                    return new OAuthLoginFailedException();
+                });
+        handoff.consume(now);
+        attempts.clearOAuthCallbackFailures(remoteAddress);
+        return sessions.start(handoff.userId());
+    }
+
+    /** Emite o código de uso único entregue ao aplicativo pelo App Link. */
+    private String issueMobileHandoff(UUID userId, Instant now) {
+        String rawCode = issueRawState();
+        mobileHandoffs.save(OAuthMobileHandoff.issue(userId, Sha256.hex(rawCode), now, mobileHandoffLifetime));
+        return rawCode;
     }
 
     @Transactional(noRollbackFor = OAuthLoginFailedException.class)
@@ -97,6 +142,7 @@ public class OAuthLoginService {
                 });
         state.consume(now);
         UUID linkingUserId = state.linkingUserId();
+        OAuthClientKind clientKind = state.client();
 
         OAuthProviderClient client = clientFor(provider);
         String accessToken;
@@ -129,9 +175,15 @@ public class OAuthLoginService {
         UUID userId = resolveUserId(provider, profile.providerUserId(), email, now);
         boolean requiresMfa = totpCredentials.findById(userId).map(TotpCredential::requiresMfaAtLogin).orElse(false);
         if (requiresMfa) {
-            return new OAuthCallbackOutcome.LoggedIn(new AuthenticationService.LoginOutcome(null, mfaLogin.createChallenge(userId)));
+            // O segundo fator é resolvido pelo cliente, que já sabe falar com /auth/mfa/verify.
+            return new OAuthCallbackOutcome.LoggedIn(
+                    new AuthenticationService.LoginOutcome(null, mfaLogin.createChallenge(userId)), clientKind);
         }
-        return new OAuthCallbackOutcome.LoggedIn(new AuthenticationService.LoginOutcome(sessions.start(userId), null));
+        if (clientKind == OAuthClientKind.MOBILE) {
+            return new OAuthCallbackOutcome.HandedOffToMobile(issueMobileHandoff(userId, now));
+        }
+        return new OAuthCallbackOutcome.LoggedIn(
+                new AuthenticationService.LoginOutcome(sessions.start(userId), null), clientKind);
     }
 
     private void linkProviderToExistingAccount(

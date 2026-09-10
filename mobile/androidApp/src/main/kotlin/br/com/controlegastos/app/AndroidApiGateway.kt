@@ -133,6 +133,20 @@ class AndroidApiGateway(
             .orThrow("Não foi possível desconectar ${provider.label}")
     }
 
+    override fun oauthStartUrl(provider: OAuthProvider): String =
+        client.absoluteUrl("/api/v1/auth/oauth/${provider.api}/start", mapOf("client" to "mobile"))
+
+    override suspend fun redeemOAuthHandoff(code: String): AuthUser {
+        val response = client.request(
+            "POST", "/api/v1/auth/oauth/mobile-handoff",
+            jsonBody = JSONObject().put("code", code).toString(), authenticated = false,
+        ).orThrow("Não foi possível concluir o login social")
+        // O refresh vem no corpo, não em cookie: o navegador do sistema não o
+        // compartilha com o aplicativo.
+        client.adoptSession(JSONObject(response.body))
+        return currentUser()
+    }
+
     // ---------------------------------------------------------------- verbas
 
     override suspend fun listEnvelopes(month: YearMonth?): List<EnvelopeView> {
