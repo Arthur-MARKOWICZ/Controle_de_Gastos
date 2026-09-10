@@ -151,6 +151,46 @@ instância central do Nginx possui 80/443. Se emissão, validação ou renovaç�
 teste falhar, o instalador restaura o arquivo e o symlink anteriores deste
 projeto e recarrega o Nginx somente se `nginx -t` aceitar a restauração.
 
+## 4.1 App Link do login social no Android
+
+O login social do aplicativo nativo volta por um App Link verificado pelo
+sistema, e não por um custom scheme, que qualquer aplicativo poderia registrar
+(ver [ADR-020](../decisions/0020-login-social-google-e-github.md)). O Android só
+verifica o link se o domínio publicar as impressões digitais do certificado de
+assinatura do APK.
+
+1. Obtenha a impressão SHA-256 do certificado que assina o APK distribuído:
+
+```bash
+keytool -list -v -keystore <SEU_KEYSTORE.jks> -alias <ALIAS> | grep SHA256
+```
+
+   Se o app for distribuído pela Play Store com App Signing, use a impressão que
+   a Play Console mostra em **Configuração → Integridade do app**, não a da sua
+   chave de upload.
+
+2. Copie `web/public/.well-known/assetlinks.json.example` para
+   `web/public/.well-known/assetlinks.json`, substitua o valor de
+   `sha256_cert_fingerprints` e implante a web. O Nginx já encaminha `/` para o
+   Next.js, que serve `public/` na raiz, então nenhuma regra nova é necessária.
+
+3. Confirme que o arquivo responde como JSON no domínio público:
+
+```bash
+curl --fail -H "Accept: application/json" https://<DOMINIO>/.well-known/assetlinks.json
+```
+
+4. Verifique a associação no aparelho, depois de instalar o APK:
+
+```bash
+adb shell pm verify-app-links --re-verify br.com.controlegastos.app
+adb shell pm get-app-links br.com.controlegastos.app
+```
+
+   O domínio deve aparecer como `verified`. Enquanto não estiver, o link abre no
+   navegador e o login social não conclui dentro do aplicativo; entrar por e-mail
+   e senha continua funcionando normalmente.
+
 ## 5. Validação externa
 
 ```bash

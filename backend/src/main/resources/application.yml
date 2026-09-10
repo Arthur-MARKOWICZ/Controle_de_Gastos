@@ -48,6 +48,12 @@ app:
       recovery-session-lifetime: ${AUTH_MFA_RECOVERY_SESSION_LIFETIME:10m}
   oauth:
     state-lifetime: ${AUTH_OAUTH_STATE_LIFETIME:10m}
+    # Código de handoff do login social nativo (ADR-020). Vive pouco porque
+    # transita pela URL do App Link entregue ao aplicativo pelo sistema.
+    mobile-handoff-lifetime: ${AUTH_OAUTH_MOBILE_HANDOFF_LIFETIME:60s}
+    # Destino do redirect após o callback quando o cliente é nativo. Precisa ser
+    # um App Link verificado no mesmo domínio do backend, nunca um custom scheme.
+    mobile-redirect-url: ${AUTH_OAUTH_MOBILE_REDIRECT_URL:${AUTH_PUBLIC_APP_URL:http://localhost:8080}/app/oauth/callback}
     web-base-url: ${AUTH_PUBLIC_APP_URL:http://localhost:3000}
     # Origem pública do próprio backend, usada para montar o redirect_uri enviado ao
     # provider. Em produção é a MESMA origem do web (ADR-012: um único domínio, nginx

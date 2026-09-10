@@ -15,7 +15,7 @@ class OAuthAuthorizationStateTest {
 
     @Test
     void canBeConsumedOnlyOnceBeforeExpiration() {
-        OAuthAuthorizationState state = OAuthAuthorizationState.issue("hash", OAuthProvider.GOOGLE, null, START, LIFETIME);
+        OAuthAuthorizationState state = OAuthAuthorizationState.issue("hash", OAuthProvider.GOOGLE, null, OAuthClientKind.WEB, START, LIFETIME);
 
         assertThat(state.canBeConsumedAt(START)).isTrue();
         state.consume(START.plusSeconds(1));
@@ -25,7 +25,7 @@ class OAuthAuthorizationStateTest {
 
     @Test
     void expiresAfterItsLifetime() {
-        OAuthAuthorizationState state = OAuthAuthorizationState.issue("hash", OAuthProvider.GITHUB, null, START, LIFETIME);
+        OAuthAuthorizationState state = OAuthAuthorizationState.issue("hash", OAuthProvider.GITHUB, null, OAuthClientKind.WEB, START, LIFETIME);
 
         assertThat(state.canBeConsumedAt(START.plus(LIFETIME).minusSeconds(1))).isTrue();
         assertThat(state.canBeConsumedAt(START.plus(LIFETIME).plusSeconds(1))).isFalse();
@@ -38,14 +38,22 @@ class OAuthAuthorizationStateTest {
         UUID linkingUserId = UUID.randomUUID();
 
         OAuthAuthorizationState state = OAuthAuthorizationState.issue(
-                "hash", OAuthProvider.GOOGLE, linkingUserId, START, LIFETIME);
+                "hash", OAuthProvider.GOOGLE, linkingUserId, OAuthClientKind.WEB, START, LIFETIME);
 
         assertThat(state.linkingUserId()).isEqualTo(linkingUserId);
     }
 
     @Test
+    void keepsTheClientKindSoTheCallbackKnowsHowToDeliverTheSession() {
+        OAuthAuthorizationState mobile = OAuthAuthorizationState.issue(
+                "hash", OAuthProvider.GOOGLE, null, OAuthClientKind.MOBILE, START, LIFETIME);
+
+        assertThat(mobile.client()).isEqualTo(OAuthClientKind.MOBILE);
+    }
+
+    @Test
     void hasNoLinkingUserIdForALoginOrRegisterFlow() {
-        OAuthAuthorizationState state = OAuthAuthorizationState.issue("hash", OAuthProvider.GOOGLE, null, START, LIFETIME);
+        OAuthAuthorizationState state = OAuthAuthorizationState.issue("hash", OAuthProvider.GOOGLE, null, OAuthClientKind.WEB, START, LIFETIME);
 
         assertThat(state.linkingUserId()).isNull();
     }

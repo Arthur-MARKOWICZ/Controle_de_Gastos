@@ -40,6 +40,8 @@ kotlin {
             implementation("org.jetbrains.compose.foundation:foundation:1.12.0")
             implementation("org.jetbrains.compose.material3:material3:1.12.0-alpha03")
             implementation("org.jetbrains.compose.ui:ui:1.12.0")
+            // Botão voltar do sistema no código comum.
+            implementation("org.jetbrains.compose.ui:ui-backhandler:1.12.0")
             implementation(libs.kotlinx.coroutines.core)
         }
 

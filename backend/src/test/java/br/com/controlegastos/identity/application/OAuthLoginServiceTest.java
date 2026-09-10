@@ -12,11 +12,14 @@ import static org.mockito.Mockito.when;
 import br.com.controlegastos.identity.domain.EmailAddress;
 import br.com.controlegastos.identity.domain.IdentityProviderLink;
 import br.com.controlegastos.identity.domain.OAuthAuthorizationState;
+import br.com.controlegastos.identity.domain.OAuthClientKind;
+import br.com.controlegastos.identity.domain.OAuthMobileHandoff;
 import br.com.controlegastos.identity.domain.OAuthProvider;
 import br.com.controlegastos.identity.domain.TotpCredential;
 import br.com.controlegastos.identity.domain.UserAccount;
 import br.com.controlegastos.identity.infrastructure.IdentityProviderLinkRepository;
 import br.com.controlegastos.identity.infrastructure.OAuthAuthorizationStateRepository;
+import br.com.controlegastos.identity.infrastructure.OAuthMobileHandoffRepository;
 import br.com.controlegastos.identity.infrastructure.TotpCredentialRepository;
 import br.com.controlegastos.identity.infrastructure.UserAccountRepository;
 import java.time.Clock;
@@ -34,6 +37,7 @@ class OAuthLoginServiceTest {
     private static final Instant NOW = Instant.parse("2026-09-05T12:00:00Z");
     private static final Clock CLOCK = Clock.fixed(NOW, ZoneOffset.UTC);
     private static final Duration STATE_LIFETIME = Duration.ofMinutes(10);
+    private static final Duration HANDOFF_LIFETIME = Duration.ofSeconds(60);
     private static final String RAW_STATE = "raw-state";
     private static final String STATE_HASH = Sha256.hex(RAW_STATE);
     private static final String CODE = "auth-code";
@@ -52,14 +56,15 @@ class OAuthLoginServiceTest {
         AuthAttemptService attempts = mock(AuthAttemptService.class);
         SessionService.AuthenticatedSession session = new SessionService.AuthenticatedSession("token", 900, "refresh");
 
-        OAuthAuthorizationState state = OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, NOW, STATE_LIFETIME);
+        OAuthAuthorizationState state = OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, OAuthClientKind.WEB, NOW, STATE_LIFETIME);
         when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
         when(links.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, PROVIDER_USER_ID)).thenReturn(Optional.empty());
         when(users.findByEmailNormalized(EMAIL)).thenReturn(Optional.empty());
         when(sessions.start(any())).thenReturn(session);
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         AuthenticationService.LoginOutcome outcome = loggedIn(
                 service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"));
@@ -89,7 +94,7 @@ class OAuthLoginServiceTest {
         AuthAttemptService attempts = mock(AuthAttemptService.class);
         SessionService.AuthenticatedSession session = new SessionService.AuthenticatedSession("token", 900, "refresh");
 
-        OAuthAuthorizationState state = OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, NOW, STATE_LIFETIME);
+        OAuthAuthorizationState state = OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, OAuthClientKind.WEB, NOW, STATE_LIFETIME);
         IdentityProviderLink existingLink =
                 IdentityProviderLink.link(existingUserId, OAuthProvider.GOOGLE, PROVIDER_USER_ID, EMAIL, NOW);
         when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
@@ -100,7 +105,8 @@ class OAuthLoginServiceTest {
         when(sessions.start(existingUserId)).thenReturn(session);
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         AuthenticationService.LoginOutcome outcome = loggedIn(
                 service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"));
@@ -123,7 +129,7 @@ class OAuthLoginServiceTest {
         AuthAttemptService attempts = mock(AuthAttemptService.class);
         MfaLoginService.ChallengeIssued challenge = new MfaLoginService.ChallengeIssued("challenge-id", 300);
 
-        OAuthAuthorizationState state = OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, NOW, STATE_LIFETIME);
+        OAuthAuthorizationState state = OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, OAuthClientKind.WEB, NOW, STATE_LIFETIME);
         IdentityProviderLink existingLink =
                 IdentityProviderLink.link(existingUserId, OAuthProvider.GOOGLE, PROVIDER_USER_ID, EMAIL, NOW);
         TotpCredential enabled = TotpCredential.initiallyDisabled(existingUserId, NOW);
@@ -136,7 +142,8 @@ class OAuthLoginServiceTest {
         when(mfaLogin.createChallenge(existingUserId)).thenReturn(challenge);
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         AuthenticationService.LoginOutcome outcome = loggedIn(
                 service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"));
@@ -158,13 +165,14 @@ class OAuthLoginServiceTest {
         AuthAttemptService attempts = mock(AuthAttemptService.class);
         UserAccount existingAccount = UserAccount.register(EmailAddress.from(EMAIL), "hash", NOW);
 
-        OAuthAuthorizationState state = OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, NOW, STATE_LIFETIME);
+        OAuthAuthorizationState state = OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, OAuthClientKind.WEB, NOW, STATE_LIFETIME);
         when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
         when(links.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, PROVIDER_USER_ID)).thenReturn(Optional.empty());
         when(users.findByEmailNormalized(EMAIL)).thenReturn(Optional.of(existingAccount));
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         assertThatThrownBy(() -> service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"))
                 .isInstanceOf(OAuthLoginFailedException.class);
@@ -185,12 +193,13 @@ class OAuthLoginServiceTest {
         SessionService sessions = mock(SessionService.class);
         AuthAttemptService attempts = mock(AuthAttemptService.class);
 
-        OAuthAuthorizationState state = OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, NOW, STATE_LIFETIME);
+        OAuthAuthorizationState state = OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, OAuthClientKind.WEB, NOW, STATE_LIFETIME);
         when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
         when(links.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, PROVIDER_USER_ID)).thenReturn(Optional.empty());
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         assertThatThrownBy(() -> service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"))
                 .isInstanceOf(OAuthLoginFailedException.class);
@@ -208,12 +217,13 @@ class OAuthLoginServiceTest {
         AuthAttemptService attempts = mock(AuthAttemptService.class);
 
         OAuthAuthorizationState alreadyConsumed =
-                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, NOW, STATE_LIFETIME);
+                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, null, OAuthClientKind.WEB, NOW, STATE_LIFETIME);
         alreadyConsumed.consume(NOW);
         when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(alreadyConsumed));
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         assertThatThrownBy(() -> service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"))
                 .isInstanceOf(OAuthLoginFailedException.class);
@@ -233,7 +243,8 @@ class OAuthLoginServiceTest {
         AuthAttemptService attempts = mock(AuthAttemptService.class);
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         String url = service.buildAuthorizationUrl(OAuthProvider.GOOGLE, null);
 
@@ -254,13 +265,14 @@ class OAuthLoginServiceTest {
         AuthAttemptService attempts = mock(AuthAttemptService.class);
 
         OAuthAuthorizationState state =
-                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, NOW, STATE_LIFETIME);
+                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, OAuthClientKind.WEB, NOW, STATE_LIFETIME);
         when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
         when(links.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, PROVIDER_USER_ID)).thenReturn(Optional.empty());
         when(links.findByUserId(currentUserId)).thenReturn(List.of());
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         OAuthCallbackOutcome result = service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1");
 
@@ -286,7 +298,7 @@ class OAuthLoginServiceTest {
         AuthAttemptService attempts = mock(AuthAttemptService.class);
 
         OAuthAuthorizationState state =
-                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, NOW, STATE_LIFETIME);
+                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, OAuthClientKind.WEB, NOW, STATE_LIFETIME);
         IdentityProviderLink linkedToSomeoneElse =
                 IdentityProviderLink.link(otherUserId, OAuthProvider.GOOGLE, PROVIDER_USER_ID, EMAIL, NOW);
         when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
@@ -294,7 +306,8 @@ class OAuthLoginServiceTest {
                 .thenReturn(Optional.of(linkedToSomeoneElse));
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         assertThatThrownBy(() -> service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"))
                 .isInstanceOf(OAuthLinkFailedException.class);
@@ -315,7 +328,7 @@ class OAuthLoginServiceTest {
         AuthAttemptService attempts = mock(AuthAttemptService.class);
 
         OAuthAuthorizationState state =
-                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, NOW, STATE_LIFETIME);
+                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, OAuthClientKind.WEB, NOW, STATE_LIFETIME);
         IdentityProviderLink alreadyLinkedToAnotherGoogleAccount =
                 IdentityProviderLink.link(currentUserId, OAuthProvider.GOOGLE, "google-other-id", EMAIL, NOW);
         when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
@@ -323,7 +336,8 @@ class OAuthLoginServiceTest {
         when(links.findByUserId(currentUserId)).thenReturn(List.of(alreadyLinkedToAnotherGoogleAccount));
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         assertThatThrownBy(() -> service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1"))
                 .isInstanceOf(OAuthLinkFailedException.class);
@@ -344,7 +358,7 @@ class OAuthLoginServiceTest {
         AuthAttemptService attempts = mock(AuthAttemptService.class);
 
         OAuthAuthorizationState state =
-                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, NOW, STATE_LIFETIME);
+                OAuthAuthorizationState.issue(STATE_HASH, OAuthProvider.GOOGLE, currentUserId, OAuthClientKind.WEB, NOW, STATE_LIFETIME);
         IdentityProviderLink existingLink =
                 IdentityProviderLink.link(currentUserId, OAuthProvider.GOOGLE, PROVIDER_USER_ID, EMAIL, NOW);
         when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
@@ -352,12 +366,115 @@ class OAuthLoginServiceTest {
                 .thenReturn(Optional.of(existingLink));
 
         OAuthLoginService service = new OAuthLoginService(
-                List.of(client), states, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME);
+                List.of(client), states, mobileHandoffs(), links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK, STATE_LIFETIME,
+                HANDOFF_LIFETIME);
 
         OAuthCallbackOutcome result = service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1");
 
         assertThat(result).isInstanceOf(OAuthCallbackOutcome.Linked.class);
         verify(links, never()).save(any());
+    }
+
+    @Test
+    void aMobileCallbackHandsOffACodeInsteadOfStartingTheSessionRightAway() {
+        OAuthProviderClient client = fakeGoogleClient(PROVIDER_USER_ID, EMAIL);
+        OAuthAuthorizationStateRepository states = mock(OAuthAuthorizationStateRepository.class);
+        OAuthMobileHandoffRepository handoffs = mock(OAuthMobileHandoffRepository.class);
+        IdentityProviderLinkRepository links = mock(IdentityProviderLinkRepository.class);
+        UserAccountRepository users = mock(UserAccountRepository.class);
+        TotpCredentialRepository totpCredentials = mock(TotpCredentialRepository.class);
+        MfaLoginService mfaLogin = mock(MfaLoginService.class);
+        SessionService sessions = mock(SessionService.class);
+        AuthAttemptService attempts = mock(AuthAttemptService.class);
+
+        OAuthAuthorizationState state = OAuthAuthorizationState.issue(
+                STATE_HASH, OAuthProvider.GOOGLE, null, OAuthClientKind.MOBILE, NOW, STATE_LIFETIME);
+        when(states.findLockedByStateHash(STATE_HASH)).thenReturn(Optional.of(state));
+        when(links.findByProviderAndProviderUserId(OAuthProvider.GOOGLE, PROVIDER_USER_ID)).thenReturn(Optional.empty());
+        when(users.findByEmailNormalized(EMAIL)).thenReturn(Optional.empty());
+
+        OAuthLoginService service = new OAuthLoginService(
+                List.of(client), states, handoffs, links, users, totpCredentials, mfaLogin, sessions, attempts, CLOCK,
+                STATE_LIFETIME, HANDOFF_LIFETIME);
+
+        OAuthCallbackOutcome result = service.completeCallback(OAuthProvider.GOOGLE, CODE, RAW_STATE, "127.0.0.1");
+
+        assertThat(result).isInstanceOf(OAuthCallbackOutcome.HandedOffToMobile.class);
+        assertThat(((OAuthCallbackOutcome.HandedOffToMobile) result).code()).isNotBlank();
+        // A sessão só nasce quando o aplicativo apresenta o código.
+        verify(sessions, never()).start(any());
+        verify(handoffs).save(any(OAuthMobileHandoff.class));
+    }
+
+    @Test
+    void redeemingAHandoffCodeStartsTheSessionAndBurnsTheCode() {
+        OAuthMobileHandoffRepository handoffs = mock(OAuthMobileHandoffRepository.class);
+        SessionService sessions = mock(SessionService.class);
+        AuthAttemptService attempts = mock(AuthAttemptService.class);
+        UUID userId = UUID.randomUUID();
+        OAuthMobileHandoff handoff = OAuthMobileHandoff.issue(userId, sha256("raw-code"), NOW, HANDOFF_LIFETIME);
+        SessionService.AuthenticatedSession session = new SessionService.AuthenticatedSession("token", 900, "refresh");
+        when(handoffs.findLockedByCodeHash(sha256("raw-code"))).thenReturn(Optional.of(handoff));
+        when(sessions.start(userId)).thenReturn(session);
+
+        OAuthLoginService service = serviceWith(handoffs, sessions, attempts);
+
+        assertThat(service.redeemMobileHandoff("raw-code", "127.0.0.1")).isEqualTo(session);
+        assertThat(handoff.canBeConsumedAt(NOW)).isFalse();
+    }
+
+    @Test
+    void aHandoffCodeCannotBeRedeemedTwice() {
+        OAuthMobileHandoffRepository handoffs = mock(OAuthMobileHandoffRepository.class);
+        SessionService sessions = mock(SessionService.class);
+        AuthAttemptService attempts = mock(AuthAttemptService.class);
+        OAuthMobileHandoff handoff =
+                OAuthMobileHandoff.issue(UUID.randomUUID(), sha256("raw-code"), NOW, HANDOFF_LIFETIME);
+        handoff.consume(NOW);
+        when(handoffs.findLockedByCodeHash(sha256("raw-code"))).thenReturn(Optional.of(handoff));
+
+        OAuthLoginService service = serviceWith(handoffs, sessions, attempts);
+
+        assertThatThrownBy(() -> service.redeemMobileHandoff("raw-code", "127.0.0.1"))
+                .isInstanceOf(OAuthLoginFailedException.class);
+        verify(sessions, never()).start(any());
+        verify(attempts).recordOAuthCallbackFailure("127.0.0.1");
+    }
+
+    @Test
+    void anUnknownHandoffCodeFailsWithoutRevealingWhy() {
+        OAuthMobileHandoffRepository handoffs = mock(OAuthMobileHandoffRepository.class);
+        SessionService sessions = mock(SessionService.class);
+        AuthAttemptService attempts = mock(AuthAttemptService.class);
+        when(handoffs.findLockedByCodeHash(anyString())).thenReturn(Optional.empty());
+
+        OAuthLoginService service = serviceWith(handoffs, sessions, attempts);
+
+        assertThatThrownBy(() -> service.redeemMobileHandoff("desconhecido", "127.0.0.1"))
+                .isInstanceOf(OAuthLoginFailedException.class);
+        verify(sessions, never()).start(any());
+    }
+
+    private OAuthLoginService serviceWith(
+            OAuthMobileHandoffRepository handoffs, SessionService sessions, AuthAttemptService attempts) {
+        return new OAuthLoginService(
+                List.of(), mock(OAuthAuthorizationStateRepository.class), handoffs,
+                mock(IdentityProviderLinkRepository.class), mock(UserAccountRepository.class),
+                mock(TotpCredentialRepository.class), mock(MfaLoginService.class), sessions, attempts, CLOCK,
+                STATE_LIFETIME, HANDOFF_LIFETIME);
+    }
+
+    private static String sha256(String raw) {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        } catch (java.security.NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
+
+    private OAuthMobileHandoffRepository mobileHandoffs() {
+        return mock(OAuthMobileHandoffRepository.class);
     }
 
     private AuthenticationService.LoginOutcome loggedIn(OAuthCallbackOutcome outcome) {

@@ -77,12 +77,32 @@ class AuthSessionControllerTest {
         assertEquals(AuthState.Anonymous, state)
     }
 
+    @Test
+    fun `completes a social login from the app link handoff code`() = runSuspend {
+        val user = AuthUser("user-1", "pessoa@example.com", true)
+        val controller = AuthSessionController(FakeAuthGateway(handoffUser = user))
+
+        val state = controller.completeOAuthHandoff("codigo-de-uso-unico")
+
+        assertEquals(AuthState.Authenticated(user), state)
+    }
+
+    @Test
+    fun `moves to the second factor when the provider login demands it`() {
+        val controller = AuthSessionController(FakeAuthGateway())
+
+        val state = controller.requireMfa("desafio-1")
+
+        assertEquals(AuthState.MfaRequired("desafio-1"), state)
+    }
+
     private class FakeAuthGateway(
         val restored: AuthUser? = null,
         private val logoutFailure: Throwable? = null,
         private val mfaChallengeId: String? = null,
         private val verifiedUser: AuthUser? = null,
         private val restrictedToken: String? = null,
+        private val handoffUser: AuthUser? = null,
     ) : AuthGateway {
         var restoreCalls = 0
         var lastVerifiedChallengeId: String? = null
@@ -109,14 +129,11 @@ class AuthSessionControllerTest {
         override suspend fun disableMfa(password: String) = error("not used")
         override suspend fun regenerateRecoveryCodes(password: String): List<String> = error("not used")
         override suspend fun mfaStatus(): MfaStatus = error("not used")
+        override suspend fun requestPasswordReset(email: String) = error("not used")
+        override suspend fun loginMethods(): LoginMethods = error("not used")
+        override suspend fun addPassword(password: String) = error("not used")
+        override suspend fun unlinkProvider(provider: OAuthProvider) = error("not used")
+        override fun oauthStartUrl(provider: OAuthProvider): String = "https://api.example/start"
+        override suspend fun redeemOAuthHandoff(code: String): AuthUser = handoffUser ?: error("not used")
     }
-}
-
-private fun runSuspend(block: suspend () -> Unit) {
-    var failure: Throwable? = null
-    block.startCoroutine(object : kotlin.coroutines.Continuation<Unit> {
-        override val context = kotlin.coroutines.EmptyCoroutineContext
-        override fun resumeWith(result: Result<Unit>) { failure = result.exceptionOrNull() }
-    })
-    failure?.let { throw it }
 }

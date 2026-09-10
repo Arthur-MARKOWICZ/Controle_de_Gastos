@@ -15,7 +15,7 @@ mobile (KMP) ──────┘          │
 
 - `backend/`: regras, REST, persistência e integrações.
 - `web/`: configuração e relatórios.
-- `mobile/`: lançamentos, saldos, alertas e histórico.
+- `mobile/`: lançamentos, saldos, alertas, histórico e relatórios.
 - `infra/`: serviços locais e arquivos de deploy.
 - `docs/`: intenção, ADRs, privacidade e API.
 
@@ -39,24 +39,39 @@ mobile (KMP) ──────┘          │
    `backend/` e `web/` antes de recriar os serviços afetados.
 5. Abra `mobile/` no Android Studio e execute `androidApp`.
 
-### API HTTPS no Android
+### Ambientes da API no Android
 
-Para testar o aplicativo com a API publicada, defina a URL pública HTTPS no
-arquivo local ignorado pelo Git `mobile/local.properties`:
+O app escolhe a URL da API em tempo de build, a partir de `mobile/.env`. Copie o
+exemplo versionado e ajuste os valores:
 
-```properties
-API_BASE_URL=https://<SUBDOMINIO>
+```bash
+cp mobile/.env.example mobile/.env
 ```
 
-Use somente a origem, sem `/api`, caminho ou barra final. Por exemplo,
-`https://gastos.exemplo.com`. Não use placeholders de configuração do Spring,
-como `${api_base_url:...}`: o Gradle não os expande e interrompe o build porque
-o valor não é uma URL HTTP(S). A mesma URL pode ser passada em linha de comando
-com `-PAPI_BASE_URL=https://<SUBDOMINIO>`.
+```properties
+API_ENV=local
+API_BASE_URL_LOCAL=http://10.0.2.2:8080
+API_BASE_URL_PROD=https://<SUBDOMINIO>
+```
 
-O certificado do subdomínio deve ser público e válido; a configuração de Nginx
-e Certbot está no [runbook de HTTPS](docs/deploy/https-producao.md). O build de
-debug mantém HTTP liberado apenas para a API local do emulador.
+Alterne entre os ambientes trocando `API_ENV` para `local` ou `prod`. A
+precedência é `-PAPI_ENV`/`-PAPI_BASE_URL` na linha de comando, depois o `.env`
+e, por fim, o emulador. `mobile/local.properties` serve só para o caminho do
+SDK: definir `API_BASE_URL` ali interrompe o build, porque a URL em dois
+arquivos deixaria a edição de um deles sem efeito e sem explicação.
+
+Em `prod`, use somente a origem HTTPS, sem porta, caminho, query ou barra final —
+por exemplo `https://gastos.exemplo.com`. O build rejeita as demais formas: a API
+fica em loopback atrás do Nginx e a porta 8080 não é publicada, conforme o
+[runbook de HTTPS](docs/deploy/https-producao.md). Não use placeholders de
+configuração do Spring, como `${api_base_url:...}`: o Gradle não os expande e
+interrompe o build porque o valor não é uma URL HTTP(S).
+
+O certificado do subdomínio deve ser público e válido. O build release exige uma
+URL HTTPS. O build debug libera HTTP apenas para os hosts em
+`mobile/androidApp/src/debug/res/xml/network_security_config.xml` — o emulador e
+o `localhost`; acrescente ali o IP da sua máquina para testar em aparelho físico
+contra a API local.
 
 ## Comandos
 
@@ -105,6 +120,24 @@ efetivo em qualquer mês e navegar pelo histórico de alterações. Dinheiro usa
 `BigDecimal`/`NUMERIC(19,2)` e strings decimais na API. Consulte o contrato em
 [`docs/api/openapi.yaml`](docs/api/openapi.yaml) e a decisão em
 [`docs/decisions/0006-valores-monetarios-decimais-e-renda-mensal.md`](docs/decisions/0006-valores-monetarios-decimais-e-renda-mensal.md).
+
+## Estado do aplicativo móvel
+
+O Android tem paridade de funcionalidades com a web: painel do mês com seletor
+de competência, criação, edição e encerramento de verbas nas cinco naturezas,
+lançamento de gastos e aportes, configuração de renda e seu histórico,
+histórico de movimentações com edição e exclusão de lançamentos próprios,
+relatórios exportáveis em CSV e XLSX, recuperação de senha, MFA por TOTP e
+login social por Google e GitHub.
+
+Duas diferenças permanecem, por dependerem de coisas que não existem na API:
+compartilhamento de verbas não tem endpoint em nenhum cliente, e notificações
+push dependem do projeto Firebase/APNs ainda pendente. Vincular um provedor
+social a uma conta existente continua sendo feito na web, porque a requisição
+precisa do token de acesso, que o navegador do sistema não carrega.
+
+O login social no aplicativo exige o App Link verificado descrito no
+[runbook de HTTPS](docs/deploy/https-producao.md).
 
 ## Estado do esqueleto
 

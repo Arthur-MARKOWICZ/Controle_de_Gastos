@@ -130,6 +130,117 @@ paths:
       responses:
         '204': { description: Senha alterada, sessões revogadas e refresh cookie removido }
         '400': { $ref: '#/components/responses/InvalidRequest' }
+  /auth/password:
+    post:
+      summary: Cadastra uma senha para uma conta criada por login social
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddPasswordRequest' }
+      responses:
+        '204': { description: Senha cadastrada }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '409':
+          description: A conta já tem senha (code PASSWORD_ALREADY_SET)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+  /auth/login-methods:
+    get:
+      summary: Lista como a conta autenticada consegue entrar
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Métodos de login da conta
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LoginMethods' }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /auth/oauth/{provider}/authorize-url:
+    post:
+      summary: Devolve a URL de autorização do provedor
+      description: >-
+        Sem Bearer inicia um login; com Bearer vincula o provedor à conta
+        autenticada. Usado pelo cliente web, que navega até a URL devolvida.
+      parameters: [{ $ref: '#/components/parameters/OAuthProvider' }]
+      responses:
+        '200':
+          description: URL de autorização
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthorizationUrl' }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+  /auth/oauth/{provider}/start:
+    get:
+      summary: Redireciona o navegador do sistema para o provedor
+      description: >-
+        Ponto de entrada do login social em cliente nativo (ADR-020). O
+        aplicativo abre esta rota em Custom Tabs ou ASWebAuthenticationSession,
+        nunca em WebView embutida. Com client=mobile a sessão volta por código de
+        handoff no App Link, em vez de cookie.
+      parameters:
+        - $ref: '#/components/parameters/OAuthProvider'
+        - name: client
+          in: query
+          required: false
+          schema: { type: string, enum: [mobile] }
+      responses:
+        '302': { description: Redirecionamento para a autorização do provedor }
+        '400': { $ref: '#/components/responses/InvalidRequest' }
+  /auth/oauth/{provider}/callback:
+    get:
+      summary: Conclui o fluxo OAuth e devolve o navegador ao cliente
+      description: >-
+        Sempre responde 302. Para o cliente web, entrega a sessão em Set-Cookie e
+        redireciona para /oauth/callback. Para o cliente nativo, redireciona para
+        o App Link com o código de handoff. Ao vincular, volta para
+        /conta/seguranca. Falhas voltam com error=oauth_failed.
+      parameters:
+        - $ref: '#/components/parameters/OAuthProvider'
+        - { name: code, in: query, required: false, schema: { type: string } }
+        - { name: state, in: query, required: false, schema: { type: string } }
+      responses:
+        '302': { description: Redirecionamento para o cliente, com ou sem refresh cookie }
+  /auth/oauth/mobile-handoff:
+    post:
+      summary: Troca o código de handoff pela sessão, uma única vez
+      description: >-
+        O refresh volta no corpo, e não em cookie, porque o navegador do sistema
+        não o compartilha com o aplicativo nativo. O código vale por 60 segundos
+        e é consumido na primeira troca (ADR-020).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MobileHandoffRequest' }
+      responses:
+        '200':
+          description: Sessão criada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MobileSession' }
+        '400':
+          description: Código ausente, expirado ou já consumido (code OAUTH_LOGIN_FAILED)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
+  /auth/oauth/{provider}:
+    delete:
+      summary: Desconecta um provedor da conta autenticada
+      security: [{ bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/OAuthProvider' }]
+      responses:
+        '204': { description: Provedor desconectado }
+        '401': { $ref: '#/components/responses/AuthenticationFailed' }
+        '409':
+          description: É o último método de login da conta (code LAST_LOGIN_METHOD)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
   /mfa/enroll:
     post:
       summary: Inicia a configuração de MFA por TOTP
@@ -589,6 +700,46 @@ components:
       properties:
         token: { type: string, minLength: 1, maxLength: 256 }
         newPassword: { type: string, minLength: 12, maxLength: 128 }
+    AddPasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [password]
+      properties:
+        password: { type: string, minLength: 12, maxLength: 128 }
+    LoginMethods:
+      type: object
+      required: [hasPassword, linkedProviders]
+      properties:
+        hasPassword: { type: boolean }
+        linkedProviders:
+          type: array
+          items: { type: string, enum: [GOOGLE, GITHUB] }
+    AuthorizationUrl:
+      type: object
+      required: [authorizationUrl]
+      properties:
+        authorizationUrl: { type: string, format: uri }
+    MobileHandoffRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 512 }
+    MobileSession:
+      type: object
+      required: [accessToken, tokenType, expiresIn, refreshToken, refreshCookieName]
+      properties:
+        accessToken: { type: string }
+        tokenType: { type: string, const: Bearer }
+        expiresIn: { type: integer }
+        refreshToken:
+          type: string
+          description: Guardado pelo aplicativo com proteção da plataforma; nunca é registrado em log.
+        refreshCookieName:
+          type: string
+          description: >-
+            Nome sob o qual o aplicativo deve enviar o refresh em /auth/refresh.
+            É configurável por AUTH_COOKIE_NAME, por isso vem na resposta.
     Token:
       type: object
       required: [accessToken, tokenType, expiresIn]
@@ -888,6 +1039,12 @@ components:
         unallocated: { $ref: '#/components/schemas/Money' }
         usagePct: { type: number, minimum: 0 }
         envelopes: { type: array, items: { $ref: '#/components/schemas/Envelope' } }
+  parameters:
+    OAuthProvider:
+      name: provider
+      in: path
+      required: true
+      schema: { type: string, enum: [google, github] }
   responses:
     InvalidRequest:
       description: Dados inválidos
