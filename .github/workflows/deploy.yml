@@ -278,7 +278,7 @@ jobs:
               exit 1
             }
             wait_for_http() {
-              url=$1
+              url=$1  
               service=$2
               attempt=1
               while ! curl --fail --silent --show-error "$url" >/dev/null 2>&1; do

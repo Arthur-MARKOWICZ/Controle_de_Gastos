@@ -1,0 +1,5 @@
+# O postinstall do lefthook apenas executa `lefthook install`. Isso já é feito
+# de forma explícita pelo script `prepare` do package.json, então o build script
+# do pacote fica bloqueado.
+allowBuilds:
+  lefthook: false
