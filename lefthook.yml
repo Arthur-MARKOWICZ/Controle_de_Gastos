@@ -1,0 +1,29 @@
+# Hooks de git compartilhados do monorepo.
+# Instale (uma vez por clone) com `pnpm install` na raiz do repositório.
+#
+# O pre-commit roda apenas lint e testes que não dependem de Docker, e somente
+# para as áreas tocadas pelo commit. A suíte completa (incluindo os testes de
+# integração com Testcontainers) é responsabilidade do CI em cada pull request.
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: web-lint
+      root: web/
+      glob: "*.{ts,tsx,js,jsx,mjs,mts}"
+      run: pnpm lint {staged_files}
+
+    - name: web-test
+      root: web/
+      glob: "*.{ts,tsx,js,jsx,mjs,mts,css,json}"
+      run: pnpm test
+
+    - name: backend-unit-test
+      root: backend/
+      glob: "*.{java,kts,properties,sql,yaml,yml}"
+      run: ./gradlew unitTest
+
+    - name: mobile-unit-test
+      root: mobile/
+      glob: "*.{kt,kts,properties,xml,toml}"
+      run: ./gradlew :shared:jvmTest --no-configuration-cache
