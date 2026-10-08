@@ -24,6 +24,18 @@ describe("EnvelopeCard", () => {
     unmount();
   });
 
+  it("explica que limite de gasto reinicia a cada mês", () => {
+    render(<ul><EnvelopeCard variant="verbas" envelope={{
+      id: "limit", ownerId: "owner", name: "Mercado", purpose: "LIMIT",
+      baseAmount: { amount: "100.00", currency: "BRL" }, targetAmount: null, targetReachedAt: null,
+      available: { amount: "100.00", currency: "BRL" }, isNegative: false, role: "OWNER",
+      createdAt: "2026-10-01T00:00:00Z", archivedAt: null, version: 0,
+    }} /></ul>);
+
+    expect(screen.getByText("Limite de gasto")).toBeDefined();
+    expect(screen.getByText(/saldo reinicia no mês seguinte/)).toBeDefined();
+  });
+
   it("explica a regra e mostra o progresso de uma meta de acumulação", () => {
     render(<ul><EnvelopeCard variant="verbas" envelope={{
       id: "target", ownerId: "owner", name: "Notebook", purpose: "SAVINGS_TARGET",

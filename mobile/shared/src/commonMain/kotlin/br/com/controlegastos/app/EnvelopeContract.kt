@@ -5,12 +5,12 @@ enum class EnvelopePurpose(val api: String, val label: String, val explanation: 
     LIMIT(
         "LIMIT",
         "Limite de gasto",
-        "Teto planejado para um tipo de gasto. O que sobrar acumula para o mês seguinte.",
+        "Teto planejado para um tipo de gasto neste mês. O saldo reinicia no valor-base a cada mês.",
     ),
     FIXED(
         "FIXED",
         "Compromisso fixo",
-        "Despesa recorrente de valor previsível, como aluguel ou assinatura.",
+        "Despesa recorrente de valor previsível, como aluguel. O saldo reinicia a cada mês.",
     ),
     GOAL(
         "GOAL",

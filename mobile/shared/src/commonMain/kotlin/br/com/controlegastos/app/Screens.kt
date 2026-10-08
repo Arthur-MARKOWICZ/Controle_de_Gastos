@@ -98,7 +98,7 @@ internal fun MonthWorkspaceScreen(
                     SectionHeader(
                         "LIMITES E COMPROMISSOS",
                         "Suas verbas",
-                        "O que sobrar em uma verba acumula para o mês seguinte.",
+                        "Limites e compromissos reiniciam no valor-base a cada mês.",
                     )
                 }
                 item { NegativeBalanceAlert(dashboard.envelopes) }

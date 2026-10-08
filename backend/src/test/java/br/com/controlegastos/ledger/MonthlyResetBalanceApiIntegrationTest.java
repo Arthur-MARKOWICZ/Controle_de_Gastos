@@ -30,7 +30,7 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
-class GoalProgressApiIntegrationTest {
+class MonthlyResetBalanceApiIntegrationTest {
 
     private static final String PASSWORD = "frase segura de teste";
 
@@ -57,51 +57,50 @@ class GoalProgressApiIntegrationTest {
     }
 
     @Test
-    void accumulatesTheMonthlyGoalWhileOnlyActiveContributionsAdvanceItsProgress() throws Exception {
-        String token = tokenFor("progresso-meta@example.com");
-        String envelopeId = createGoal(token);
+    void limitDoesNotCarryUnusedBalanceIntoTheNextMonth() throws Exception {
+        String token = tokenFor("limite-sem-carry@example.com");
+        String envelopeId = createEnvelope(token, "Mercado", "LIMIT", "100.00");
         backdateCreation(envelopeId, "2026-09-01T12:00:00Z");
 
         summary(token, "2026-09")
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.plannedAmount.amount").value("100.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.contributedAmount.amount").value("0.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.remainingAmount.amount").value("100.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.percent").value(0));
+                .andExpect(jsonPath("$.envelopes[0].available.amount").value("100.00"));
 
-        String contributionId = register(token, envelopeId, "CONTRIBUTION", "20.00", "2026-09-01");
-        register(token, envelopeId, "EXPENSE", "30.00", "2026-09-02");
+        register(token, envelopeId, "EXPENSE", "40.00", "2026-09-15");
 
         summary(token, "2026-09")
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.plannedAmount.amount").value("100.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.contributedAmount.amount").value("20.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.remainingAmount.amount").value("80.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.percent").value(20));
+                .andExpect(jsonPath("$.envelopes[0].available.amount").value("60.00"));
 
         summary(token, "2026-10")
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.plannedAmount.amount").value("200.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.contributedAmount.amount").value("20.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.remainingAmount.amount").value("180.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.percent").value(10));
-
-        jdbc.update("UPDATE ledger_entry SET deleted_at = ? WHERE id = ?", Timestamp.from(Instant.now()), java.util.UUID.fromString(contributionId));
-
-        summary(token, "2026-09")
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.contributedAmount.amount").value("0.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.remainingAmount.amount").value("100.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.percent").value(0));
+                .andExpect(jsonPath("$.envelopes[0].available.amount").value("100.00"));
     }
 
     @Test
-    void capsProgressAtOneHundredPercentWhenContributionsExceedTheAccumulatedGoal() throws Exception {
-        String token = tokenFor("progresso-meta-ultrapassada@example.com");
-        String envelopeId = createGoal(token);
+    void fixedDoesNotCarryUnusedOrSpentBalanceIntoTheNextMonth() throws Exception {
+        String token = tokenFor("compromisso-sem-carry@example.com");
+        String envelopeId = createEnvelope(token, "Aluguel", "FIXED", "1500.00");
         backdateCreation(envelopeId, "2026-09-01T12:00:00Z");
 
-        register(token, envelopeId, "CONTRIBUTION", "150.00", "2026-09-01");
+        register(token, envelopeId, "EXPENSE", "500.00", "2026-09-05");
 
         summary(token, "2026-09")
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.remainingAmount.amount").value("0.00"))
-                .andExpect(jsonPath("$.envelopes[0].goalProgress.percent").value(100));
+                .andExpect(jsonPath("$.envelopes[0].available.amount").value("1000.00"));
+
+        summary(token, "2026-10")
+                .andExpect(jsonPath("$.envelopes[0].available.amount").value("1500.00"));
+    }
+
+    @Test
+    void limitCountsOnlyMovementsOfTheConsultedMonth() throws Exception {
+        String token = tokenFor("limite-mes-consultado@example.com");
+        String envelopeId = createEnvelope(token, "Lazer", "LIMIT", "200.00");
+        backdateCreation(envelopeId, "2026-09-01T12:00:00Z");
+
+        register(token, envelopeId, "EXPENSE", "50.00", "2026-09-10");
+        register(token, envelopeId, "CONTRIBUTION", "20.00", "2026-10-02");
+        register(token, envelopeId, "EXPENSE", "30.00", "2026-10-03");
+
+        summary(token, "2026-10")
+                .andExpect(jsonPath("$.envelopes[0].available.amount").value("190.00"));
     }
 
     private org.springframework.test.web.servlet.ResultActions summary(String token, String month) throws Exception {
@@ -109,9 +108,9 @@ class GoalProgressApiIntegrationTest {
                 .andExpect(status().isOk());
     }
 
-    private String createGoal(String token) throws Exception {
+    private String createEnvelope(String token, String name, String purpose, String baseAmount) throws Exception {
         String body = objectMapper.writeValueAsString(Map.of(
-                "name", "Investimentos", "purpose", "GOAL", "baseAmount", money("100.00")));
+                "name", name, "purpose", purpose, "baseAmount", money(baseAmount)));
         MvcResult result = mockMvc.perform(post("/api/v1/envelopes")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON).content(body))

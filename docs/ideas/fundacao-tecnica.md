@@ -8,7 +8,9 @@ Como construir um sistema pessoal de verbas reservadas, acessível pela web e pe
 
 - Registrar gastos manualmente e com pouco esforço.
 - Distribuir uma renda mensal fixa e alterável entre verbas cuja soma-base nunca exceda a renda.
-- Acumular para o mês seguinte o saldo não utilizado.
+- Acumular para o mês seguinte o saldo não alocado da renda e o saldo das
+  verbas que acumulam (`GOAL`, `SAVINGS_TARGET`, `ANNUAL_EXPENSE`). Limite de
+  gasto e compromisso fixo reiniciam no valor-base a cada mês (ADR-0022).
 - Manter dinheiro não alocado separado das verbas.
 - Permitir saldo negativo com alerta, sem impedir o registro de um gasto real.
 - Avaliar verbas como limite de gasto, meta de aporte ou compromisso fixo.

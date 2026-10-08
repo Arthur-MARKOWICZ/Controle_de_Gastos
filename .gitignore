@@ -23,7 +23,7 @@ local.properties
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 DerivedData/
-
+plans/
 # OS and editors
 .DS_Store
 .vscode/

@@ -6,12 +6,12 @@ const ENTRIES = [
   {
     purpose: "LIMIT",
     label: "Limite de gasto",
-    description: "Controle do que você pode gastar em uma categoria. Gastar menos deixa saldo disponível; gastar mais gera alerta, não bloqueio.",
+    description: "Controle do que você pode gastar em uma categoria neste mês. O saldo reinicia no valor-base a cada mês; gastar mais gera alerta, não bloqueio.",
   },
   {
     purpose: "FIXED",
     label: "Compromisso fixo",
-    description: "Contas que não podem falhar, como aluguel ou financiamento — reservas obrigatórias do mês.",
+    description: "Contas que não podem falhar, como aluguel ou financiamento — reservas obrigatórias do mês, sem acumular sobra.",
   },
   {
     purpose: "GOAL",
