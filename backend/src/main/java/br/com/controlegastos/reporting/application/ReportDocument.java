@@ -1,7 +1,9 @@
 package br.com.controlegastos.reporting.application;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
@@ -12,6 +14,16 @@ public record ReportDocument(String filename, ReportFormat format, String sheetN
     public ReportDocument {
         headers = List.copyOf(headers);
         rows = rows.stream().map(List::copyOf).toList();
+    }
+
+    public byte[] toBytes() {
+        try {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            writeTo(buffer);
+            return buffer.toByteArray();
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
     }
 
     public void writeTo(OutputStream output) throws IOException {

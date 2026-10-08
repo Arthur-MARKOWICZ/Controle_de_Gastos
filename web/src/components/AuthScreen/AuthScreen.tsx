@@ -48,7 +48,7 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, e
         </a>
         <p className={styles.eyebrow}>Dinheiro com destino claro</p>
         <h1 id="auth-title">Organize o mês sem perder de vista a vida real.</h1>
-        <p>Reserve sua renda em verbas que acumulam, acompanhe o que está livre e registre gastos com contexto.</p>
+        <p>Reserve sua renda em verbas, acompanhe o que está livre e registre gastos com contexto.</p>
         <ul>
           <li>Saldo não usado continua com você.</li>
           <li>Gasto acima do planejado vira alerta, não bloqueio.</li>

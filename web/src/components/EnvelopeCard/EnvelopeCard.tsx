@@ -25,8 +25,8 @@ function purposeLabel(purpose: string) {
 
 function purposeRule(purpose: string) {
   switch (purpose) {
-    case "LIMIT": return "Planeje até este valor por mês; o saldo continua disponível.";
-    case "FIXED": return "Reserve este valor mensal e registre o pagamento.";
+    case "LIMIT": return "Planeje até este valor por mês; o saldo reinicia no mês seguinte.";
+    case "FIXED": return "Reserve este valor mensal e registre o pagamento; reinicia a cada mês.";
     case "GOAL": return "Faça aportes mensais para avançar nesta meta.";
     case "SAVINGS_TARGET": return "Junte qualquer valor; o saldo não reinicia no próximo mês.";
     case "ANNUAL_EXPENSE": return "Reserve até o vencimento anual e registre o pagamento real.";
