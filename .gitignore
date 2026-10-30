@@ -28,3 +28,4 @@ DerivedData/
 .DS_Store
 .vscode/
 *.swp
+report/
