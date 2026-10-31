@@ -52,4 +52,18 @@ class NavigationTest {
     fun `stays put when there is nothing to pop`() {
         assertEquals(start, start.pop())
     }
+
+    @Test
+    fun `titles match the current screen including stacked routes`() {
+        assertEquals("Visão geral", Route.Overview.title)
+        assertEquals("Verbas", Route.Envelopes.title)
+        assertEquals("Metas", Route.Goals.title)
+        assertEquals("Gastos", Route.History.title)
+        assertEquals("Mais", Route.More.title)
+        assertEquals("Gastos anuais", Route.AnnualExpenses.title)
+        assertEquals("Relatórios", Route.Reports.title)
+        assertEquals("Segurança", Route.Security.title)
+        assertEquals("Histórico de renda", Route.IncomeHistory.title)
+        assertEquals("Combustível", Route.EnvelopeEntries("e-1", "Combustível").title)
+    }
 }

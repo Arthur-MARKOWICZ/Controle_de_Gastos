@@ -22,6 +22,7 @@ services:
     image: controle-gastos-backend:latest
     build:
       context: ./backend
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-controle_gastos}
       DATABASE_USERNAME: ${POSTGRES_USER:-controle_gastos}
@@ -63,6 +64,9 @@ services:
     image: controle-gastos-web:latest
     build:
       context: ./web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
     ports:

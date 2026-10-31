@@ -7,7 +7,7 @@ type AuthState = "loading" | "anonymous" | "authenticated" | "expired" | "mfa-pe
 
 const GENERIC_MFA_ERROR = "Não foi possível concluir a autenticação. Tente novamente.";
 
-type AuthContextValue = {
+export type AuthContextValue = {
   state: AuthState;
   user: CurrentUser | null;
   error: string | null;

@@ -1,0 +1,51 @@
+.pageHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.pageHeader h1 {
+  margin: 0.25rem 0 0.5rem;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 760;
+  line-height: 1;
+  letter-spacing: -0.055em;
+}
+
+.pageHeader > div > p:not(.eyebrow) {
+  color: var(--text-muted);
+  font-size: var(--text-md);
+}
+
+.eyebrow {
+  color: var(--accent);
+  font: 800 var(--text-xs) ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 48rem) {
+  .pageHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .actions > * {
+    flex: 1;
+  }
+}
+
+@media (max-width: 30rem) {
+  .actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

@@ -59,6 +59,73 @@ describe("MfaSettings", () => {
     expect(client.confirmMfaEnrollment).toHaveBeenCalledWith("123456", undefined);
   });
 
+  it("permite gerar um novo QR Code enquanto a configuração está pendente", async () => {
+    const client = fakeClient();
+    client.startMfaEnrollment = vi.fn()
+      .mockResolvedValueOnce({
+        otpauthUri: "otpauth://totp/example",
+        qrImageDataUri: "data:image/png;base64,old",
+        manualEntryKey: "OLDKEY",
+        pendingExpiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      })
+      .mockResolvedValueOnce({
+        otpauthUri: "otpauth://totp/example",
+        qrImageDataUri: "data:image/png;base64,new",
+        manualEntryKey: "NEWKEY",
+        pendingExpiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      });
+
+    render(<MfaSettings client={client} onComplete={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Senha atual"), { target: { value: "frase segura de teste" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(await screen.findByText("OLDKEY")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Gerar novo QR Code" }));
+
+    expect(await screen.findByText("NEWKEY")).toBeDefined();
+    expect(client.startMfaEnrollment).toHaveBeenCalledTimes(2);
+  });
+
+  it("permite copiar e baixar os códigos de recuperação", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const createObjectURL = vi.fn(() => "blob:codes");
+    const revokeObjectURL = vi.fn();
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: createObjectURL });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectURL });
+    const click = vi.fn();
+    const originalCreateElement = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+      const element = originalCreateElement(tag);
+      if (tag === "a") {
+        Object.defineProperty(element, "click", { value: click });
+      }
+      return element;
+    });
+
+    const client = fakeClient();
+    render(<MfaSettings client={client} onComplete={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Senha atual"), { target: { value: "frase segura de teste" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    fireEvent.change(await screen.findByLabelText("Código de 6 dígitos"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ativar MFA" }));
+    await screen.findByText("CODE0-XXXXX");
+
+    fireEvent.click(screen.getByRole("button", { name: "Copiar códigos" }));
+    expect(writeText).toHaveBeenCalledWith(
+      Array.from({ length: 10 }, (_, index) => `CODE${index}-XXXXX`).join("\n"),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Baixar códigos" }));
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(click).toHaveBeenCalled();
+  });
+
   it("nunca grava dados de MFA em localStorage ou sessionStorage", async () => {
     const localSpy = vi.spyOn(Storage.prototype, "setItem");
     const client = fakeClient();

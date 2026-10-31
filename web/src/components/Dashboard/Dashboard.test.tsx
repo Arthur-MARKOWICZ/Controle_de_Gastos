@@ -1,6 +1,8 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { Dashboard } from "./Dashboard";
+
+const request = vi.hoisted(() => vi.fn());
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) { this.open = true; });
@@ -13,7 +15,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("../../auth/auth-context", () => ({
-  useAuth: () => ({ client: { request: vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve([]), status: 200 })) }, state: "anonymous" }),
+  useAuth: () => ({ client: { request }, state: "anonymous" }),
 }));
 
 vi.mock("../../hooks/useEnvelopes", () => ({
@@ -69,9 +71,55 @@ vi.mock("../../hooks/useIncome", () => ({
   }),
 }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  request.mockReset();
+});
+
+function respondWithEntry() {
+  request.mockResolvedValue({ ok: true, status: 201, json: () => Promise.resolve({ id: "e1", targetJustReached: false }) });
+}
+
+async function submitAmount(dialogName: string, amount: string) {
+  const dialog = screen.getByRole("dialog", { name: dialogName });
+  fireEvent.change(within(dialog).getByLabelText("Valor (BRL)"), { target: { value: amount } });
+  fireEvent.submit(within(dialog).getByLabelText("Valor (BRL)").closest("form")!);
+  await waitFor(() => expect(request).toHaveBeenCalled());
+  return JSON.parse(request.mock.calls[0][1].body);
+}
 
 describe("Dashboard", () => {
+  it("registra aporte, e não gasto, ao aportar numa meta de aporte", async () => {
+    respondWithEntry();
+    render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Aportar em Investimentos" }));
+    const body = await submitAmount("Aportar em Investimentos", "10000");
+
+    expect(body.kind).toBe("CONTRIBUTION");
+    expect(await screen.findByText('Aporte registrado em "Investimentos"')).toBeDefined();
+  });
+
+  it("continua registrando gasto em verba de limite", async () => {
+    respondWithEntry();
+    render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Registrar gasto em Combustível" }));
+    const body = await submitAmount("Registrar gasto em Combustível", "5000");
+
+    expect(body.kind).toBe("EXPENSE");
+  });
+
+  it("menciona o saldo negativo no aviso após um gasto acima do disponível", async () => {
+    respondWithEntry();
+    render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Registrar gasto em Combustível" }));
+    await submitAmount("Registrar gasto em Combustível", "30000");
+
+    expect(await screen.findByText(/Gasto registrado em "Combustível"\. A verba ficou com saldo negativo de -R\$\s*60,00/)).toBeDefined();
+  });
+
   it("identifica a visão geral e expõe a conta autenticada", () => {
     render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
 

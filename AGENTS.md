@@ -23,6 +23,11 @@ Antes de propor arquitetura, escrever código ou alterar dependências, leia int
 - Android é o alvo móvel validável neste ambiente. Preserve o alvo iOS, mas não declare que ele foi testado sem macOS/Xcode.
 - Antes de concluir uma mudança, execute os testes e verificações documentados no `README.md`.
 
+## Skills
+
+- Skills do projeto: [`.agents/skills/`](.agents/skills/)
+- Skill de UI/UX: [`.cursor/skills/ui-ux-pro-max`](.cursor/skills/ui-ux-pro-max) (design system / recomendações visuais; CLI: `uipro`)
+
 ## Fonte de verdade
 
 Se código, comentário ou tarefa contradizer os documentos acima, interrompa a implementação e proponha a atualização explícita do documento/ADR correspondente. Não altere silenciosamente a direção confirmada.

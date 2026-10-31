@@ -15,8 +15,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -26,6 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+
+/** Espaço abaixo da lista para o botão "Novo gasto" não cobrir o último item. */
+private val FabClearance = 96.dp
 
 /** Estrutura comum das telas que trabalham sobre um mês. */
 @Composable
@@ -39,7 +46,7 @@ internal fun MonthScreen(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 12.dp, bottom = 32.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = FabClearance),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item { MonthSelector(controller.month, controller.isCurrentMonth, onPreviousMonth, onNextMonth) }
@@ -63,7 +70,10 @@ private fun MonthSelector(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
     ) {
-        TextButton(onClick = onPrevious, modifier = Modifier.height(TouchTarget)) { Text("‹ Anterior") }
+        TextButton(onClick = onPrevious, modifier = Modifier.height(TouchTarget)) {
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = null)
+            Text("Anterior")
+        }
         Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
             Text(month.label(), fontWeight = FontWeight.Bold)
             if (isCurrentMonth) {
@@ -74,7 +84,10 @@ private fun MonthSelector(
                 )
             }
         }
-        TextButton(onClick = onNext, modifier = Modifier.height(TouchTarget)) { Text("Próximo ›") }
+        TextButton(onClick = onNext, modifier = Modifier.height(TouchTarget)) {
+            Text("Próximo")
+            Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null)
+        }
     }
 }
 

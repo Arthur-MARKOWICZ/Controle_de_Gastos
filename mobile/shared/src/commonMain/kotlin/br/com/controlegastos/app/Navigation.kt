@@ -39,6 +39,17 @@ sealed interface Route {
     data class EnvelopeEntries(val envelopeId: String, val envelopeName: String) : Route
 }
 
+/** Título exibido na TopAppBar para a rota atual, inclusive telas empilhadas. */
+val Route.title: String
+    get() = when (this) {
+        is Route.TopLevel -> label
+        Route.AnnualExpenses -> "Gastos anuais"
+        Route.Reports -> "Relatórios"
+        Route.Security -> "Segurança"
+        Route.IncomeHistory -> "Histórico de renda"
+        is Route.EnvelopeEntries -> envelopeName
+    }
+
 val TOP_LEVEL_ROUTES: List<Route.TopLevel> =
     listOf(Route.Overview, Route.Envelopes, Route.Goals, Route.History, Route.More)
 

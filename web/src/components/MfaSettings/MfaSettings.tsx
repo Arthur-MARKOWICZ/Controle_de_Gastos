@@ -16,11 +16,13 @@ type Step = "password" | "confirm" | "codes";
 export function MfaSettings({ client, restrictedToken, onComplete, embedded = false }: Props) {
   const [step, setStep] = useState<Step>("password");
   const [password, setPassword] = useState("");
+  const [enrollmentPassword, setEnrollmentPassword] = useState("");
   const [enrollment, setEnrollment] = useState<MfaEnrollmentStart | null>(null);
   const [code, setCode] = useState("");
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [codesFeedback, setCodesFeedback] = useState<string | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 
   useEffect(() => {
@@ -34,19 +36,45 @@ export function MfaSettings({ client, restrictedToken, onComplete, embedded = fa
     return () => window.clearInterval(interval);
   }, [enrollment]);
 
+  async function beginEnrollment(currentPassword: string) {
+    const start = await client.startMfaEnrollment(currentPassword, restrictedToken);
+    setEnrollment(start);
+    setEnrollmentPassword(currentPassword);
+    setStep("confirm");
+    setMessage(null);
+  }
+
   async function submitPassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setMessage(null);
     try {
-      const start = await client.startMfaEnrollment(password, restrictedToken);
-      setEnrollment(start);
-      setStep("confirm");
+      await beginEnrollment(password);
     } catch {
       setMessage("Não foi possível iniciar a configuração. Confira a senha e tente novamente.");
     } finally {
       setBusy(false);
       setPassword("");
+    }
+  }
+
+  async function regenerateQr() {
+    if (!enrollmentPassword) {
+      setStep("password");
+      setEnrollment(null);
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      await beginEnrollment(enrollmentPassword);
+    } catch {
+      setMessage("Não foi possível gerar um novo QR Code. Confira a senha e tente novamente.");
+      setStep("password");
+      setEnrollment(null);
+      setEnrollmentPassword("");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -57,6 +85,7 @@ export function MfaSettings({ client, restrictedToken, onComplete, embedded = fa
     try {
       const codes = await client.confirmMfaEnrollment(code, restrictedToken);
       setRecoveryCodes(codes);
+      setEnrollmentPassword("");
       setStep("codes");
     } catch {
       setMessage("Código inválido ou expirado. Gere um novo QR Code e tente novamente.");
@@ -64,6 +93,26 @@ export function MfaSettings({ client, restrictedToken, onComplete, embedded = fa
       setBusy(false);
       setCode("");
     }
+  }
+
+  async function copyCodes() {
+    try {
+      await navigator.clipboard.writeText(recoveryCodes.join("\n"));
+      setCodesFeedback("Códigos copiados.");
+    } catch {
+      setCodesFeedback("Não foi possível copiar. Selecione e copie manualmente.");
+    }
+  }
+
+  function downloadCodes() {
+    const blob = new Blob([recoveryCodes.join("\n")], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "verbas-codigos-recuperacao.txt";
+    link.click();
+    URL.revokeObjectURL(url);
+    setCodesFeedback("Download iniciado.");
   }
 
   const minutes = Math.floor(remainingSeconds / 60);
@@ -113,6 +162,14 @@ export function MfaSettings({ client, restrictedToken, onComplete, embedded = fa
               Expira em {minutes}:{seconds.toString().padStart(2, "0")}
             </p>
             {message && <p className={styles.notice} role="status">{message}</p>}
+            <button
+              className={styles.secondary}
+              type="button"
+              onClick={() => void regenerateQr()}
+              disabled={busy}
+            >
+              {busy ? "Gerando…" : "Gerar novo QR Code"}
+            </button>
             <form className={styles.form} onSubmit={submitCode}>
               <label htmlFor="mfa-confirm-code">Código de 6 dígitos</label>
               <input
@@ -142,6 +199,15 @@ export function MfaSettings({ client, restrictedToken, onComplete, embedded = fa
                 <li key={recoveryCode}><code>{recoveryCode}</code></li>
               ))}
             </ul>
+            <div className={styles.codeActions}>
+              <button className={styles.secondary} type="button" onClick={() => void copyCodes()}>
+                Copiar códigos
+              </button>
+              <button className={styles.secondary} type="button" onClick={downloadCodes}>
+                Baixar códigos
+              </button>
+            </div>
+            {codesFeedback && <p className={styles.notice} role="status">{codesFeedback}</p>}
             <button className={styles.submit} type="button" onClick={onComplete}>
               Já guardei meus códigos, entrar novamente
             </button>

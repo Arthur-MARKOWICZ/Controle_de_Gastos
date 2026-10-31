@@ -1,5 +1,5 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import OAuthCallbackPage from "./page";
 
 const mockCompleteOAuthCallback = vi.fn().mockResolvedValue(undefined);
@@ -18,17 +18,24 @@ vi.mock("../../../auth/auth-context", () => ({
   useAuth: () => mockUseAuth(),
 }));
 
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 describe("OAuthCallbackPage", () => {
   it("processa os parâmetros da URL assim que a página carrega", () => {
     mockUseAuth.mockReturnValue({
-      state: "loading", error: null,
+      state: "loading",
+      error: null,
       completeOAuthCallback: mockCompleteOAuthCallback,
-      verifyMfa: mockVerifyMfa, verifyRecoveryCode: mockVerifyRecoveryCode,
+      verifyMfa: mockVerifyMfa,
+      verifyRecoveryCode: mockVerifyRecoveryCode,
     });
 
     render(<OAuthCallbackPage />);
@@ -38,9 +45,11 @@ describe("OAuthCallbackPage", () => {
 
   it("mostra a etapa de MFA quando o segundo fator é exigido", () => {
     mockUseAuth.mockReturnValue({
-      state: "mfa-pending", error: null,
+      state: "mfa-pending",
+      error: null,
       completeOAuthCallback: mockCompleteOAuthCallback,
-      verifyMfa: mockVerifyMfa, verifyRecoveryCode: mockVerifyRecoveryCode,
+      verifyMfa: mockVerifyMfa,
+      verifyRecoveryCode: mockVerifyRecoveryCode,
     });
 
     render(<OAuthCallbackPage />);
@@ -50,13 +59,51 @@ describe("OAuthCallbackPage", () => {
 
   it("mostra o erro genérico quando o login social falha", () => {
     mockUseAuth.mockReturnValue({
-      state: "anonymous", error: "Não foi possível entrar com esse provedor. Tente novamente.",
+      state: "anonymous",
+      error: "Não foi possível entrar com esse provedor. Tente novamente.",
       completeOAuthCallback: mockCompleteOAuthCallback,
-      verifyMfa: mockVerifyMfa, verifyRecoveryCode: mockVerifyRecoveryCode,
+      verifyMfa: mockVerifyMfa,
+      verifyRecoveryCode: mockVerifyRecoveryCode,
     });
 
     render(<OAuthCallbackPage />);
 
     expect(screen.getByRole("alert").textContent).toMatch(/não foi possível entrar/i);
+    expect(screen.getByRole("link", { name: "Voltar ao login" })).toBeDefined();
+  });
+
+  it("oferece volta ao login quando o callback fica anônimo sem erro", () => {
+    mockUseAuth.mockReturnValue({
+      state: "anonymous",
+      error: null,
+      completeOAuthCallback: mockCompleteOAuthCallback,
+      verifyMfa: mockVerifyMfa,
+      verifyRecoveryCode: mockVerifyRecoveryCode,
+    });
+
+    render(<OAuthCallbackPage />);
+
+    expect(screen.getByRole("alert").textContent).toMatch(/não foi possível concluir/i);
+    expect(screen.getByRole("link", { name: "Voltar ao login" })).toBeDefined();
+  });
+
+  it("sai do loading indefinido por tempo limite", async () => {
+    mockUseAuth.mockReturnValue({
+      state: "loading",
+      error: null,
+      completeOAuthCallback: mockCompleteOAuthCallback,
+      verifyMfa: mockVerifyMfa,
+      verifyRecoveryCode: mockVerifyRecoveryCode,
+    });
+
+    render(<OAuthCallbackPage />);
+    expect(screen.getByText("Concluindo login…")).toBeDefined();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+
+    expect(screen.getByRole("alert").textContent).toMatch(/não foi possível concluir/i);
+    expect(screen.getByRole("link", { name: "Voltar ao login" })).toBeDefined();
   });
 });

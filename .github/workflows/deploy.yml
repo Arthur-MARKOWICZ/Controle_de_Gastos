@@ -81,10 +81,15 @@ jobs:
           printf '%s' "$APP_DOMAIN" \
             | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$' \
             || { echo "PUBLIC_APP_URL deve conter um domínio completo válido" >&2; exit 1; }
-          docker build --pull --tag controle-gastos-backend:latest backend
+          # Builds em paralelo; BuildKit reaproveita caches de Gradle/pnpm/Next dos Dockerfiles.
+          docker build --pull --tag controle-gastos-backend:latest backend &
+          backend_pid=$!
           docker build --pull \
             --build-arg "NEXT_PUBLIC_API_URL=$PUBLIC_APP_URL" \
-            --tag controle-gastos-web:latest web
+            --tag controle-gastos-web:latest web &
+          web_pid=$!
+          wait "$backend_pid"
+          wait "$web_pid"
 
       - name: Configurar SSH
         env:

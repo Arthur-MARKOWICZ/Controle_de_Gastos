@@ -27,6 +27,31 @@ describe("AuthScreen", () => {
     expect(register).toHaveBeenCalledWith("Pessoa@Example.com", "frase segura de teste");
   });
 
+  it("anuncia a falha de login como erro, não como aviso", () => {
+    render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn()} externalError="Não foi possível entrar com os dados informados." />);
+
+    expect(screen.getByRole("alert").textContent).toBe("Não foi possível entrar com os dados informados.");
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("mostra aviso informativo como status", () => {
+    render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn()} notice="MFA ativado com sucesso." />);
+
+    expect(screen.getByRole("status").textContent).toBe("MFA ativado com sucesso.");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("anuncia a falha de cadastro como erro", async () => {
+    render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn().mockRejectedValue(new Error("falha"))} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Criar conta" }));
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "pessoa@example.com" } });
+    fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "frase segura de teste" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Concluir cadastro" }).closest("form")!);
+
+    expect((await screen.findByRole("alert")).textContent).toMatch(/revise os dados/i);
+  });
+
   it("não mostra login social quando nenhum manipulador é informado", () => {
     render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn()} />);
 

@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -76,8 +77,14 @@ fun AuthScreen(
                         modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = { registerMode = false; message = null; email = ""; password = "" }, modifier = Modifier.weight(1f)) { Text("Entrar") }
-                        TextButton(onClick = { registerMode = true; message = null; email = ""; password = "" }, modifier = Modifier.weight(1f)) { Text("Criar conta") }
+                        TextButton(
+                            onClick = { registerMode = false; message = null; email = ""; password = "" },
+                            modifier = Modifier.weight(1f).semantics { selected = !registerMode },
+                        ) { Text("Entrar") }
+                        TextButton(
+                            onClick = { registerMode = true; message = null; email = ""; password = "" },
+                            modifier = Modifier.weight(1f).semantics { selected = registerMode },
+                        ) { Text("Criar conta") }
                     }
                     OutlinedTextField(
                         value = email,
@@ -140,7 +147,7 @@ fun AuthScreen(
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("CONTROLE SEM FICÇÃO", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text("COMO FUNCIONA", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                 Text("Saldo não usado acumula. Gasto acima do planejado vira alerta, não bloqueio.", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.bodyMedium)
             }
         }

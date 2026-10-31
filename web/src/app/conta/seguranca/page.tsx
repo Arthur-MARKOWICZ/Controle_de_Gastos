@@ -2,8 +2,7 @@
 
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AuthProvider, useAuth } from "../../../auth/auth-context";
-import { AuthScreen } from "../../../components/AuthScreen/AuthScreen";
+import { ProtectedPage } from "../../../auth/ProtectedPage";
 import { SecuritySettings } from "../../../components/SecuritySettings/SecuritySettings";
 
 function connectionNoticeFrom(searchParams: URLSearchParams): string | null {
@@ -14,40 +13,31 @@ function connectionNoticeFrom(searchParams: URLSearchParams): string | null {
   return null;
 }
 
-function AuthenticatedSecuritySettings() {
-  const auth = useAuth();
+function SecuritySettingsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  if (auth.state === "loading") return <main aria-busy="true"><p role="status">Restaurando sua sessão…</p></main>;
-  if (auth.state !== "authenticated" || !auth.user) {
-    return (
-      <AuthScreen
-        onLogin={auth.login}
-        onRegister={auth.register}
-        onOAuthLogin={auth.startOAuthLogin}
-        externalError={auth.error}
-        expired={auth.state === "expired"}
-      />
-    );
-  }
   return (
-    <SecuritySettings
-      client={auth.client}
-      email={auth.user.email}
-      connectionNotice={connectionNoticeFrom(searchParams)}
-      onLogout={() => void auth.logout()}
-      onLoggedOut={async () => {
-        await auth.logout();
-        router.push("/?notice=mfa-enabled");
-      }}
-    />
+    <ProtectedPage>
+      {(user, auth) => (
+        <SecuritySettings
+          client={auth.client}
+          email={user.email}
+          connectionNotice={connectionNoticeFrom(searchParams)}
+          onLogout={() => void auth.logout()}
+          onLoggedOut={async (notice) => {
+            await auth.logout();
+            router.push(`/?notice=${notice}`);
+          }}
+        />
+      )}
+    </ProtectedPage>
   );
 }
 
 export default function SecuritySettingsRoute() {
   return (
     <Suspense fallback={<main aria-busy="true"><p role="status">Restaurando sua sessão…</p></main>}>
-      <AuthProvider><AuthenticatedSecuritySettings /></AuthProvider>
+      <SecuritySettingsContent />
     </Suspense>
   );
 }

@@ -23,6 +23,14 @@ fun Context.openReport(report: DownloadedReport) {
     startActivity(Intent.createChooser(share, "Compartilhar relatório").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
+fun Context.sharePlainText(text: String, title: String = "Compartilhar códigos") {
+    val share = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+    }
+    startActivity(Intent.createChooser(share, title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+}
+
 private fun mimeTypeOf(fileName: String): String = when {
     fileName.endsWith(".csv", ignoreCase = true) -> "text/csv"
     fileName.endsWith(".xlsx", ignoreCase = true) ->

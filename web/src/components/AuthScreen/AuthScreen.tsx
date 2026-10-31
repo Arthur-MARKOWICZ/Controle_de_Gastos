@@ -4,26 +4,40 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import styles from "./AuthScreen.module.css";
 import { ThemeSelector } from "../../theme/ThemeSelector";
+import { Notice } from "../ui/Notice";
 
 type Props = {
   onLogin(email: string, password: string): Promise<void>;
   onRegister(email: string, password: string): Promise<void>;
   onOAuthLogin?(provider: "google" | "github"): void;
   externalError?: string | null;
+  notice?: string | null;
   expired?: boolean;
 };
 
-export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, expired = false }: Props) {
+export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, notice, expired = false }: Props) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const shownError = error ?? externalError;
+  const shownNotice = message ?? notice;
+
+  function switchMode(next: "login" | "register") {
+    setMode(next);
+    setMessage(null);
+    setError(null);
+    setEmail("");
+    setPassword("");
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setMessage(null);
+    setError(null);
     try {
       if (mode === "register") {
         await onRegister(email, password);
@@ -34,7 +48,7 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, e
         await onLogin(email, password);
       }
     } catch {
-      if (mode === "register") setMessage("Revise os dados e tente novamente.");
+      if (mode === "register") setError("Revise os dados e tente novamente.");
     } finally {
       setBusy(false);
     }
@@ -59,16 +73,17 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, e
       <section id="auth-form" className={styles.card} aria-labelledby="form-title">
         <div className={styles.themeControl}><ThemeSelector compact /></div>
         <div className={styles.tabs} aria-label="Escolha entre entrar ou criar conta">
-          <button type="button" aria-pressed={mode === "login"} onClick={() => { setMode("login"); setMessage(null); setEmail(""); setPassword(""); }}>Entrar</button>
-          <button type="button" aria-pressed={mode === "register"} onClick={() => { setMode("register"); setMessage(null); setEmail(""); setPassword(""); }}>Criar conta</button>
+          <button type="button" aria-pressed={mode === "login"} onClick={() => switchMode("login")}>Entrar</button>
+          <button type="button" aria-pressed={mode === "register"} onClick={() => switchMode("register")}>Criar conta</button>
         </div>
         <h2 id="form-title">{mode === "login" ? "Entre na sua conta" : "Crie sua conta"}</h2>
         <p className={styles.supporting}>{mode === "login"
           ? "Use o e-mail e a senha cadastrados."
           : "Use de 12 a 128 caracteres. Você poderá recuperar a senha pelo e-mail cadastrado."}</p>
 
-        {expired && <p className={styles.notice} role="status">Sua sessão expirou. Entre novamente.</p>}
-        {(message || externalError) && <p className={styles.notice} role="status">{message ?? externalError}</p>}
+        {expired && <Notice tone="info">Sua sessão expirou. Entre novamente.</Notice>}
+        {shownError && <Notice tone="danger">{shownError}</Notice>}
+        {shownNotice && <Notice tone="success">{shownNotice}</Notice>}
 
         <form onSubmit={submit}>
           <label htmlFor="email">E-mail</label>
@@ -99,7 +114,7 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, e
                 <button
                   type="button"
                   className={styles.oauthHintLink}
-                  onClick={() => { setMode("register"); setMessage(null); setEmail(""); setPassword(""); }}
+                  onClick={() => switchMode("register")}
                 >
                   Crie sua conta
                 </button>

@@ -1,7 +1,8 @@
 import { formatBRL } from "../../lib/money";
-import dashboardStyles from "../Dashboard/Dashboard.module.css";
-import verbasStyles from "../VerbasPage/Verbas.module.css";
 import type { EnvelopeDTO } from "../../lib/api";
+import { Button } from "../ui/Button";
+import { ProgressBar } from "../ui/ProgressBar";
+import styles from "./EnvelopeCard.module.css";
 
 type Props = {
   envelope: EnvelopeDTO;
@@ -9,8 +10,13 @@ type Props = {
   onArchive?: (envelope: EnvelopeDTO) => void;
   onEditTarget?: (envelope: EnvelopeDTO) => void;
   onEditAnnual?: (envelope: EnvelopeDTO) => void;
+  /** Mantido por compatibilidade; o estilo do card é único. */
   variant?: "dashboard" | "verbas";
 };
+
+export function isContributionPurpose(purpose: string) {
+  return purpose === "GOAL" || purpose === "SAVINGS_TARGET";
+}
 
 function purposeLabel(purpose: string) {
   switch (purpose) {
@@ -34,7 +40,13 @@ function purposeRule(purpose: string) {
   }
 }
 
-export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTarget, onEditAnnual, variant = "dashboard" }: Props) {
+export function EnvelopeCard({
+  envelope,
+  onRegisterExpense,
+  onArchive,
+  onEditTarget,
+  onEditAnnual,
+}: Props) {
   const goalProgress = envelope.purpose === "GOAL" ? envelope.goalProgress : null;
   const progressAmount = goalProgress?.plannedAmount ?? (envelope.purpose === "SAVINGS_TARGET" ? envelope.targetAmount ?? envelope.baseAmount
     : envelope.purpose === "ANNUAL_EXPENSE" ? envelope.annualExpense?.annualAmount ?? envelope.baseAmount : envelope.baseAmount);
@@ -43,14 +55,13 @@ export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTar
   const available = formatBRL(goalProgress?.remainingAmount.amount ?? envelope.available.amount);
   const baseNum = Number(progressAmount.amount);
   const availNum = Number(goalProgress?.remainingAmount.amount ?? envelope.available.amount);
-  // pct = remaining % (available/base). Clamped 0-100, negative forces 0 for bar but status shows alert
   const rawPct = baseNum > 0 ? (availNum / baseNum) * 100 : 0;
   const pct = goalProgress?.percent ?? (baseNum > 0 ? Math.max(0, Math.min(100, Math.round(rawPct))) : 0);
   const spent = baseNum > 0 ? Math.max(0, Math.round(((baseNum - availNum) / baseNum) * 100)) : 0;
 
   let status: string;
   if (envelope.isNegative) {
-    status = `⚠ Saldo negativo ${financialAvailable}`;
+    status = `Saldo negativo ${financialAvailable}`;
   } else if (envelope.purpose === "LIMIT") {
     status = availNum === baseNum ? `${available} disponíveis` : `${available} restantes · ${spent}% usado`;
   } else if (envelope.purpose === "GOAL") {
@@ -59,7 +70,7 @@ export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTar
       ? `Faltam ${available} · ${pct}% concluído${contributed ? ` · ${contributed} aportados` : ""}`
       : `${pct}% · Meta atingida`;
   } else if (envelope.purpose === "FIXED") {
-    status = envelope.isNegative ? `⚠ Descoberto ${available}` : `${available} reservados · ${pct}%`;
+    status = envelope.isNegative ? `Descoberto ${available}` : `${available} reservados · ${pct}%`;
     if (envelope.role === "PARTICIPANT") status = `Compartilhada · ${status}`;
   } else if (envelope.purpose === "SAVINGS_TARGET") {
     const remaining = Math.max(0, baseNum - availNum);
@@ -76,52 +87,74 @@ export function EnvelopeCard({ envelope, onRegisterExpense, onArchive, onEditTar
     status = envelope.role === "PARTICIPANT" ? "Compartilhada · Participante" : `${available} disponíveis`;
   }
 
-  const s = variant === "verbas" ? verbasStyles : dashboardStyles;
-  const registerActionLabel = envelope.purpose === "SAVINGS_TARGET" || envelope.purpose === "GOAL"
-    ? "Aportar"
-    : "Registrar gasto";
+  const registerActionLabel = isContributionPurpose(envelope.purpose) ? "Aportar" : "Registrar gasto";
 
   return (
     <li>
-      <div className={s.envelopeHeading}>
+      <div className={styles.envelopeHeading}>
         <div>
           <h3>{envelope.name}</h3>
           <span>{purposeLabel(envelope.purpose)}{envelope.role === "PARTICIPANT" ? " · Participante" : ""}</span>
           <span>{purposeRule(envelope.purpose)}</span>
         </div>
-        <div className={s.envelopeValue}>
+        <div className={styles.envelopeValue}>
           <strong>{envelope.purpose === "GOAL" && goalProgress ? `Faltam ${available}` : available}</strong>
           <span>{envelope.purpose === "GOAL" && goalProgress ? `meta acumulada ${base}` : `de ${base}`}</span>
         </div>
       </div>
-      <progress
-        className={s.progressTrack}
-        data-purpose={envelope.purpose}
-        data-negative={envelope.isNegative ? "true" : "false"}
-        aria-label={`Progresso de ${envelope.name}`}
+      <ProgressBar
+        label={`Progresso de ${envelope.name}`}
         value={pct}
-        max={100}
+        purpose={envelope.purpose}
+        negative={envelope.isNegative}
+        valueText={envelope.isNegative ? status : undefined}
       />
-      <p className={s.statusText} role={envelope.isNegative ? "alert" : undefined}>{status}</p>
-      <div className={s.cardActions}>
-        {envelope.role === "PARTICIPANT" && <span className={verbasStyles.badge + " " + verbasStyles.badgeShared}>Compartilhada</span>}
+      <p
+        className={styles.statusText}
+        data-negative={envelope.isNegative ? "true" : undefined}
+        role={envelope.isNegative ? "alert" : undefined}
+      >
+        {status}
+      </p>
+      <div className={styles.cardActions}>
+        {envelope.role === "PARTICIPANT" && (
+          <span className={`${styles.badge} ${styles.badgeShared}`}>Compartilhada</span>
+        )}
         {onRegisterExpense && (
-          <button type="button" onClick={() => onRegisterExpense(envelope)} aria-label={`${registerActionLabel} em ${envelope.name}`}>
+          <Button
+            variant="text"
+            onClick={() => onRegisterExpense(envelope)}
+            aria-label={`${registerActionLabel} em ${envelope.name}`}
+          >
             {registerActionLabel}
-          </button>
+          </Button>
         )}
         {onArchive && envelope.role === "OWNER" && (
-          <button type="button" onClick={() => onArchive(envelope)} aria-label={`Arquivar ${envelope.name}`}>
+          <Button
+            variant="text"
+            onClick={() => onArchive(envelope)}
+            aria-label={`Arquivar ${envelope.name}`}
+          >
             Arquivar
-          </button>
+          </Button>
         )}
         {onEditTarget && envelope.purpose === "SAVINGS_TARGET" && envelope.role === "OWNER" && (
-          <button type="button" onClick={() => onEditTarget(envelope)} aria-label={`Editar alvo de ${envelope.name}`}>
+          <Button
+            variant="text"
+            onClick={() => onEditTarget(envelope)}
+            aria-label={`Editar alvo de ${envelope.name}`}
+          >
             Editar alvo
-          </button>
+          </Button>
         )}
         {onEditAnnual && envelope.purpose === "ANNUAL_EXPENSE" && envelope.role === "OWNER" && (
-          <button type="button" onClick={() => onEditAnnual(envelope)} aria-label={`Editar gasto anual ${envelope.name}`}>Editar</button>
+          <Button
+            variant="text"
+            onClick={() => onEditAnnual(envelope)}
+            aria-label={`Editar gasto anual ${envelope.name}`}
+          >
+            Editar
+          </Button>
         )}
       </div>
     </li>

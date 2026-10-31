@@ -1,6 +1,7 @@
 import { formatBRL } from "../../lib/money";
 import { formatMonthLabel } from "../../lib/dates";
 import styles from "../Dashboard/Dashboard.module.css";
+import { Button } from "../ui/Button";
 import type { IncomeDTO } from "../../lib/api";
 
 type Props = {
@@ -34,7 +35,7 @@ export function IncomeCard({ income, month, loading, error, onEdit }: Props) {
         <div className={styles.summaryLead}><h2 id="renda-titulo">Renda do mês</h2><strong>Renda não configurada</strong><span>{formatMonthLabel(month)} — sem renda efetiva</span></div>
         <dl className={styles.summaryStats}>
           <div><dt>Vigência solicitada</dt><dd>{month}</dd></div>
-          <div><dt>Ação</dt><dd>{onEdit ? <button type="button" onClick={onEdit} className={styles.textAction}>Configurar renda</button> : "—"}</dd></div>
+          <div><dt>Ação</dt><dd>{onEdit ? <Button variant="text" onClick={onEdit}>Configurar renda</Button> : "—"}</dd></div>
         </dl>
       </section>
     );

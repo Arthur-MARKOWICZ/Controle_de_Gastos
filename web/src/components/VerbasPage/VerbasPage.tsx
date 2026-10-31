@@ -10,8 +10,13 @@ import { currentMonthSaoPaulo, formatMonthLabel, parseMonthParam } from "../../l
 import { formatBRL } from "../../lib/money";
 import { BalanceSummary } from "../BalanceSummary/BalanceSummary";
 import { Dialog } from "../ui/Dialog";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
+import { Button } from "../ui/Button";
+import { Notice } from "../ui/Notice";
+import { PageHeader } from "../ui/PageHeader";
 import { EnvelopeForm } from "../EnvelopeForm/EnvelopeForm";
-import { ExpenseForm } from "../ExpenseForm/ExpenseForm";
+import { ExpenseForm, overdraftNotice, type ExpenseResult } from "../ExpenseForm/ExpenseForm";
+import { Glossary } from "../Glossary/Glossary";
 import { PurposeSection } from "./PurposeSection";
 import { VerbasFilters } from "./VerbasFilters";
 import type { EnvelopeDTO } from "../../lib/api";
@@ -22,6 +27,9 @@ import { AppShell } from "../AppShell/AppShell";
 type PurposeFilter = "ALL" | "LIMIT" | "FIXED";
 type SortKey = "progress" | "saldo" | "nome";
 
+const ARCHIVE_MESSAGE =
+  "A verba deixa de aparecer nos próximos meses. Os lançamentos já registrados continuam no histórico.";
+
 export function VerbasPage({ email, onLogout }: { email: string; onLogout(): void }) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -31,20 +39,34 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   const month = rawMonth ?? currentMonthSaoPaulo();
   const monthLabel = formatMonthLabel(month);
 
-  const { envelopes, loading: envelopesLoading, error: envelopesError, refresh: refreshEnvelopes } = useEnvelopes(month);
-  const { summary, loading: summaryLoading, error: summaryError, refresh: refreshSummary } = useLedgerSummary(month);
+  const {
+    envelopes,
+    loading: envelopesLoading,
+    busy: envelopesBusy,
+    error: envelopesError,
+    refresh: refreshEnvelopes,
+  } = useEnvelopes(month);
+  const {
+    summary,
+    loading: summaryLoading,
+    busy: summaryBusy,
+    error: summaryError,
+    refresh: refreshSummary,
+  } = useLedgerSummary(month);
 
   const [purposeFilter, setPurposeFilter] = useState<PurposeFilter>("ALL");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("progress");
   const [showNewEnvelope, setShowNewEnvelope] = useState<null | "LIMIT" | "FIXED">(null);
+  const [showGlossary, setShowGlossary] = useState(false);
   const [expenseTarget, setExpenseTarget] = useState<EnvelopeDTO | null>(null);
+  const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const loading = envelopesLoading || summaryLoading;
+  const busy = envelopesBusy || summaryBusy;
   const error = envelopesError || summaryError;
 
-  // source of truth: summary.envelopes if available, fallback envelopes
   const source = (summary?.envelopes ?? envelopes).filter((envelope) => envelope.purpose === "LIMIT" || envelope.purpose === "FIXED");
 
   const counts = useMemo(() => {
@@ -82,7 +104,6 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   const visiblePurposes: ("LIMIT" | "FIXED")[] =
     purposeFilter === "ALL" ? ["LIMIT", "FIXED"] : [purposeFilter];
 
-  // distribuição por propósito (usa baseAmount total)
   const distribution = useMemo(() => {
     const totals: Record<string, number> = { LIMIT: 0, FIXED: 0 };
     for (const e of source) totals[e.purpose] += Number(e.baseAmount.amount);
@@ -96,15 +117,17 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
     router.push(url);
   }
 
-  async function handleArchive(envelope: EnvelopeDTO) {
-    if (!confirm(`Arquivar "${envelope.name}"?`)) return;
+  async function confirmArchive() {
+    if (!pendingArchive) return;
+    const envelope = pendingArchive;
+    setPendingArchive(null);
     try {
       await createApiClient(client).archiveEnvelope(envelope.id);
-      setFeedback(`Verba "${envelope.name}" arquivada`);
+      setFeedback(`Verba "${envelope.name}" encerrada`);
       void refreshEnvelopes();
       void refreshSummary();
     } catch {
-      setFeedback("Não foi possível arquivar");
+      setFeedback("Não foi possível encerrar a verba");
     }
   }
 
@@ -115,10 +138,10 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
     void refreshSummary();
   }
 
-  function handleExpenseSuccess() {
+  function handleExpenseSuccess(result: ExpenseResult) {
     const name = expenseTarget?.name ?? "verba";
     setExpenseTarget(null);
-    setFeedback(`Gasto registrado em "${name}"`);
+    setFeedback(`Gasto registrado em "${name}"${overdraftNotice(result)}`);
     void refreshEnvelopes();
     void refreshSummary();
   }
@@ -126,66 +149,51 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   return (
     <AppShell current="envelopes" email={email} onLogout={onLogout}>
         {feedback && (
-          <p className={styles.feedback} role="status">
-            {feedback}
-          </p>
+          <Notice tone="success" onClose={() => setFeedback(null)}>{feedback}</Notice>
         )}
 
-        <header className={styles.pageHeader}>
-          <div>
-            <p className={styles.eyebrow}>{monthLabel}</p>
-            <h1>Verbas</h1>
-            <p>Organize limites e compromissos mensais. Metas de aporte e acumulação ficam na área Metas.</p>
-            <div className={styles.monthControl}>
-              <label htmlFor="month-picker">
-                Mês
-              </label>
-              <input
-                id="month-picker"
-                type="month"
-                value={month}
-                onChange={onMonthChange}
-              />
-              <span>
-                {summary?.income ? `Renda ${formatBRL(summary.income.amount)}` : "Renda não configurada"}
-              </span>
-            </div>
+        <PageHeader
+          eyebrow={monthLabel}
+          title="Verbas"
+          description="Organize limites e compromissos mensais. Metas de aporte e acumulação ficam na área Metas."
+          actions={<Button onClick={() => { setFeedback(null); setShowNewEnvelope("LIMIT"); }}>Nova verba</Button>}
+        >
+          <div className={styles.monthControl}>
+            <label htmlFor="month-picker">Mês</label>
+            <input id="month-picker" type="month" value={month} onChange={onMonthChange} />
+            <span>
+              {summary?.income ? `Renda ${formatBRL(summary.income.amount)}` : "Renda não configurada"}
+            </span>
           </div>
-          <button type="button" className={styles.primaryAction} onClick={() => setShowNewEnvelope("LIMIT")}>
-            Nova verba
-          </button>
-        </header>
+        </PageHeader>
 
         {loading && (
           <div role="status" aria-busy="true" className={styles.loadingState}>
             <div className={styles.skeleton} />
             <div className={styles.skeleton} />
-            <p>Carregando verbas…</p>
           </div>
         )}
         {error && (
-          <p role="alert" className={styles.error}>
+          <Notice tone="danger">
             {error}{" "}
-            <button
-              type="button"
+            <Button
+              variant="text"
               onClick={() => {
                 void refreshEnvelopes();
                 void refreshSummary();
               }}
-              className={styles.textAction}
             >
               Tentar novamente
-            </button>
-          </p>
+            </Button>
+          </Notice>
         )}
 
         {!loading && !error && (
-          <>
+          <div aria-busy={busy || undefined}>
             <BalanceSummary summary={summary} monthLabel={monthLabel} />
 
             {negatives.length > 0 && (
               <div className={styles.alertStrip} role="alert" aria-live="assertive">
-                <span aria-hidden="true">⚠</span>
                 <span>
                   <strong>{negatives.length} verba(s) negativas:</strong> {negatives.map((n) => n.name).join(", ")} — saldo negativo gera alerta, não bloqueio. Registre um aporte ou ajuste o gasto.
                 </span>
@@ -226,9 +234,9 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
                   key={p}
                   purpose={p}
                   envelopes={byPurpose[p]}
-                  onRegisterExpense={setExpenseTarget}
-                  onArchive={handleArchive}
-                  onCreate={(purpose) => setShowNewEnvelope(purpose)}
+                  onRegisterExpense={(target) => { setFeedback(null); setExpenseTarget(target); }}
+                  onArchive={(target) => { setFeedback(null); setPendingArchive(target); }}
+                  onCreate={(purpose) => { setFeedback(null); setShowNewEnvelope(purpose); }}
                 />
               ))}
             </div>
@@ -255,16 +263,38 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
                 Voltar à visão geral
               </Link>
             </div>
-          </>
+          </div>
         )}
 
         <Dialog open={!!showNewEnvelope} onClose={() => setShowNewEnvelope(null)} title="Nova verba">
-          <EnvelopeForm onSuccess={handleCreateSuccess} onCancel={() => setShowNewEnvelope(null)} />
+          <EnvelopeForm
+            initialPurpose={showNewEnvelope ?? "LIMIT"}
+            allowedPurposes={["LIMIT", "FIXED"]}
+            onOpenGlossary={() => {
+              setShowNewEnvelope(null);
+              setShowGlossary(true);
+            }}
+            onSuccess={handleCreateSuccess}
+            onCancel={() => setShowNewEnvelope(null)}
+          />
+        </Dialog>
+
+        <Dialog open={showGlossary} onClose={() => setShowGlossary(false)} title="Glossário de verbas">
+          <Glossary />
         </Dialog>
 
         <Dialog open={!!expenseTarget} onClose={() => setExpenseTarget(null)} title={expenseTarget ? `Registrar gasto em ${expenseTarget.name}` : "Registrar gasto"}>
           {expenseTarget && <ExpenseForm envelope={expenseTarget} onSuccess={handleExpenseSuccess} onCancel={() => setExpenseTarget(null)} />}
         </Dialog>
+
+        <ConfirmDialog
+          open={!!pendingArchive}
+          title={pendingArchive ? `Encerrar ${pendingArchive.name}?` : "Encerrar verba?"}
+          message={ARCHIVE_MESSAGE}
+          confirmLabel="Encerrar"
+          onConfirm={() => void confirmArchive()}
+          onCancel={() => setPendingArchive(null)}
+        />
     </AppShell>
   );
 }

@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
                     )
                 },
                 qrImageContent = { dataUri -> AndroidQrImage(dataUri) },
+                onShareText = { text -> sharePlainText(text) },
                 onOpenReport = { report -> openReport(report) },
                 onOpenInBrowser = { url -> openOAuthInBrowser(url) },
                 oauthCallback = pendingOAuthCallback,
