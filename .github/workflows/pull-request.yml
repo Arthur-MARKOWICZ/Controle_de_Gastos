@@ -1,0 +1,158 @@
+name: Validar pull request
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Um push novo na mesma branch cancela a execução anterior: em PR só interessa o
+# resultado do último commit. O deploy usa a regra oposta, por isso outro grupo.
+concurrency:
+  group: pr-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend — suíte completa
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Configurar Java 25
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      # Inclui os *IntegrationTest, que sobem PostgreSQL via Testcontainers no
+      # Docker do runner. É o que o pre-commit deliberadamente não roda.
+      - name: Testar backend
+        run: |
+          set -Eeuo pipefail
+          cd backend && ./gradlew test
+
+      - name: Publicar relatório de testes do backend
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: relatorio-testes-backend
+          path: backend/build/reports/tests/test
+          retention-days: 7
+          if-no-files-found: ignore
+
+  web:
+    name: Web — lint, testes e build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          package_json_file: web/package.json
+
+      - name: Configurar Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Instalar dependências
+        run: |
+          set -Eeuo pipefail
+          cd web && pnpm install --frozen-lockfile
+
+      - name: Verificar web
+        run: |
+          set -Eeuo pipefail
+          make web-check
+
+  mobile:
+    name: Mobile — testes compartilhados e build Android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Configurar Java 25
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: "25"
+          cache: gradle
+
+      # Sem local.properties no CI: o Android SDK vem de ANDROID_HOME e a URL da
+      # API cai no padrão de emulador definido em androidApp/build.gradle.kts.
+      # iOS não é validável aqui (exige macOS/Xcode), conforme AGENTS.md.
+      - name: Verificar mobile
+        run: |
+          set -Eeuo pipefail
+          make mobile-check
+
+      - name: Publicar relatório de testes do mobile
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: relatorio-testes-mobile
+          path: mobile/shared/build/reports/tests/jvmTest
+          retention-days: 7
+          if-no-files-found: ignore
+
+  configuracao:
+    name: Configuração de produção e hooks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          package_json_file: package.json
+
+      - name: Configurar Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Validar compose, Nginx e workflow de deploy
+        run: |
+          set -Eeuo pipefail
+          make deploy-check
+
+      # Garante que o lockfile da raiz acompanha o package.json, senão o
+      # `pnpm install` que instala os hooks quebraria em clones novos.
+      - name: Validar lockfile dos hooks
+        run: |
+          set -Eeuo pipefail
+          pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Validar lefthook.yml
+        run: |
+          set -Eeuo pipefail
+          pnpm exec lefthook validate

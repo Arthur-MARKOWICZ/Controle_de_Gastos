@@ -6,13 +6,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.controlegastos.identity.infrastructure.AuthAttemptRepository;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -45,6 +49,7 @@ class SavingsTargetApiIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired AuthAttemptRepository authAttempts;
+    @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
     void resetRateLimits() {
@@ -55,6 +60,8 @@ class SavingsTargetApiIntegrationTest {
     void keepsSavingsTargetAcrossContributionsAndAnnouncesOnlyItsFirstCrossing() throws Exception {
         String token = tokenFor("meta-acumulacao@example.com");
         String envelopeId = createSavingsTarget(token);
+        jdbc.update("UPDATE envelope SET created_at = ? WHERE id = ?",
+                Timestamp.from(Instant.parse("2026-09-01T12:00:00Z")), UUID.fromString(envelopeId));
 
         register(token, envelopeId, "100.00")
                 .andExpect(jsonPath("$.targetJustReached").value(false));

@@ -30,8 +30,8 @@ Cada card deve apresentar sua regra em linguagem direta, além do nome do tipo:
 
 | Tipo | Regra exibida ao usuário |
 | --- | --- |
-| `LIMIT` — Limite de gasto | “Você planeja usar até **R$ X por mês**. O saldo não utilizado continua disponível nos próximos meses.” |
-| `FIXED` — Compromisso fixo | “Reserve **R$ X por mês** para esta despesa recorrente. Registre o pagamento quando ele acontecer.” |
+| `LIMIT` — Limite de gasto | “Você planeja usar até **R$ X por mês**. O saldo reinicia no valor-base a cada mês.” |
+| `FIXED` — Compromisso fixo | “Reserve **R$ X por mês** para esta despesa recorrente. Registre o pagamento quando ele acontecer; o saldo reinicia a cada mês.” |
 | `GOAL` — Meta de aporte | “Faça aportes de pelo menos **R$ X por mês** para avançar nesta meta, como investimentos.” |
 | `SAVINGS_TARGET` — Meta de acumulação | “Junte qualquer valor até alcançar **R$ Y**. Seu saldo acumulado não reinicia no próximo mês.” |
 

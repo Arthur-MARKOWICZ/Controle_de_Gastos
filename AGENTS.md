@@ -1,5 +1,5 @@
 # Instruções para agentes de IA
-
+Nao commit ou de push sem ordem direta para tal 
 Antes de propor arquitetura, escrever código ou alterar dependências, leia integralmente:
 
 1. [`docs/ideas/fundacao-tecnica.md`](docs/ideas/fundacao-tecnica.md) — intenção confirmada, escopo e stack obrigatória.

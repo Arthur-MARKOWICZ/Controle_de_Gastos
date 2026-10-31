@@ -136,6 +136,12 @@ public class LedgerService implements LedgerReportingQuery {
         if (envelope.archivedAt() != null) {
             LocalDate archivedOn = envelope.archivedAt().atZone(BUSINESS_ZONE).toLocalDate();
             if (archivedOn.isBefore(allocationUntil)) allocationUntil = archivedOn;
+            if (envelope.resetsBalanceEachMonth() && untilMonth.isAfter(YearMonth.from(archivedOn))) {
+                return Money.zero();
+            }
+        }
+        if (envelope.resetsBalanceEachMonth()) {
+            return monthlyAvailable(envelope, YearMonth.from(allocationUntil), allocationUntil);
         }
         YearMonth allocationMonth = YearMonth.from(allocationUntil);
         long monthsCount = java.time.temporal.ChronoUnit.MONTHS.between(creationMonth, allocationMonth) + 1;
@@ -147,6 +153,15 @@ public class LedgerService implements LedgerReportingQuery {
         Money expenses = expensesRaw == null ? Money.zero() : Money.brl(expensesRaw);
         Money contributions = contributionsRaw == null ? Money.zero() : Money.brl(contributionsRaw);
         return baseTotal.add(contributions).subtract(expenses);
+    }
+
+    private Money monthlyAvailable(Envelope envelope, YearMonth month, LocalDate until) {
+        LocalDate monthStart = month.atDay(1);
+        BigDecimal expensesRaw = entries.sumAmountBetween(envelope.id(), LedgerKind.EXPENSE, monthStart, until);
+        BigDecimal contributionsRaw = entries.sumAmountBetween(envelope.id(), LedgerKind.CONTRIBUTION, monthStart, until);
+        Money expenses = expensesRaw == null ? Money.zero() : Money.brl(expensesRaw);
+        Money contributions = contributionsRaw == null ? Money.zero() : Money.brl(contributionsRaw);
+        return envelope.baseAmount().add(contributions).subtract(expenses);
     }
 
     @Transactional(readOnly = true)

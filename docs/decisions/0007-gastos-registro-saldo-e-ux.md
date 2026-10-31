@@ -13,7 +13,9 @@ Proposto — aguarda aceite. Análise pré-implementação solicitada para a fea
 A fundação técnica (`docs/ideas/fundacao-tecnica.md:8-17`) exige:
 
 * Registrar gastos manualmente com pouco esforço (mobile rápido, web para histórico/relatórios).
-* Saldo não utilizado acumula para o mês seguinte; dinheiro não alocado é separado das verbas.
+* Saldo não utilizado de verbas acumuláveis e dinheiro não alocado seguem para
+  o mês seguinte; `LIMIT` e `FIXED` reiniciam no valor-base a cada mês
+  (qualificado pelo ADR-0022).
 * Saldo negativo é permitido com alerta, sem bloquear o registro.
 * Verbas têm natureza (`limite de gasto` | `meta de aporte` | `compromisso fixo`) e podem ser compartilhadas (participantes lançam, só o criador abastece/convida/encerra).
 * Histórico com autoria, auditoria, autorização por proprietário/participante e `Money` como `BigDecimal` escala 2 (`Money.java:8-96`).

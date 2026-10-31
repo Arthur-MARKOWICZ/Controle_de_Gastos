@@ -19,6 +19,21 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
         return sumAmountUpTo(envelopeId, kind.name(), until);
     }
 
+    @Query(value = """
+        SELECT COALESCE(SUM(amount), 0) FROM ledger_entry
+        WHERE envelope_id = :envelopeId AND kind = CAST(:kind AS VARCHAR)
+          AND occurred_at >= :from AND occurred_at <= :until AND deleted_at IS NULL
+        """, nativeQuery = true)
+    java.math.BigDecimal sumAmountBetween(
+            @Param("envelopeId") UUID envelopeId,
+            @Param("kind") String kind,
+            @Param("from") LocalDate from,
+            @Param("until") LocalDate until);
+
+    default java.math.BigDecimal sumAmountBetween(UUID envelopeId, LedgerKind kind, LocalDate from, LocalDate until) {
+        return sumAmountBetween(envelopeId, kind.name(), from, until);
+    }
+
     Page<LedgerEntry> findByEnvelopeIdOrderByOccurredAtDescCreatedAtDesc(UUID envelopeId, Pageable pageable);
 
     Page<LedgerEntry> findByEnvelopeIdAndKindOrderByOccurredAtDescCreatedAtDesc(UUID envelopeId, LedgerKind kind, Pageable pageable);

@@ -45,7 +45,7 @@ CSV ou XLSX, evitando injeção de fórmula em planilhas.
 
 - Considera somente verbas `LIMIT` visíveis ao solicitante.
 - Mostra uma linha por verba e mês cujo saldo de fechamento seja negativo.
-- O saldo considera alocação-base, aportes, gastos e carry anterior; despesas
+- O saldo considera alocação-base, aportes e gastos do mês (sem carry; ADR-0022); despesas
   acima do saldo continuam válidas e são apenas sinalizadas.
 
 ### Metas de aporte abaixo do esperado

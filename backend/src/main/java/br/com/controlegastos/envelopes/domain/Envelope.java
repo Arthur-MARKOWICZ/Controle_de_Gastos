@@ -171,6 +171,11 @@ public class Envelope {
 
     public boolean isAnnualExpense() { return purpose == EnvelopePurpose.ANNUAL_EXPENSE; }
 
+    /** Limite e compromisso reiniciam no valor-base a cada mês (ADR-0022). */
+    public boolean resetsBalanceEachMonth() {
+        return purpose == EnvelopePurpose.LIMIT || purpose == EnvelopePurpose.FIXED;
+    }
+
     public AnnualExpensePlan annualExpensePlan() {
         if (!isAnnualExpense()) return null;
         return new AnnualExpensePlan(annualAmount, annualDueDate(), annualFundingMode);

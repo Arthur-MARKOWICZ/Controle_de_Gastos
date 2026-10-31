@@ -22,6 +22,7 @@ type Props = {
 
 export function SecuritySettings({ client, email, connectionNotice, onLoggedOut, onLogout }: Props) {
   const [status, setStatus] = useState<MfaStatus | null>(null);
+  const [loginMethods, setLoginMethods] = useState<LoginMethods | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusError, setStatusError] = useState<string | null>(null);
 
@@ -29,16 +30,17 @@ export function SecuritySettings({ client, email, connectionNotice, onLoggedOut,
     let active = true;
     setLoading(true);
     setStatusError(null);
-    client
-      .mfaStatus()
-      .then((result) => {
-        if (active) setStatus(result);
+    Promise.all([client.mfaStatus(), client.loginMethods()])
+      .then(([mfa, methods]) => {
+        if (!active) return;
+        setStatus(mfa);
+        setLoginMethods(methods);
       })
       .catch(() => {
-        if (active) {
-          setStatus(null);
-          setStatusError("Não foi possível consultar o status da autenticação em duas etapas.");
-        }
+        if (!active) return;
+        setStatus(null);
+        setLoginMethods(null);
+        setStatusError("Não foi possível consultar o status da autenticação em duas etapas.");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -48,7 +50,9 @@ export function SecuritySettings({ client, email, connectionNotice, onLoggedOut,
     };
   }, [client]);
 
-  useEffect(() => loadStatus(), [loadStatus]);
+  useEffect(() => {
+    return loadStatus(); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [loadStatus]);
 
   return (
     <AppShell current="settings" email={email} onLogout={onLogout}>
@@ -66,16 +70,20 @@ export function SecuritySettings({ client, email, connectionNotice, onLoggedOut,
         <p role="status" aria-busy="true">
           Carregando…
         </p>
-      ) : statusError ? (
+      ) : statusError || !loginMethods ? (
         <Notice tone="danger">
-          {statusError}{" "}
+          {statusError ?? "Não foi possível carregar as contas conectadas."}{" "}
           <Button variant="text" onClick={() => loadStatus()}>
             Tentar novamente
           </Button>
         </Notice>
       ) : (
         <div className={styles.sections}>
-          <LinkedAccountsPanel client={client} connectionNotice={connectionNotice} />
+          <LinkedAccountsPanel
+            client={client}
+            initialMethods={loginMethods}
+            connectionNotice={connectionNotice}
+          />
           {status?.status === "ENABLED" ? (
             <MfaEnabledPanel client={client} onLoggedOut={() => onLoggedOut("mfa-disabled")} />
           ) : (
@@ -92,38 +100,19 @@ const ALL_PROVIDERS: OAuthProviderName[] = ["google", "github"];
 
 function LinkedAccountsPanel({
   client,
+  initialMethods,
   connectionNotice,
 }: {
   client: AuthClient;
+  initialMethods: LoginMethods;
   connectionNotice?: string | null;
 }) {
-  const [status, setStatus] = useState<LoginMethods | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState<LoginMethods>(initialMethods);
   const [message, setMessage] = useState<string | null>(connectionNotice ?? null);
   const [busyProvider, setBusyProvider] = useState<OAuthProviderName | null>(null);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordBusy, setPasswordBusy] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    client
-      .loginMethods()
-      .then((result) => {
-        if (active) setStatus(result);
-      })
-      .catch(() => {
-        if (active) setMessage("Não foi possível carregar as contas conectadas.");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [client]);
-
-  if (loading || !status) return null;
 
   const isOnlyRemainingMethod = (provider: OAuthProviderName) =>
     !status.hasPassword && status.linkedProviders.length === 1 && status.linkedProviders[0] === provider;

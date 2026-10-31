@@ -7,6 +7,7 @@
 # Java / Gradle
 .gradle/
 **/build/
+**/bin/
 out/
 plans/
 # Node / Next.js
@@ -23,7 +24,7 @@ local.properties
 *.xcworkspace/xcuserdata/
 *.xcodeproj/xcuserdata/
 DerivedData/
-
+plans/
 # OS and editors
 .DS_Store
 .vscode/

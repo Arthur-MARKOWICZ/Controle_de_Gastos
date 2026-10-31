@@ -147,8 +147,8 @@ fun AuthScreen(
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("COMO FUNCIONA", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                Text("Saldo não usado acumula. Gasto acima do planejado vira alerta, não bloqueio.", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.bodyMedium)
+                Text("CONTROLE SEM FICÇÃO", color = MaterialTheme.colorScheme.secondary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text("Limites e compromissos reiniciam a cada mês. Gasto acima do planejado vira alerta, não bloqueio.", color = MaterialTheme.colorScheme.onBackground, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }

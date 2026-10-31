@@ -23,21 +23,24 @@ mobile (KMP) ──────┘          │
 
 - Docker 29+ e Docker Compose.
 - Node.js 24+ e pnpm 11+ para a web.
-- JDK 25, ou Docker, para o backend.
+- JDK 25, ou Docker, para o backend. O `JAVA_HOME` precisa estar no ambiente
+  do shell (não só na IDE), senão o hook de pre-commit não consegue rodar o
+  Gradle.
 - Android Studio com SDK Android para o mobile.
 - macOS/Xcode somente quando o alvo iOS for validado.
 
 ## Início rápido
 
-1. Copie `.env.example` para `.env` e troque as senhas locais.
-2. Inicie PostgreSQL: `make infra-up`.
-3. Para desenvolvimento fora dos contêineres, inicie somente o PostgreSQL com
+1. Instale os hooks de git: `make hooks`.
+2. Copie `.env.example` para `.env` e troque as senhas locais.
+3. Inicie PostgreSQL: `make infra-up`.
+4. Para desenvolvimento fora dos contêineres, inicie somente o PostgreSQL com
    `docker compose up -d postgres`, depois use `./gradlew bootRun` em `backend/`
    e `pnpm dev` em `web/`.
-4. Para executar API e web em contêineres locais, use
+5. Para executar API e web em contêineres locais, use
    `docker compose up --build`. O Compose reconstrói as imagens a partir de
    `backend/` e `web/` antes de recriar os serviços afetados.
-5. Abra `mobile/` no Android Studio e execute `androidApp`.
+6. Abra `mobile/` no Android Studio e execute `androidApp`.
 
 ### Ambientes da API no Android
 
@@ -77,11 +80,14 @@ contra a API local.
 
 | Comando | Descrição |
 |---|---|
+| `make hooks` | Instala os hooks de git do lefthook (uma vez por clone) |
+| `make pre-commit` | Roda o conjunto do pre-commit sobre o repositório inteiro |
 | `make test` | Executa testes de backend e web |
 | `make check` | Executa testes, lint e builds verificáveis neste ambiente |
 | `make infra-up` | Inicia PostgreSQL local |
 | `make infra-down` | Para a infraestrutura local |
 | `cd backend && ./gradlew test` | Testes Java e arquitetura modular |
+| `cd backend && ./gradlew unitTest` | Só os testes Java que não usam Docker |
 | `cd web && pnpm test` | Testes unitários da web |
 | `cd web && pnpm lint` | Lint da web |
 
@@ -102,6 +108,31 @@ base64, `openssl rand -base64 32`) para cifrar os segredos TOTP; veja
 [`docs/decisions/0019-mfa-totp.md`](docs/decisions/0019-mfa-totp.md) e a
 rotação dessa chave em
 [`docs/privacy/operacao-de-autenticacao.md`](docs/privacy/operacao-de-autenticacao.md).
+
+## Verificações automáticas
+
+Duas camadas, com objetivos diferentes.
+
+**Pre-commit (lefthook).** `lefthook.yml` define os jobs e `make hooks` os instala
+em `.git/hooks`. O hook roda apenas lint e testes que não precisam de Docker, e
+só para as áreas tocadas pelo commit: mexer somente em `web/` não dispara Gradle.
+O lint da web recebe apenas os arquivos em stage. Para pular o hook num commit
+específico (por exemplo, um WIP em branch pessoal), use `LEFTHOOK=0 git commit` ou
+`git commit --no-verify` — a suíte completa ainda vai rodar no pull request.
+
+| Job | Dispara quando o commit toca | Executa |
+|---|---|---|
+| `web-lint` | `web/**` (`.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.mts`) | `eslint` nos arquivos em stage |
+| `web-test` | `web/**` (fontes, CSS ou JSON) | `pnpm test` |
+| `backend-unit-test` | `backend/**` (`.java`, `.kts`, `.properties`, `.sql`, `.yaml`) | `./gradlew unitTest` |
+| `mobile-unit-test` | `mobile/**` (`.kt`, `.kts`, `.properties`, `.xml`, `.toml`) | `./gradlew :shared:jvmTest` |
+
+**Pull request (GitHub Actions).** `.github/workflows/pull-request.yml` roda a
+suíte inteira em quatro jobs paralelos: backend (incluindo os `*IntegrationTest`
+com Testcontainers), web (lint, testes e build), mobile (testes compartilhados e
+`assembleDebug`) e configuração de produção. É a única camada que valida os
+testes de integração, porque eles dependem de Docker e são lentos demais para um
+hook de commit.
 
 ## Deploy
 

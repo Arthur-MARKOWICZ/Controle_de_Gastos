@@ -1,0 +1,13 @@
+{
+  "name": "controle-gastos",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Raiz do monorepo: hospeda apenas o lefthook, que versiona os hooks de git compartilhados.",
+  "packageManager": "pnpm@11.24.0",
+  "scripts": {
+    "prepare": "lefthook install"
+  },
+  "devDependencies": {
+    "lefthook": "2.1.12"
+  }
+}

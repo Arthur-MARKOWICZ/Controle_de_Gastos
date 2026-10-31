@@ -59,3 +59,16 @@ dependencyManagement {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+
+// Testes unitários: tudo que roda sem Docker. Os `*IntegrationTest` sobem
+// PostgreSQL via Testcontainers e ficam reservados para a suíte completa do CI.
+tasks.register<Test>("unitTest") {
+    group = "verification"
+    description = "Executa os testes que não dependem de Docker/Testcontainers."
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        excludeTestsMatching("*IntegrationTest")
+    }
+}

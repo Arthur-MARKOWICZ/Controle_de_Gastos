@@ -45,8 +45,9 @@ como contrato e web como canal de relatórios. O repositório já reserva o mód
   solicitante; e-mail, descrições de gastos e dados de recursos ocultos não
   entram em arquivos.
 - Um limite foi extrapolado quando o saldo de fechamento mensal de uma verba
-  `LIMIT` é negativo, considerando alocação-base, aportes, gastos e carry.
-  O relatório não bloqueia nem altera o lançamento original.
+  `LIMIT` é negativo, considerando alocação-base, aportes e gastos **do mês**
+  (sem carry; ADR-0022). O relatório não bloqueia nem altera o lançamento
+  original.
 - Uma meta ficou abaixo quando, em uma verba `GOAL`, a soma de `CONTRIBUTION`
   ativos no intervalo é menor que `baseAmount` multiplicado pelos meses
   completos selecionados. A alocação-base automática não é tratada como aporte
