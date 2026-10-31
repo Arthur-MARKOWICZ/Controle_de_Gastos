@@ -63,8 +63,13 @@ export function HistoryPage({ email, onLogout }: Props) {
       setLoading(false);
       return;
     }
-    if (hasDataRef.current) setBusy(true);
-    else setLoading(true);
+    if (hasDataRef.current) {
+      setBusy(true);
+    } else {
+      setData(null);
+      setSummary(null);
+      setLoading(true);
+    }
     setError(null);
     try {
       const api = createApiClient(client);
@@ -87,9 +92,6 @@ export function HistoryPage({ email, onLogout }: Props) {
 
   useEffect(() => {
     hasDataRef.current = false;
-    setData(null);
-    setSummary(null);
-    setLoading(true);
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);

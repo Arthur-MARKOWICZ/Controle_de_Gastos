@@ -20,8 +20,12 @@ export function useLedgerSummary(month?: string) {
       setBusy(false);
       return;
     }
-    if (hasDataRef.current) setBusy(true);
-    else setLoading(true);
+    if (hasDataRef.current) {
+      setBusy(true);
+    } else {
+      setSummary(null);
+      setLoading(true);
+    }
     setError(null);
     try {
       const data = await api.getLedgerSummary(month);
@@ -38,9 +42,8 @@ export function useLedgerSummary(month?: string) {
 
   useEffect(() => {
     hasDataRef.current = false;
-    setSummary(null);
-    setLoading(true);
-    void refresh(); // eslint-disable-line react-hooks/set-state-in-effect
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
   }, [refresh]);
 
   return { summary, loading, busy, error, refresh, setSummary };

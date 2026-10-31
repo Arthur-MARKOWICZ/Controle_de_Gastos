@@ -20,8 +20,12 @@ export function useEnvelopes(month?: string) {
       setBusy(false);
       return;
     }
-    if (hasDataRef.current) setBusy(true);
-    else setLoading(true);
+    if (hasDataRef.current) {
+      setBusy(true);
+    } else {
+      setEnvelopes([]);
+      setLoading(true);
+    }
     setError(null);
     try {
       const data = await api.getEnvelopes(month);
@@ -38,9 +42,8 @@ export function useEnvelopes(month?: string) {
 
   useEffect(() => {
     hasDataRef.current = false;
-    setEnvelopes([]);
-    setLoading(true);
-    void refresh(); // eslint-disable-line react-hooks/set-state-in-effect
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
   }, [refresh]);
 
   return { envelopes, loading, busy, error, refresh, setEnvelopes };

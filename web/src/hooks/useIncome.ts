@@ -21,8 +21,12 @@ export function useIncome(month?: string) {
       setBusy(false);
       return;
     }
-    if (hasDataRef.current) setBusy(true);
-    else setLoading(true);
+    if (hasDataRef.current) {
+      setBusy(true);
+    } else {
+      setIncome(null);
+      setLoading(true);
+    }
     setError(null);
     setNotConfigured(false);
     try {
@@ -46,9 +50,8 @@ export function useIncome(month?: string) {
 
   useEffect(() => {
     hasDataRef.current = false;
-    setIncome(null);
-    setLoading(true);
-    void refresh(); // eslint-disable-line react-hooks/set-state-in-effect
+    const timer = window.setTimeout(() => void refresh(), 0);
+    return () => window.clearTimeout(timer);
   }, [refresh]);
 
   return { income, loading, busy, error, notConfigured, refresh, setIncome };
@@ -87,7 +90,8 @@ export function useIncomeHistory(initialPage = 0, size = 20) {
   }, [api, size, state]);
 
   useEffect(() => {
-    void load(initialPage); // eslint-disable-line react-hooks/set-state-in-effect
+    const timer = window.setTimeout(() => void load(initialPage), 0);
+    return () => window.clearTimeout(timer);
   }, [load, initialPage]);
 
   const page = data?.page ?? initialPage;
