@@ -1,0 +1,695 @@
+%PDF-1.4
+%ту╧╙
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R] /Count 5 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Length 5194 >>
+stream
+BT
+/F2 15.0 Tf
+1 0 0 1 50.00 800.00 Tm
+(Relatorio de Analise de Banco de Dados) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 778.50 Tm
+(Projeto: controle_gastos | Data: 2026-10-30 | Branch: main @ 0629907) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 767.00 Tm
+(SGBD: PostgreSQL 18 \(imagem postgres:18-alpine\) | ORM: Spring Data JPA / Hibernate | Migracoes:) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 755.50 Tm
+(Flyway V1-V12) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 744.00 Tm
+(Modo: somente leitura \(sem DDL/DML, sem conexao a producao, sem EXPLAIN ANALYZE\)) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 719.50 Tm
+(1. Resumo executivo) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 702.00 Tm
+(A modelagem financeira esta alinhada aos ADRs: dinheiro em NUMERIC\(19,2\), CHECKs de dominio,) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 690.50 Tm
+(locking otimista em renda/verba, tokens apenas como hash, exclusao logica de gastos e job de) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 679.00 Tm
+(retencao de artefatos de identidade. Os principais gaps sao: \(1\) listagem de lancamentos por) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 667.50 Tm
+(verba inclui gastos ja excluidos logicamente; \(2\) a invariante "soma das bases <= renda" nao e) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 656.00 Tm
+(aplicada na criacao/atualizacao de verbas; \(3\) handoff OAuth mobile nao entra no job de) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 644.50 Tm
+(descarte; \(4\) backup/restauracao e exclusao verificavel do titular permanecem pendentes na) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 633.00 Tm
+(documentacao operacional.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 616.50 Tm
+(Defeitos comprovados: DB-001, DB-002, DB-003.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 605.00 Tm
+(Riscos estaticos: DB-004, DB-005, DB-006, DB-008.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 593.50 Tm
+(Hipoteses / aceitar: DB-007, DB-009, DB-010.) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 569.00 Tm
+(2. Escopo, metodologia e limitacoes) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 551.50 Tm
+(  Х Analise estatica de migrations Flyway, entidades JPA, repositorios, servicos transacionais,) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 540.00 Tm
+(    compose.yaml, application.yml e docs de privacidade/ADRs.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 528.50 Tm
+(  Х Ambiente de banco vivo: nao consultado. Sem volume, cardinalidade, EXPLAIN ou metricas de) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 517.00 Tm
+(    producao.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 505.50 Tm
+(  Х gh auth: token invalido nesta sessao; issues nao serao criadas ate aprovacao +) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 494.00 Tm
+(    reautenticacao.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 482.50 Tm
+(  Х Mudancas locais preservadas \(skills nao commitadas; binario .class modificado\). Nenhuma) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 471.00 Tm
+(    alteracao de schema/codigo nesta auditoria.) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 446.50 Tm
+(3. Visao geral do modelo de dados) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 429.00 Tm
+(Tabelas principais:) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 417.50 Tm
+(  Х identity: user_account, auth_session, auth_attempt, password_reset_token, totp_credential,) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 406.00 Tm
+(    recovery_code, mfa_login_challenge, identity_provider_link, oauth_authorization_state,) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 394.50 Tm
+(    oauth_mobile_handoff) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 383.00 Tm
+(  Х income: monthly_income \(PK owner_id+effective_month, version\), income_revision) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 371.50 Tm
+(    \(append-only\)) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 360.00 Tm
+(  Х envelopes: envelope \(purpose + configuracao financeira com CHECK composto, version,) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 348.50 Tm
+(    archived_at\), envelope_participant) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 337.00 Tm
+(  Х ledger: ledger_entry \(amount>0, kind, soft delete deleted_at; owner_id denormalizado sem FK) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 325.50 Tm
+(    por ADR-007\)) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 309.00 Tm
+(Relacionamentos criticos: envelope.owner_id e participant.user_id em CASCADE a partir de) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 297.50 Tm
+(user_account; ledger_entry.envelope_id ON DELETE CASCADE; ledger_entry.author_id REFERENCES) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 286.00 Tm
+(user_account sem ON DELETE explicito; participant.added_by REFERENCES user_account sem ON) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 274.50 Tm
+(DELETE.) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 250.00 Tm
+(4. Pontos positivos \(contexto\)) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 232.50 Tm
+(  Х Flyway habilitado + hibernate.ddl-auto=validate + open-in-view=false.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 221.00 Tm
+(  Х Money via BigDecimal/NUMERIC\(19,2\) e MoneyJpaConverter; CHECKs de nao-negatividade /) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 209.50 Tm
+(    amount>0.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 198.00 Tm
+(  Х @Version em monthly_income e envelope; locks pessimistas em consumo de tokens/challenges;) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 186.50 Tm
+(    advisory lock em cadastro/rate-limit.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 175.00 Tm
+(  Х Indices parciais para exclusao logica e tokens ativos; IdentityRetentionService agenda) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 163.50 Tm
+(    descarte diario \(UTC 03:17\).) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 152.00 Tm
+(  Х Testes de integracao com Testcontainers PostgreSQL 18.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 140.50 Tm
+(  Х Segredos de sessao/recuperacao/MFA/OAuth persistidos como hash ou ciphertext; inventario de) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 129.00 Tm
+(    dados atualizado.) Tj
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 6007 >>
+stream
+BT
+/F2 12.0 Tf
+1 0 0 1 50.00 792.00 Tm
+(5. Matriz priorizada de achados) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 769.50 Tm
+(DB-001 | P1 | Alta | S | Listagem por verba ignora soft delete | Integracao ORM | Defeito) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 758.00 Tm
+(DB-002 | P1 | Alta | M | Soma-base <= renda nao aplicada no create/update | Integridade |) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 746.50 Tm
+(Defeito) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 735.00 Tm
+(DB-003 | P1 | Alta | XS | oauth_mobile_handoff fora do job de retencao | Retencao | Defeito) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 723.50 Tm
+(DB-004 | P1 | Media | L | Backup/restauracao nao operacionalizados | Recuperacao | Risco) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 712.00 Tm
+(DB-005 | P2 | Alta | S | FKs author_id/added_by sem politica de exclusao de conta | Integridade) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 700.50 Tm
+(| Risco) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 689.00 Tm
+(DB-006 | P2 | Media | S | CHECK annual_due_day aceita datas invalidas | Integridade | Risco) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 677.50 Tm
+(DB-007 | P3 | Media | S | Indice composto parcial para sumAmountUpTo | Performance | Hipotese) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 666.00 Tm
+(DB-008 | P2 | Media | L | Exclusao/exportacao do titular incompletas | Privacidade | Divida) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 654.50 Tm
+(DB-009 | P3 | Baixa | - | owner_id do ledger sem FK \(ADR-007\) | Modelagem | Aceitar) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 643.00 Tm
+(DB-010 | P3 | Baixa | - | Sem RLS; isolamento so na aplicacao | Seguranca | Aceitar no corte) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 618.50 Tm
+(6. Detalhamento dos achados) Tj
+/F2 10.5 Tf
+1 0 0 1 50.00 590.00 Tm
+(DB-001 Ч findFiltered nao filtra deleted_at) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 576.50 Tm
+(Categoria: integracao ORM / integridade. Severidade: alta. Prioridade: P1. Confianca: alta.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 565.00 Tm
+(Esforco: S.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 553.50 Tm
+(Localizacao: LedgerEntryRepository.findFiltered; LedgerService.list.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 542.00 Tm
+(Evidencia: a query JPQL filtra envelope/kind/mes mas omite deletedAt IS NULL; sumAmountUpTo e) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 530.50 Tm
+(findHistory ja respeitam soft delete \(V6 + consultas\).) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 519.00 Tm
+(Tipo: defeito comprovado. Impacto: gastos excluidos reaparecem na lista da verba; UX e) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 507.50 Tm
+(auditoria visual inconsistentes com o saldo.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 496.00 Tm
+(Recomendacao: adicionar AND e.deletedAt IS NULL \(ou parametro includeDeleted alinhado ao) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 484.50 Tm
+(historico\). Criterios: teste de API cria gasto, exclui, lista por verba vazia/sem o item; saldo) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 473.00 Tm
+(inalterado.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 461.50 Tm
+(Decisao sugerida: corrigir.) Tj
+/F2 10.5 Tf
+1 0 0 1 50.00 439.00 Tm
+(DB-002 Ч invariante soma das bases <= renda) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 425.50 Tm
+(Categoria: integridade. Severidade: alta. Prioridade: P1. Confianca: alta. Esforco: M.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 414.00 Tm
+(Localizacao: EnvelopeService.create/update; MonthlyAllocationPlan \(dominio existe mas nao e) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 402.50 Tm
+(chamado\); EnvelopeIncomeConstraint so em IncomeService.change.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 391.00 Tm
+(Evidencia: fundacao-tecnica exige validar soma-base; ADR-007 з1.6 so cobre reducao de renda;) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 379.50 Tm
+(handler AllocationExceedsIncomeException existe sem caminho de criacao.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 368.00 Tm
+(Tipo: defeito comprovado \(regra de negocio\). Impacto: alocacao pode exceder renda; unallocated) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 356.50 Tm
+(negativo mascarado no summary \(clamp a zero\).) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 345.00 Tm
+(Recomendacao: no create/update \(e alteracao de base\), carregar renda efetiva do mes e aplicar) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 333.50 Tm
+(MonthlyAllocationPlan / equivalente sob a mesma transacao; considerar lock otimista da renda.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 322.00 Tm
+(Nao tentar CHECK SQL cross-table agora.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 310.50 Tm
+(Criterios: POST envelope com base que estoura renda -> 400 allocation.exceeds_income; reducao) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 299.00 Tm
+(de renda continua bloqueada.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 287.50 Tm
+(Decisao sugerida: corrigir.) Tj
+/F2 10.5 Tf
+1 0 0 1 50.00 265.00 Tm
+(DB-003 Ч retencao de oauth_mobile_handoff) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 251.50 Tm
+(Categoria: retencao / privacidade. Severidade: alta \(conformidade inventariada\). Prioridade:) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 240.00 Tm
+(P1. Confianca: alta. Esforco: XS.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 228.50 Tm
+(Localizacao: IdentityRetentionService.discardExpiredTechnicalData;) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 217.00 Tm
+(OAuthMobileHandoffRepository.deleteEndedBefore \(ja existe\); inventario \(24h apos) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 205.50 Tm
+(expiracao/consumo\).) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 194.00 Tm
+(Evidencia: job limpa attempts, sessions, reset, MFA, recovery, oauth_authorization_state; nao) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 182.50 Tm
+(chama mobileHandoffs.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 171.00 Tm
+(Tipo: defeito comprovado. Impacto: hashes de handoff acumulam alem da retencao declarada.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 159.50 Tm
+(Recomendacao: injetar repositorio e chamar deleteEndedBefore\(now - 24h\) no mesmo cron.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 148.00 Tm
+(Decisao sugerida: corrigir.) Tj
+/F2 10.5 Tf
+1 0 0 1 50.00 125.50 Tm
+(DB-004 Ч backup e restauracao) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 112.00 Tm
+(Categoria: recuperacao. Severidade: alta para abertura publica. Prioridade: P1. Confianca: alta) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 100.50 Tm
+(\(docs\). Esforco: L.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 89.00 Tm
+(Localizacao: docs/privacy/* \(pendente\); compose volume postgres-data sem job pg_dump;) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 77.50 Tm
+(ADR-010/012 adianto backup.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 66.00 Tm
+(Tipo: risco estatico. Impacto: perda do volume Docker = perda de dados financeiros/pessoais;) Tj
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 523 >>
+stream
+BT
+/F1 9.2 Tf
+1 0 0 1 50.00 800.00 Tm
+(RPO/RTO indefinidos.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 788.50 Tm
+(Recomendacao: definir frequencia, cifrar, retenчуo, teste de restauracao em ambiente isolado e) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 777.00 Tm
+(runbook antes de cadastro publico.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 765.50 Tm
+(Validacao: restaurar dump sintetico e conferir Flyway + login. Sem teste = nao verificado.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 754.00 Tm
+(Decisao sugerida: planejar / mitigar \(nao executar dump nesta auditoria\).) Tj
+ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 5634 >>
+stream
+BT
+/F2 10.5 Tf
+1 0 0 1 50.00 794.00 Tm
+(DB-005 Ч FKs e exclusao de conta) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 780.50 Tm
+(Categoria: integridade / migracoes. Severidade: media-alta. Prioridade: P2. Confianca: alta.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 769.00 Tm
+(Esforco: S-M.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 757.50 Tm
+(Localizacao: V4 envelope_participant.added_by; V5 ledger_entry.author_id \(REFERENCES sem ON) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 746.00 Tm
+(DELETE\); status DELETED em user_account sem fluxo de exclusao.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 734.50 Tm
+(Evidencia: DELETE de usuario que e author em verba de terceiros falha por FK; added_by idem.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 723.00 Tm
+(Cascata de envelopes proprios nao resolve autoria em verbas compartilhadas.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 711.50 Tm
+(Tipo: risco estatico \(bloqueia direito do titular quando implementado\).) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 700.00 Tm
+(Recomendacao: ao desenhar exclusao, escolher ON DELETE RESTRICT+anonimizacao de author_id, SET) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 688.50 Tm
+(NULL \(se coluna permitir\) ou preservar UUID orfao com FK removida Ч com ADR. Nao CASCADE em) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 677.00 Tm
+(author_id \(apagaria historico alheio\).) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 665.50 Tm
+(Decisao sugerida: investigar com o ADR de exclusao do titular.) Tj
+/F2 10.5 Tf
+1 0 0 1 50.00 643.00 Tm
+(DB-006 Ч vencimento anual invalido no CHECK) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 629.50 Tm
+(Categoria: integridade. Severidade: media. Prioridade: P2. Confianca: alta. Esforco: S.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 618.00 Tm
+(Localizacao: V8 envelope_financial_configuration_check \(annual_due_day 1..31\).) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 606.50 Tm
+(Evidencia: aceita 31/02 etc.; dominio Java MonthDay.of rejeita invalidos se passado pela API) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 595.00 Tm
+(tipada, mas o banco sozinho nao.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 583.50 Tm
+(Tipo: risco. Recomendacao: validacao forte na aplicacao \(ja parcialmente\) + opcionalmente) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 572.00 Tm
+(rejeitar combinacoes invalidas em CHECK ou trigger; documentar.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 560.50 Tm
+(Decisao sugerida: mitigar na aplicacao; CHECK sofisticado e opcional.) Tj
+/F2 10.5 Tf
+1 0 0 1 50.00 538.00 Tm
+(DB-007 Ч indice para agregacoes de saldo) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 524.50 Tm
+(Categoria: performance. Severidade: baixa sem volume. Prioridade: P3. Confianca: media.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 513.00 Tm
+(Esforco: S.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 501.50 Tm
+(Localizacao: sumAmountUpTo \(envelope_id, kind, occurred_at, deleted_at IS NULL\); indices) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 490.00 Tm
+(atuais: \(envelope_id, occurred_at\), \(envelope_id, kind\), parcial \(occurred_at, created_at\)) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 478.50 Tm
+(WHERE deleted_at IS NULL.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 467.00 Tm
+(Tipo: hipotese. Sem EXPLAIN nao recomendar indice definitivo.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 455.50 Tm
+(Recomendacao: medir com EXPLAIN \(sem ANALYZE em prod\) em ambiente de teste com dados) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 444.00 Tm
+(sinteticos; so entao criar \(envelope_id, kind, occurred_at\) WHERE deleted_at IS NULL) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 432.50 Tm
+(CONCURRENTLY.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 421.00 Tm
+(Decisao sugerida: adiar / medir.) Tj
+/F2 10.5 Tf
+1 0 0 1 50.00 398.50 Tm
+(DB-008 Ч direitos do titular incompletos) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 385.00 Tm
+(Categoria: privacidade / operacao. Severidade: media. Prioridade: P2. Confianca: alta \(docs\).) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 373.50 Tm
+(Esforco: L.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 362.00 Tm
+(Evidencia: requisitos pedem exportacao/correcao/exclusao; operacao-de-renda marca fluxo) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 350.50 Tm
+(pendente; cascata SQL existe parcialmente mas nao ha API/job de exclusao verificavel nem) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 339.00 Tm
+(propagacao a backups.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 327.50 Tm
+(Tipo: divida tecnica / risco de conformidade para abertura publica.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 316.00 Tm
+(Decisao sugerida: planejar com juridico + DB-004/DB-005.) Tj
+/F2 10.5 Tf
+1 0 0 1 50.00 293.50 Tm
+(DB-009 Ч owner_id sem FK) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 280.00 Tm
+(Intencional \(ADR-007 denormalizacao\). Risco residual baixo se mutacoes so pela API. Decisao:) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 268.50 Tm
+(aceitar; nao adicionar FK sem revisitar ADR.) Tj
+/F2 10.5 Tf
+1 0 0 1 50.00 246.00 Tm
+(DB-010 Ч ausencia de RLS) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 232.50 Tm
+(Isolamento por queries da aplicacao \(owner OR participant\). Adequado ao monolitico atual. RLS) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 221.00 Tm
+(seria defesa em profundidade se houver multiplos papeis SQL Ч fora do corte. Decisao: aceitar) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 209.50 Tm
+(agora.) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 185.00 Tm
+(7. Transacoes, consultas e migracoes) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 167.50 Tm
+(  Х Transacoes: servicos usam @Transactional; consumo de segredos com PESSIMISTIC_WRITE;) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 156.00 Tm
+(    AuthAttempt/UserAccount com pg_advisory_xact_lock Ч adequado.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 144.50 Tm
+(  Х N+1: listagens de historico carregam envelopes em mapa apos query Ч padrao aceitavel no) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 133.00 Tm
+(    volume atual.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 121.50 Tm
+(  Х Migracoes V1-V12 versionadas e evolutivas \(expand de colunas anuais/metas\); V3 fez backfill) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 110.00 Tm
+(    de password_hash Ч historico limpo.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 98.50 Tm
+(  Х Hibernacao validate evita drift silencioso.) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 74.00 Tm
+(8. Seguranca, backup e observabilidade) Tj
+ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 3386 >>
+stream
+BT
+/F1 9.2 Tf
+1 0 0 1 50.00 800.00 Tm
+(  Х Credenciais: defaults locais em application.yml/compose marcados como change-me /) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 788.50 Tm
+(    test-only; producao deve usar secrets \(docs/deploy\). Valores nao reproduzidos neste) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 777.00 Tm
+(    relatorio.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 765.50 Tm
+(  Х TLS/borda: documentados em ADR-012; fora do schema.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 754.00 Tm
+(  Х Backup: nao verificado / pendente \(DB-004\).) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 742.50 Tm
+(  Х Observabilidade DB: management expoe health/info; sem slow query log dedicado no) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 731.00 Tm
+(    repositorio.) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 706.50 Tm
+(9. O que nao recomendo fazer agora) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 689.00 Tm
+(  Х Nao particionar/sharding PostgreSQL.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 677.50 Tm
+(  Х Nao introduzir cache \(Redis/Caffeine\) Ч regra do projeto.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 666.00 Tm
+(  Х Nao criar indices em massa sem EXPLAIN.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 654.50 Tm
+(  Х Nao adicionar FK em ledger.owner_id sem ADR.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 643.00 Tm
+(  Х Nao executar migraчїes destrutivas nem EXPLAIN ANALYZE em producao nesta etapa.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 631.50 Tm
+(  Х Nao implementar microservicos de dados.) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 607.00 Tm
+(10. Plano de melhoria por fases) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 589.50 Tm
+(Fase A \(corrigir ja\): DB-001, DB-003.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 578.00 Tm
+(Fase B \(regra financeira\): DB-002 com testes TDD.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 566.50 Tm
+(Fase C \(operacao/LGPD\): DB-004, DB-008, desenho DB-005.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 555.00 Tm
+(Fase D \(higiene\): DB-006; medir DB-007 se volume crescer.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 538.50 Tm
+(Riscos de rollout: DB-002 muda contrato de API \(novos 400\); DB-005 exige ADR antes de migrar) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 527.00 Tm
+(FKs; backups exigem secrets e teste isolado.) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 502.50 Tm
+(11. Decisoes solicitadas) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 485.00 Tm
+(Aprovar IDs para criacao de issues GitHub \(gh\). Exemplos: DB-001, DB-002, DB-003.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 473.50 Tm
+(Aprovar o relatorio NAO cria issues automaticamente.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 462.00 Tm
+(Banco, schema e codigo NAO foram alterados nesta auditoria.) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 450.50 Tm
+(gh auth esta invalido Ч reautenticar antes da Fase 8.) Tj
+/F2 12.0 Tf
+1 0 0 1 50.00 426.00 Tm
+(12. Apendice Ч referencias) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 408.50 Tm
+(  Х backend/src/main/resources/db/migration/V1..V12) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 397.00 Tm
+(  Х LedgerEntryRepository.java, LedgerService.java, EnvelopeService.java,) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 385.50 Tm
+(    IdentityRetentionService.java) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 374.00 Tm
+(  Х docs/ideas/fundacao-tecnica.md, docs/decisions/0006, 0007, 0009) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 362.50 Tm
+(  Х docs/privacy/inventario-de-dados.md, requisitos-de-seguranca.md, operacao-de-renda.md) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 351.00 Tm
+(  Х compose.yaml \(postgres:18-alpine\), application.yml \(flyway, jpa validate\)) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 339.50 Tm
+(Verificacoes executadas: leitura estatica do repositorio; git status; checagem de ferramentas) Tj
+/F1 9.2 Tf
+1 0 0 1 50.00 328.00 Tm
+(PDF/gh. Sem consulta SQL ao servidor.) Tj
+ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 13 0 R >>
+endobj
+xref
+0 15
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000148 00000 n 
+0000000245 00000 n 
+0000000347 00000 n 
+0000005593 00000 n 
+0000005735 00000 n 
+0000011794 00000 n 
+0000011936 00000 n 
+0000012510 00000 n 
+0000012653 00000 n 
+0000018340 00000 n 
+0000018484 00000 n 
+0000021923 00000 n 
+trailer
+<< /Size 15 /Root 1 0 R >>
+startxref
+22067
+%%EOF

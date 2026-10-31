@@ -1,2 +1,8 @@
 .gradle
 build
+bin
+.idea
+*.md
+.gitignore
+gradlew.bat
+**/*.iml

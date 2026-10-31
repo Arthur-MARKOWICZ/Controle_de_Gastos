@@ -47,6 +47,7 @@ private sealed interface SecurityDialog {
 internal fun SecurityScreen(
     gateway: AuthGateway,
     qrImageContent: @Composable (String) -> Unit,
+    onShareText: (String) -> Unit = {},
     onLoggedOut: () -> Unit,
     onNotify: (String) -> Unit,
 ) {
@@ -54,11 +55,18 @@ internal fun SecurityScreen(
     var methods by remember(gateway) { mutableStateOf<LoginMethods?>(null) }
     var dialog by remember { mutableStateOf<SecurityDialog?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var mfaStatusError by remember { mutableStateOf<String?>(null) }
     var showMfa by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     fun reload() = scope.launch {
-        status = runCatching { gateway.mfaStatus() }.getOrElse { MfaStatus("DISABLED", null) }
+        mfaStatusError = null
+        runCatching { gateway.mfaStatus() }
+            .onSuccess { status = it }
+            .onFailure {
+                status = null
+                mfaStatusError = describeFailure(it, "Não foi possível consultar o status da autenticação em duas etapas.")
+            }
         runCatching { gateway.loginMethods() }
             .onSuccess { methods = it }
             .onFailure { error = describeFailure(it, "Não foi possível consultar seus métodos de login.") }
@@ -88,6 +96,7 @@ internal fun SecurityScreen(
                     }
                 },
                 onDone = { showMfa = false; reload() },
+                onShareText = onShareText,
             )
         } else {
             MfaSettingsScreen(
@@ -112,6 +121,7 @@ internal fun SecurityScreen(
                 // Concluir o cadastro revoga todas as sessões, inclusive esta.
                 onComplete = onLoggedOut,
                 qrImageContent = qrImageContent,
+                onShareText = onShareText,
             )
         }
         return
@@ -124,6 +134,7 @@ internal fun SecurityScreen(
     ) {
         item { SectionHeader("CONTA", "Segurança", "Como você entra e como protege o acesso.") }
         error?.let { item { ErrorCard(it) { reload() } } }
+        mfaStatusError?.let { item { ErrorCard(it) { reload() } } }
         item {
             when (val current = methods) {
                 null -> LoadingBox("Carregando métodos de login", Modifier.fillMaxWidth())
@@ -134,7 +145,7 @@ internal fun SecurityScreen(
                 )
             }
         }
-        item {
+        if (mfaStatusError == null) item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Verificação em duas etapas", fontWeight = FontWeight.Bold)

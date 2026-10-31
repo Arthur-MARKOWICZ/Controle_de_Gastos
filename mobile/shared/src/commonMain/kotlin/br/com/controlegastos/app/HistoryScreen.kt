@@ -10,9 +10,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -70,12 +74,18 @@ internal fun HistoryScreen(
                 TextButton(
                     onClick = { reloading { controller.showPreviousMonth() } },
                     modifier = Modifier.height(TouchTarget),
-                ) { Text("‹ Anterior") }
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = null)
+                    Text("Anterior")
+                }
                 Text(controller.month.label(), fontWeight = FontWeight.Bold)
                 TextButton(
                     onClick = { reloading { controller.showNextMonth() } },
                     modifier = Modifier.height(TouchTarget),
-                ) { Text("Próximo ›") }
+                ) {
+                    Text("Próximo")
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null)
+                }
             }
         }
         item {
@@ -122,12 +132,18 @@ internal fun HistoryScreen(
                                 onClick = { reloading { controller.previousPage() } },
                                 enabled = controller.page > 0,
                                 modifier = Modifier.height(TouchTarget),
-                            ) { Text("‹ Anteriores") }
+                            ) {
+                                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = null)
+                                Text("Anteriores")
+                            }
                             TextButton(
                                 onClick = { reloading { controller.nextPage() } },
                                 enabled = current.page.hasNext,
                                 modifier = Modifier.height(TouchTarget),
-                            ) { Text("Próximos ›") }
+                            ) {
+                                Text("Próximos")
+                                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null)
+                            }
                         }
                     }
                 }

@@ -78,31 +78,80 @@ class FinanceDashboardControllerTest {
         val controller = FinanceDashboardController(gateway, SEPTEMBER)
         controller.refresh()
 
-        val reached = controller.registerEntry(
+        controller.registerEntry(
             envelopeId = "envelope-1",
             entry = NewLedgerEntry(LedgerKind.EXPENSE, Money.fromApiAmount("10.00"), "2026-09-09"),
         )
 
         assertEquals(1, gateway.createdEntries.size)
         assertEquals(2, gateway.loads)
-        assertTrue(!reached)
     }
 
     @Test
-    fun `reports when a contribution just reached the target`() = runSuspend {
-        val gateway = FakeLedgerGateway(dashboard())
-        gateway.targetJustReached = true
-        val controller = FinanceDashboardController(gateway, SEPTEMBER)
+    fun `confirms an expense with its amount and envelope`() = runSuspend {
+        val controller = FinanceDashboardController(FakeLedgerGateway(dashboard()), SEPTEMBER)
+        controller.refresh()
 
-        val reached = controller.registerEntry(
+        val confirmation = controller.registerEntry(
+            envelopeId = "envelope-1",
+            entry = NewLedgerEntry(LedgerKind.EXPENSE, Money.fromApiAmount("1250.00"), "2026-09-09"),
+        )
+
+        assertEquals("Gasto de R$ 1.250,00 em Combustível.", confirmation)
+    }
+
+    @Test
+    fun `warns when the expense leaves the envelope negative`() = runSuspend {
+        val gateway = FakeLedgerGateway(dashboard())
+        gateway.dashboardAfterEntry = dashboard(available = "-60.00", isNegative = true)
+        val controller = FinanceDashboardController(gateway, SEPTEMBER)
+        controller.refresh()
+
+        val confirmation = controller.registerEntry(
+            envelopeId = "envelope-1",
+            entry = NewLedgerEntry(LedgerKind.EXPENSE, Money.fromApiAmount("300.00"), "2026-09-09"),
+        )
+
+        assertEquals("Gasto de R$ 300,00 em Combustível. A verba ficou negativa: -R$ 60,00.", confirmation)
+    }
+
+    @Test
+    fun `confirms a contribution with its amount and envelope`() = runSuspend {
+        val controller = FinanceDashboardController(FakeLedgerGateway(dashboard()), SEPTEMBER)
+        controller.refresh()
+
+        val confirmation = controller.registerEntry(
             envelopeId = "goal-1",
             entry = NewLedgerEntry(LedgerKind.CONTRIBUTION, Money.fromApiAmount("50.00"), "2026-09-09"),
         )
 
-        assertTrue(reached)
+        assertEquals("Aporte de R$ 50,00 em Viagem.", confirmation)
     }
 
-    private fun dashboard() = FinancialDashboard(
+    @Test
+    fun `celebrates when a contribution just reached the target`() = runSuspend {
+        val gateway = FakeLedgerGateway(dashboard())
+        gateway.targetJustReached = true
+        val controller = FinanceDashboardController(gateway, SEPTEMBER)
+        controller.refresh()
+
+        val confirmation = controller.registerEntry(
+            envelopeId = "goal-1",
+            entry = NewLedgerEntry(LedgerKind.CONTRIBUTION, Money.fromApiAmount("50.00"), "2026-09-09"),
+        )
+
+        assertEquals("Meta de Viagem alcançada.", confirmation)
+    }
+
+    @Test
+    fun `offers only envelopes that receive expenses for a quick entry`() = runSuspend {
+        val controller = FinanceDashboardController(FakeLedgerGateway(dashboard()), SEPTEMBER)
+        controller.refresh()
+
+        assertEquals(listOf("envelope-1", "shared-1"), controller.expenseEnvelopes.map(EnvelopeView::id))
+    }
+
+    private fun dashboard(available: String = "240.00", isNegative: Boolean = false) = FinancialDashboard(
         income = IncomeView(Money.fromApiAmount("5000.00"), "2026-09", "2026-09-01T00:00:00Z"),
         allocated = Money.fromApiAmount("4250.00"),
         unallocated = Money.fromApiAmount("750.00"),
@@ -113,18 +162,36 @@ class FinanceDashboardControllerTest {
                 name = "Combustível",
                 purpose = "LIMIT",
                 baseAmount = Money.fromApiAmount("400.00"),
-                available = Money.fromApiAmount("240.00"),
+                available = Money.fromApiAmount(available),
+                isNegative = isNegative,
+            ),
+            EnvelopeView(
+                id = "goal-1",
+                name = "Viagem",
+                purpose = "SAVINGS_TARGET",
+                baseAmount = Money.fromApiAmount("0.00"),
+                available = Money.fromApiAmount("900.00"),
                 isNegative = false,
+            ),
+            EnvelopeView(
+                id = "shared-1",
+                name = "Mercado da casa",
+                purpose = "FIXED",
+                baseAmount = Money.fromApiAmount("800.00"),
+                available = Money.fromApiAmount("500.00"),
+                isNegative = false,
+                role = EnvelopeRole.PARTICIPANT,
             ),
         ),
     )
 }
 
-private class FakeLedgerGateway(private val dashboard: FinancialDashboard) : LedgerGateway {
+private class FakeLedgerGateway(private var dashboard: FinancialDashboard) : LedgerGateway {
     var lastMonth: YearMonth? = null
     var loads = 0
     var failure: Throwable? = null
     var targetJustReached = false
+    var dashboardAfterEntry: FinancialDashboard? = null
     val createdEntries = mutableListOf<NewLedgerEntry>()
 
     override suspend fun loadDashboard(month: YearMonth?): FinancialDashboard {
@@ -136,6 +203,7 @@ private class FakeLedgerGateway(private val dashboard: FinancialDashboard) : Led
 
     override suspend fun createEntry(envelopeId: String, entry: NewLedgerEntry): LedgerEntryView {
         createdEntries += entry
+        dashboardAfterEntry?.let { dashboard = it }
         return LedgerEntryView(
             id = "entry-1",
             envelopeId = envelopeId,

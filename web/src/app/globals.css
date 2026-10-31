@@ -13,6 +13,8 @@
   --text-inverse: #f2f7f6;
   --border: #ccd8d6;
   --border-strong: #9fb1ae;
+  /* 5.03:1 sobre --surface (#fff); WCAG 1.4.11 ≥3:1 */
+  --border-control: #5f7370;
   --accent: #0b6b69;
   --accent-strong: #075653;
   --accent-soft: #d9efec;
@@ -29,13 +31,44 @@
   --purpose-limit: #0b6b69;
   --purpose-goal: #315fa8;
   --purpose-fixed: #a84d21;
+  /* 6.49:1 / 5.43:1 sobre --surface-muted */
+  --purpose-savings: #5c4d7a;
+  --purpose-annual: #7a5b1e;
   --overlay: rgba(9, 22, 23, 0.58);
+  --brand-panel: #0d1b1d;
+  --brand-panel-grid: rgba(84, 198, 192, 0.055);
+  --brand-panel-text: #f2f7f6;
+  --brand-panel-text-soft: #dce5e3;
+  --brand-panel-text-muted: #bac9c7;
+  --brand-panel-highlight: #ff8a6f;
+  --brand-mark: #54c6c0;
+  --on-brand-mark: #062826;
+  --sidebar-bg: #0d1b1d;
+  --sidebar-grid: rgba(84, 198, 192, 0.045);
+  --sidebar-border: #263b3e;
+  --sidebar-text: #f2f7f6;
+  --sidebar-text-muted: #b8c7c5;
+  --sidebar-text-subtle: #9eb2af;
+  --sidebar-text-soft: #a9bcba;
+  --sidebar-nav-icon: #6f8c89;
+  --sidebar-hover: #15282b;
+  --sidebar-active: #193236;
+  --sidebar-active-border: #31565a;
+  --sidebar-divider: #294044;
+  --sidebar-surface: #172b2e;
+  /* QR precisa de fundo claro nos dois temas para o contraste do código */
+  --qr-canvas: #ffffff;
   --shadow-sm: 0 0.5rem 1.5rem rgba(16, 32, 31, 0.08);
   --shadow-lg: 0 1.5rem 4rem rgba(16, 32, 31, 0.18);
   --radius-xs: 0.25rem;
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1.125rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 :root[data-theme="dark"] {
@@ -52,6 +85,8 @@
   --text-inverse: #10201f;
   --border: #2b3d41;
   --border-strong: #52676b;
+  /* 4.12:1 sobre --surface (#111d20); WCAG 1.4.11 ≥3:1 */
+  --border-control: #6a8084;
   --accent: #54c6c0;
   --accent-strong: #78d7d2;
   --accent-soft: #153b3d;
@@ -68,6 +103,10 @@
   --purpose-limit: #54c6c0;
   --purpose-goal: #82adff;
   --purpose-fixed: #ffac73;
+  /* 5.96:1 / 7.33:1 sobre --surface-muted */
+  --purpose-savings: #b39ddb;
+  --purpose-annual: #e0b35a;
+  --qr-canvas: #ffffff;
   --overlay: rgba(2, 8, 9, 0.76);
   --shadow-sm: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
   --shadow-lg: 0 1.5rem 4rem rgba(0, 0, 0, 0.42);
@@ -79,7 +118,7 @@ body {
   min-height: 100%;
   color: var(--text-primary);
   background: var(--background);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

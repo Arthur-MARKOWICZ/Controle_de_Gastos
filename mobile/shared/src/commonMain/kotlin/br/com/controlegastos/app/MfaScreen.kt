@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -61,11 +62,11 @@ fun MfaLoginScreen(
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(
                             onClick = { recoveryMode = false; code = ""; message = null },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).semantics { selected = !recoveryMode },
                         ) { Text("Código do app") }
                         TextButton(
                             onClick = { recoveryMode = true; code = ""; message = null },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).semantics { selected = recoveryMode },
                         ) { Text("Código de recuperação") }
                     }
                     OutlinedTextField(
@@ -97,6 +98,7 @@ fun MfaAccountPanel(
     onDisable: (password: String, onResult: (String?) -> Unit) -> Unit,
     onRegenerateCodes: (password: String, onResult: (List<String>?, String?) -> Unit) -> Unit,
     onDone: () -> Unit,
+    onShareText: (String) -> Unit = {},
 ) {
     var action by remember { mutableStateOf<String?>(null) }
     var password by remember { mutableStateOf("") }
@@ -130,15 +132,19 @@ fun MfaAccountPanel(
                                 modifier = Modifier.padding(bottom = 12.dp),
                             )
                             recoveryCodes?.forEach { code -> Text(code, fontWeight = FontWeight.Bold) }
+                            TextButton(
+                                onClick = { onShareText(recoveryCodes.orEmpty().joinToString("\n")) },
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(TouchTarget),
+                            ) { Text("Compartilhar códigos") }
                             Button(
                                 onClick = { recoveryCodes = null },
-                                modifier = Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp),
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(52.dp),
                             ) { Text("Concluído") }
                         }
 
                         action == null -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { action = "regenerate" }, modifier = Modifier.fillMaxWidth()) {
-                                Text("Gerar novos recovery codes")
+                                Text("Gerar novos códigos de recuperação")
                             }
                             TextButton(onClick = { action = "disable" }, modifier = Modifier.fillMaxWidth()) {
                                 Text("Desativar MFA")
@@ -191,10 +197,12 @@ fun MfaSettingsScreen(
     onConfirmEnrollment: (code: String, onResult: (List<String>?, String?) -> Unit) -> Unit,
     onComplete: () -> Unit,
     qrImageContent: @Composable (dataUri: String) -> Unit,
+    onShareText: (String) -> Unit = {},
 ) {
     var enrollment by remember { mutableStateOf<MfaEnrollmentStart?>(null) }
     var recoveryCodes by remember { mutableStateOf<List<String>?>(null) }
     var password by remember { mutableStateOf("") }
+    var enrollmentPassword by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -222,9 +230,13 @@ fun MfaSettingsScreen(
                                 modifier = Modifier.padding(bottom = 12.dp),
                             )
                             recoveryCodes?.forEach { recoveryCode -> Text(recoveryCode, fontWeight = FontWeight.Bold) }
+                            TextButton(
+                                onClick = { onShareText(recoveryCodes.orEmpty().joinToString("\n")) },
+                                modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(TouchTarget),
+                            ) { Text("Compartilhar códigos") }
                             Button(
                                 onClick = onComplete,
-                                modifier = Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp),
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).height(52.dp),
                             ) { Text("Já guardei meus códigos, entrar novamente") }
                         }
 
@@ -247,6 +259,24 @@ fun MfaSettingsScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.bodySmall,
                                 )
+                                TextButton(
+                                    enabled = !busy && enrollmentPassword.isNotBlank(),
+                                    onClick = {
+                                        busy = true; message = null
+                                        onStartEnrollment(enrollmentPassword) { start, error ->
+                                            busy = false
+                                            if (start != null) {
+                                                enrollment = start
+                                                code = ""
+                                            } else {
+                                                message = error
+                                                enrollment = null
+                                                enrollmentPassword = ""
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(TouchTarget),
+                                ) { Text(if (busy) "Gerando…" else "Gerar novo QR Code") }
                                 OutlinedTextField(
                                     value = code,
                                     onValueChange = { code = it },
@@ -263,7 +293,12 @@ fun MfaSettingsScreen(
                                         onConfirmEnrollment(code) { codes, error ->
                                             busy = false
                                             code = ""
-                                            if (codes != null) recoveryCodes = codes else message = error
+                                            if (codes != null) {
+                                                recoveryCodes = codes
+                                                enrollmentPassword = ""
+                                            } else {
+                                                message = error
+                                            }
                                         }
                                     },
                                     modifier = Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp),
@@ -291,10 +326,16 @@ fun MfaSettingsScreen(
                                 enabled = !busy && password.isNotBlank(),
                                 onClick = {
                                     busy = true; message = null
-                                    onStartEnrollment(password) { start, error ->
+                                    val currentPassword = password
+                                    onStartEnrollment(currentPassword) { start, error ->
                                         busy = false
                                         password = ""
-                                        if (start != null) enrollment = start else message = error
+                                        if (start != null) {
+                                            enrollment = start
+                                            enrollmentPassword = currentPassword
+                                        } else {
+                                            message = error
+                                        }
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp),

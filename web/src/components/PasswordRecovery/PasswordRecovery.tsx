@@ -3,9 +3,12 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import styles from "./PasswordRecovery.module.css";
+import { Notice } from "../ui/Notice";
 
 type RequestProps = { onRequest(email: string): Promise<void> };
 type ResetProps = { onReset(token: string, password: string): Promise<void> };
+
+const INVALID_LINK = "Este link é inválido ou expirou. Solicite uma nova recuperação.";
 
 export function PasswordRecoveryRequest({ onRequest }: RequestProps) {
   const [email, setEmail] = useState("");
@@ -26,7 +29,7 @@ export function PasswordRecoveryRequest({ onRequest }: RequestProps) {
   }
 
   return <RecoveryFrame title="Recupere sua senha" description="Informe seu e-mail. Se houver uma conta para ele, enviaremos um link seguro para redefinir a senha.">
-    {sent ? <p className={styles.notice} role="status">Se houver uma conta para este e-mail, enviaremos as instruções em alguns minutos.</p> :
+    {sent ? <Notice tone="success">Se houver uma conta para este e-mail, enviaremos as instruções em alguns minutos.</Notice> :
       <form className={styles.form} onSubmit={submit}>
         <label htmlFor="recovery-email">E-mail</label>
         <input id="recovery-email" type="email" autoComplete="email" maxLength={254} required value={email} onChange={(event) => setEmail(event.target.value)} />
@@ -42,6 +45,7 @@ export function PasswordReset({ onReset }: ResetProps) {
   const [confirmation, setConfirmation] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.slice(1));
@@ -56,26 +60,27 @@ export function PasswordReset({ onReset }: ResetProps) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
+    setMessage(null);
+    setError(null);
     if (password !== confirmation) {
-      setMessage("As senhas precisam ser iguais.");
+      setError("As senhas precisam ser iguais.");
       return;
     }
     setBusy(true);
-    setMessage(null);
     try {
       await onReset(token, password);
       setMessage("Senha alterada. Entre novamente com a nova senha.");
       setPassword("");
       setConfirmation("");
     } catch {
-      setMessage("Este link é inválido ou expirou. Solicite uma nova recuperação.");
+      setError(INVALID_LINK);
     } finally {
       setBusy(false);
     }
   }
 
   return <RecoveryFrame title="Defina uma nova senha" description="O link é válido por 15 minutos e pode ser usado uma única vez.">
-    {!token ? <p className={styles.notice} role="status">Este link é inválido ou expirou. Solicite uma nova recuperação.</p> :
+    {!token ? <Notice tone="danger">{INVALID_LINK}</Notice> :
       <form className={styles.form} onSubmit={submit}>
         <label htmlFor="new-password">Nova senha</label>
         <input id="new-password" type="password" autoComplete="new-password" minLength={12} maxLength={128} required value={password} onChange={(event) => setPassword(event.target.value)} />
@@ -84,7 +89,8 @@ export function PasswordReset({ onReset }: ResetProps) {
         <p className={styles.hint}>Use de 12 a 128 caracteres.</p>
         <button type="submit" disabled={busy}>{busy ? "Alterando…" : "Alterar senha"}</button>
       </form>}
-    {message && <p className={styles.notice} role="status">{message}</p>}
+    {error && <Notice tone="danger">{error}</Notice>}
+    {message && <Notice tone="success">{message}</Notice>}
     <Link className={styles.back} href="/">Voltar para entrar</Link>
   </RecoveryFrame>;
 }

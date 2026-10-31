@@ -3,16 +3,29 @@
 import { useState } from "react";
 import { useAuth } from "../../auth/auth-context";
 import { createApiClient, ApiError, type EnvelopeDTO } from "../../lib/api";
-import { formatBRLInputMask, maskToPlain } from "../../lib/money";
+import { formatBRL, formatBRLInputMask, maskToPlain, subtractBRL } from "../../lib/money";
 import { todaySaoPaulo } from "../../lib/dates";
+import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
+import { Notice } from "../ui/Notice";
 import styles from "../EnvelopeForm/EnvelopeForm.module.css";
+
+export type ExpenseResult = { targetJustReached: boolean; balanceAfter: string | null };
 
 type Props = {
   envelope: EnvelopeDTO;
   kind?: "EXPENSE" | "CONTRIBUTION";
-  onSuccess(targetJustReached?: boolean): void;
+  onSuccess(result: ExpenseResult): void;
   onCancel(): void;
 };
+
+function isOverdrawn(balanceAfter: string | null) {
+  return balanceAfter?.startsWith("-") ?? false;
+}
+
+export function overdraftNotice({ balanceAfter }: ExpenseResult) {
+  return balanceAfter && isOverdrawn(balanceAfter) ? `. A verba ficou com saldo negativo de ${formatBRL(balanceAfter)}` : "";
+}
 
 export function ExpenseForm({ envelope, kind = "EXPENSE", onSuccess, onCancel }: Props) {
   const { client } = useAuth();
@@ -22,6 +35,8 @@ export function ExpenseForm({ envelope, kind = "EXPENSE", onSuccess, onCancel }:
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const balanceAfter = kind === "EXPENSE" ? subtractBRL(envelope.available.amount, maskToPlain(amountMask)) : null;
+  const overdrawn = isOverdrawn(balanceAfter);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,7 +48,7 @@ export function ExpenseForm({ envelope, kind = "EXPENSE", onSuccess, onCancel }:
     setBusy(true);
     try {
       const entry = await api.createEntry(envelope.id, { kind, amount: { amount: plain, currency: "BRL" }, occurredAt, description: description.trim() || null });
-      onSuccess(entry.targetJustReached);
+      onSuccess({ targetJustReached: entry.targetJustReached ?? false, balanceAfter });
     } catch (err) {
       if (err instanceof ApiError) setError(err.detail || `Não foi possível registrar o ${kind === "EXPENSE" ? "gasto" : "aporte"}`);
       else setError("Erro inesperado");
@@ -42,18 +57,39 @@ export function ExpenseForm({ envelope, kind = "EXPENSE", onSuccess, onCancel }:
 
   return (
     <form onSubmit={submit} className={styles.form}>
-      {error && <p role="alert" className={styles.error}>{error}</p>}
+      {error && <Notice tone="danger">{error}</Notice>}
       <p className={styles.context}>Verba: <strong>{envelope.name}</strong></p>
-      <label htmlFor="expense-amount">Valor (BRL)</label>
-      <input id="expense-amount" inputMode="decimal" value={amountMask} onChange={e => setAmountMask(formatBRLInputMask(e.target.value))} placeholder="0,00" required aria-describedby="expense-help" />
-      <span id="expense-help" className={styles.help}>Ex: 120,00 será enviado como 120.00</span>
-      <label htmlFor="expense-date">Data</label>
-      <input id="expense-date" type="date" value={occurredAt} onChange={e => setOccurredAt(e.target.value)} required max={todaySaoPaulo()} />
-      <label htmlFor="expense-desc">Descrição (opcional)</label>
-      <input id="expense-desc" value={description} onChange={e => setDescription(e.target.value)} maxLength={140} placeholder={kind === "EXPENSE" ? "Ex: Posto Avenida" : "Ex: Reserva de setembro"} />
+      <Field id="expense-amount" label="Valor (BRL)" hint="Use vírgula para centavos (ex.: 120,00).">
+        <input
+          inputMode="decimal"
+          value={amountMask}
+          onChange={e => setAmountMask(formatBRLInputMask(e.target.value))}
+          placeholder="0,00"
+          required
+        />
+      </Field>
+      {kind === "EXPENSE" && (
+        <div aria-live="polite" className={overdrawn ? styles.balancePreviewNegative : styles.balancePreview}>
+          {balanceAfter && <p>Saldo após o gasto: {formatBRL(balanceAfter)}</p>}
+          {overdrawn && <p>A verba ficará com saldo negativo. O registro continua permitido.</p>}
+        </div>
+      )}
+      <Field id="expense-date" label="Data">
+        <input type="date" value={occurredAt} onChange={e => setOccurredAt(e.target.value)} required max={todaySaoPaulo()} />
+      </Field>
+      <Field id="expense-desc" label="Descrição (opcional)">
+        <input
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          maxLength={140}
+          placeholder={kind === "EXPENSE" ? "Ex: Posto Avenida" : "Ex: Reserva de setembro"}
+        />
+      </Field>
       <div className={styles.actions}>
-        <button type="button" onClick={onCancel} disabled={busy}>Cancelar</button>
-        <button type="submit" disabled={busy} className={styles.primary}>{busy ? "Registrando…" : kind === "EXPENSE" ? "Registrar gasto" : "Registrar aporte"}</button>
+        <Button variant="secondary" onClick={onCancel} disabled={busy}>Cancelar</Button>
+        <Button type="submit" busy={busy}>
+          {busy ? "Registrando…" : kind === "EXPENSE" ? "Registrar gasto" : "Registrar aporte"}
+        </Button>
       </div>
     </form>
   );

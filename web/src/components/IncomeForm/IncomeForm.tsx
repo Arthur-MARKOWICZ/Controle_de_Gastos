@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useAuth } from "../../auth/auth-context";
 import { ApiError, createApiClient } from "../../lib/api";
 import { formatBRL, formatBRLInputMask, maskToPlain } from "../../lib/money";
+import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
 import styles from "./IncomeForm.module.css";
 
 type Props = {
@@ -27,9 +29,6 @@ export function IncomeForm({ initialAmount, onSuccess, onCancel }: Props) {
       setError("Valor deve ter duas casas decimais, ex: 5.000,00");
       return;
     }
-    if (plain === "0.00") {
-      // 0 is allowed per backend (non-negative), but show help
-    }
     setBusy(true);
     try {
       await api.putIncome(plain);
@@ -45,7 +44,7 @@ export function IncomeForm({ initialAmount, onSuccess, onCancel }: Props) {
             setError(err.detail || "Renda menor que a soma das verbas-base");
           }
         } else if (err.status === 400) {
-          setError("Valor inválido. Use formato 5000,00 com duas casas, sem arredondamento (ex: 10.999 é inválido)");
+          setError("Valor inválido. Use o formato 5.000,00 com exatamente duas casas decimais.");
         } else {
           setError(err.detail || "Não foi possível salvar a renda");
         }
@@ -61,23 +60,25 @@ export function IncomeForm({ initialAmount, onSuccess, onCancel }: Props) {
     <form onSubmit={submit} className={styles.form} aria-labelledby="income-form-title">
       <h3 id="income-form-title" className={styles.title}>Configurar renda mensal</h3>
       <p className={styles.supporting}>
-        Vigência é o mês corrente em <code>America/Sao_Paulo</code>. Repetir o mesmo valor é idempotente e não cria nova revisão.
+        Vale para o mês atual. Salvar o mesmo valor de novo não cria alteração no histórico.
       </p>
-      {error && <p role="alert" className={styles.error}>{error}</p>}
-      <label htmlFor="income-amount">Valor da renda (BRL)</label>
-      <input
+      <Field
         id="income-amount"
-        inputMode="decimal"
-        value={amountMask}
-        onChange={(e) => setAmountMask(formatBRLInputMask(e.target.value))}
-        placeholder="5.000,00"
-        aria-describedby="income-help"
-        autoComplete="off"
-      />
-      <span id="income-help" className={styles.help}>Digite com vírgula. Será enviado como 5000.00 com duas casas. Ex: 10.999 é rejeitado (sem arredondamento).</span>
+        label="Valor da renda (BRL)"
+        hint="Use vírgula para centavos (ex.: 5.000,00). Valores com mais de duas casas não são aceitos."
+        error={error}
+      >
+        <input
+          inputMode="decimal"
+          value={amountMask}
+          onChange={(e) => setAmountMask(formatBRLInputMask(e.target.value))}
+          placeholder="5.000,00"
+          autoComplete="off"
+        />
+      </Field>
       <div className={styles.actions}>
-        <button type="button" onClick={onCancel} disabled={busy}>Cancelar</button>
-        <button type="submit" disabled={busy} className={styles.primary}>{busy ? "Salvando…" : "Salvar renda"}</button>
+        <Button variant="secondary" onClick={onCancel} disabled={busy}>Cancelar</Button>
+        <Button type="submit" busy={busy}>{busy ? "Salvando…" : "Salvar renda"}</Button>
       </div>
     </form>
   );

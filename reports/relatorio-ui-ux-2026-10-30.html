@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<title>Relatório de UI/UX — Controle de Gastos / Verbas</title>
+<style>
+@page { size: A4; margin: 18mm 16mm; }
+* { box-sizing: border-box; }
+body { font-family: "Liberation Sans", "DejaVu Sans", Arial, sans-serif; color: #1a2423; font-size: 10.5pt; line-height: 1.45; }
+h1,h2,h3,h4 { font-family: "Liberation Sans", Arial, sans-serif; color: #0b3d38; page-break-after: avoid; }
+h1 { font-size: 22pt; margin: 0 0 .4em; }
+h2 { font-size: 14pt; margin: 1.4em 0 .5em; border-bottom: 2px solid #146c43; padding-bottom: .2em; }
+h3 { font-size: 11.5pt; margin: 1em 0 .35em; }
+.cover { text-align: left; padding: 2cm 0 1cm; }
+.cover .meta { color: #445; font-size: 10pt; }
+.badge { display: inline-block; padding: .1em .45em; border-radius: 3px; font-size: 8.5pt; font-weight: 700; }
+.p0 { background: #fde8e8; color: #8a1f1f; }
+.p1 { background: #fff3cd; color: #7a5b00; }
+.p2 { background: #e7f1ff; color: #1a4b8c; }
+.p3 { background: #eef1f0; color: #445; }
+.sev-alta { color: #8a1f1f; font-weight: 700; }
+.sev-media { color: #7a5b00; font-weight: 700; }
+.sev-baixa { color: #445; font-weight: 700; }
+table { width: 100%; border-collapse: collapse; margin: .6em 0 1em; font-size: 9pt; }
+th, td { border: 1px solid #c9d4d1; padding: .35em .45em; vertical-align: top; text-align: left; }
+th { background: #e8f2ef; }
+.finding { page-break-inside: avoid; margin: 0 0 1em; padding: .7em .8em; border: 1px solid #d5e0dd; border-left: 4px solid #146c43; border-radius: 4px; }
+.finding h3 { margin-top: 0; }
+.finding dl { display: grid; grid-template-columns: 9em 1fr; gap: .2em .6em; margin: .4em 0 0; font-size: 9.5pt; }
+.finding dt { font-weight: 700; color: #355; }
+.finding dd { margin: 0; }
+ul { margin: .3em 0 .6em 1.2em; }
+.note { background: #f4f7f6; border-left: 3px solid #54c6c0; padding: .6em .8em; margin: .8em 0; }
+.small { font-size: 9pt; color: #445; }
+</style>
+</head>
+<body>
+<section class="cover">
+  <p class="small">Auditoria de interface e experiência · Skill analise-ui-ux</p>
+  <h1>Relatório de UI/UX</h1>
+  <p><strong>Projeto:</strong> Controle de gastos e verbas (monorepo web + mobile + API)</p>
+  <p class="meta">
+    Data: 2026-10-30<br/>
+    Branch: main @ 0629907<br/>
+    Ambiente: inspeção estática de código (web Next.js 16 / React 19; mobile KMP Compose)<br/>
+    Tipo de inspeção: <strong>estática</strong> — interface não foi renderizada em navegador nem emulador nesta auditoria<br/>
+    Idioma: Português (Brasil)
+  </p>
+</section>
+
+<h2>1. Resumo executivo</h2>
+<p>O produto já comunica bem a regra central “alerta, não bloqueio”, tem tokens de tema claro/escuro, máscara BRL cuidadosa e vários padrões de a11y parciais. Porém há fricções objetivas em fluxos principais: <strong>aporte mal rotulado no dashboard</strong>, <strong>login MFA quebrado em subrotas</strong>, <strong>erros pintados de sucesso</strong>, <strong>estouro pouco perceptível no lançamento web</strong> e <strong>mobile sem atalho global de gasto</strong> — canal cujo propósito é o lançamento rápido.</p>
+<p>Decisões recomendadas agora: corrigir UX-001 a UX-005 (P0) antes de expandir superfície visual; em seguida auth/OAuth/MFA e a11y de Dialog/relatórios (P1). Não redesenhar o sistema visual por estética.</p>
+<div class="note"><strong>Limitação:</strong> conclusões visuais (quebra de layout, contraste percebido em contexto, TalkBack real) têm confiança reduzida. Hipóteses estão marcadas nos achados.</div>
+
+<h2>2. Escopo e metodologia</h2>
+<ul>
+  <li>Documentos: fundacao-tecnica.md, ADR-007 (gastos/UX), ADR-013 (tema), AGENTS.md, README.</li>
+  <li>Web: rotas em web/src/app, componentes em web/src/components, tokens globals.css, auth.</li>
+  <li>Mobile: shared Compose (VerbasApp, Navigation, Forms, telas), androidApp pontualmente.</li>
+  <li>Heurísticas de Nielsen + usabilidade, IA, a11y (WCAG 2.2 AA como referência, sem declarar conformidade), responsividade, microcopy.</li>
+  <li>Não executado: browser, emulador Android, axe em runtime, Lighthouse, teste com usuários, iOS.</li>
+  <li>Git local preservado; nenhum código alterado; gh auth inválido (issues só após aprovação + reauth).</li>
+</ul>
+
+<h2>3. Mapa das jornadas analisadas</h2>
+<table>
+  <tr><th>Jornada</th><th>Web</th><th>Mobile</th></tr>
+  <tr><td>Autenticar / MFA / OAuth / recuperação</td><td>AuthScreen, Mfa*, PasswordRecovery, oauth/callback</td><td>AuthScreen, MfaScreen, Security</td></tr>
+  <tr><td>Configurar renda</td><td>Dashboard / IncomeForm</td><td>Visão geral / Forms</td></tr>
+  <tr><td>Criar e gerir verbas/metas/anuais</td><td>/verbas /metas /gastos-anuais</td><td>Abas Verbas/Metas + Mais</td></tr>
+  <tr><td>Registrar gasto / aporte (incl. overspend)</td><td>EnvelopeCard + ExpenseForm</td><td>EnvelopeCard + EntryFormDialog</td></tr>
+  <tr><td>Histórico / editar / excluir</td><td>/gastos HistoryPage</td><td>Aba Gastos</td></tr>
+  <tr><td>Relatórios exportáveis</td><td>/relatorios</td><td>Mais → Relatórios</td></tr>
+  <tr><td>Segurança / tema / glossário</td><td>/configuracoes /conta/seguranca / Glossary</td><td>Mais + Segurança + tema</td></tr>
+</table>
+
+<h2>4. Matriz priorizada dos achados</h2>
+<table>
+  <tr><th>ID</th><th>Título</th><th>Severidade</th><th>Prioridade</th><th>Esforço</th><th>Tipo</th></tr>
+  <tr><td>UX-001</td><td>&quot;Aportar&quot; no dashboard registra gasto (EXPENSE) em vez de aporte</td><td class='sev-alta'>Alta</td><td><span class='badge p0'>P0</span></td><td>S</td><td>Usabilidade</td></tr><tr><td>UX-002</td><td>Sessão expirada em subrotas não conclui login com MFA</td><td class='sev-alta'>Alta</td><td><span class='badge p0'>P0</span></td><td>M</td><td>Usabilidade</td></tr><tr><td>UX-003</td><td>Erros de autenticação e recuperação aparecem com estilo de sucesso (verde)</td><td class='sev-alta'>Alta</td><td><span class='badge p0'>P0</span></td><td>XS</td><td>Visual</td></tr><tr><td>UX-004</td><td>Alerta de estouro fraco e sem feedback no momento do lançamento (web)</td><td class='sev-alta'>Alta</td><td><span class='badge p0'>P0</span></td><td>M</td><td>Feedback</td></tr><tr><td>UX-005</td><td>Mobile sem ação global de novo gasto (objetivo do canal)</td><td class='sev-alta'>Alta</td><td><span class='badge p0'>P0</span></td><td>M</td><td>Usabilidade</td></tr><tr><td>UX-006</td><td>Data do lançamento mobile exige AAAA-MM-DD com teclado numérico</td><td class='sev-alta'>Alta</td><td><span class='badge p1'>P1</span></td><td>S</td><td>Usabilidade</td></tr><tr><td>UX-007</td><td>Callback OAuth sem recuperação e risco de loading infinito</td><td class='sev-alta'>Alta</td><td><span class='badge p1'>P1</span></td><td>S</td><td>Feedback</td></tr><tr><td>UX-008</td><td>Aviso após desativar MFA diz que MFA foi ativado</td><td class='sev-alta'>Alta</td><td><span class='badge p1'>P1</span></td><td>XS</td><td>Conteúdo</td></tr><tr><td>UX-009</td><td>Dialog web não restaura foco ao trigger e foca o botão Fechar</td><td class='sev-alta'>Alta</td><td><span class='badge p1'>P1</span></td><td>S</td><td>Acessibilidade</td></tr><tr><td>UX-010</td><td>Edição de gasto no histórico falha em silêncio; feedback atrás do dialog</td><td class='sev-alta'>Alta</td><td><span class='badge p1'>P1</span></td><td>S</td><td>Feedback</td></tr><tr><td>UX-011</td><td>Botão de exportar relatório com contraste insuficiente no tema escuro</td><td class='sev-alta'>Alta</td><td><span class='badge p1'>P1</span></td><td>XS</td><td>Acessibilidade</td></tr><tr><td>UX-012</td><td>Ícones da barra inferior mobile são glifos Unicode sem semântica</td><td class='sev-alta'>Alta</td><td><span class='badge p1'>P1</span></td><td>S</td><td>Acessibilidade</td></tr><tr><td>UX-013</td><td>Status MFA falho aparece como &quot;Desativada&quot; (web e mobile)</td><td class='sev-alta'>Alta</td><td><span class='badge p1'>P1</span></td><td>S</td><td>Confiança</td></tr><tr><td>UX-014</td><td>Refresh após mutação esconde conteúdo (flash/scroll) na web e no mobile</td><td class='sev-média'>Média</td><td><span class='badge p1'>P1</span></td><td>M</td><td>Feedback</td></tr><tr><td>UX-015</td><td>Navegação mobile web: 7 itens em grade de 5 colunas</td><td class='sev-média'>Média</td><td><span class='badge p2'>P2</span></td><td>M</td><td>Responsividade</td></tr><tr><td>UX-016</td><td>Paginação do histórico mostra &quot;Página 0&quot;</td><td class='sev-média'>Média</td><td><span class='badge p2'>P2</span></td><td>XS</td><td>Conteúdo</td></tr><tr><td>UX-017</td><td>Sem confirmação de sucesso no lançamento comum no mobile</td><td class='sev-média'>Média</td><td><span class='badge p2'>P2</span></td><td>XS</td><td>Feedback</td></tr><tr><td>UX-018</td><td>Cobertura semântica insuficiente no Compose (headings/live regions)</td><td class='sev-média'>Média</td><td><span class='badge p2'>P2</span></td><td>M</td><td>Acessibilidade</td></tr><tr><td>UX-019</td><td>Formulários e glossário com jargão técnico; glossário só no Dashboard</td><td class='sev-média'>Média</td><td><span class='badge p2'>P2</span></td><td>S</td><td>Conteúdo</td></tr><tr><td>UX-020</td><td>UI de compartilhamento de verbas ausente</td><td class='sev-média'>Média</td><td><span class='badge p2'>P2</span></td><td>L</td><td>Navegação</td></tr><tr><td>UX-021</td><td>Enrolment MFA sem regenerar QR; códigos sem copiar/baixar</td><td class='sev-média'>Média</td><td><span class='badge p2'>P2</span></td><td>S</td><td>Usabilidade</td></tr><tr><td>UX-022</td><td>document.title fixo; títulos de TopAppBar mobile não mudam por tela</td><td class='sev-baixa'>Baixa</td><td><span class='badge p3'>P3</span></td><td>S</td><td>Acessibilidade</td></tr><tr><td>UX-023</td><td>Criar compromisso fixo / naturezas fora da página Verbas</td><td class='sev-média'>Média</td><td><span class='badge p2'>P2</span></td><td>S</td><td>Usabilidade</td></tr>
+</table>
+
+<h2>5. Detalhamento dos achados</h2>
+
+    <section class="finding" id="UX-001">
+      <h3>UX-001 — &quot;Aportar&quot; no dashboard registra gasto (EXPENSE) em vez de aporte</h3>
+      <p><span class="badge p0">P0</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: S · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web · Dashboard.tsx:165-166, EnvelopeCard.tsx:80-82, MetasPage passa kind=CONTRIBUTION</dd>
+        <dt>Tipo</dt><dd>Usabilidade / Conteúdo</dd>
+        <dt>Evidência</dt><dd>No dashboard, EnvelopeCard rotula a ação como &quot;Aportar&quot; para GOAL/SAVINGS_TARGET, mas ExpenseForm é aberto sem kind=&quot;CONTRIBUTION&quot;. Em MetasPage o kind correto é passado. Avaliação estática do código.</dd>
+        <dt>Problema</dt><dd>Usuário acredita estar aportando e pode registrar um gasto na meta.</dd>
+        <dt>Impacto</dt><dd>Distorce saldo e propósito da verba; quebra confiança no modelo de metas.</dd>
+        <dt>Recomendação</dt><dd>Passar kind=&quot;CONTRIBUTION&quot; no Dialog do Dashboard quando a natureza for GOAL ou SAVINGS_TARGET; alinhar título e feedback (&quot;Aporte registrado&quot;).</dd>
+        <dt>Aceite</dt><dd><ul><li>Botão Aportar no dashboard cria CONTRIBUTION</li><li>Título e feedback usam linguagem de aporte</li><li>Teste automatizado cobre o kind enviado</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta — código prova o kind omitido; efeito no backend a validar</dd>
+        <dt>Validação</dt><dd>Teste unitário + verificação manual no dashboard e em Metas</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-002">
+      <h3>UX-002 — Sessão expirada em subrotas não conclui login com MFA</h3>
+      <p><span class="badge p0">P0</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: M · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web · verbas/page.tsx:11-12 e rotas irmãs; só page.tsx trata mfa-pending</dd>
+        <dt>Tipo</dt><dd>Usabilidade / Navegação</dd>
+        <dt>Evidência</dt><dd>Subrotas renderizam AuthScreen quando state !== authenticated. Após login com MFA, state vira mfa-pending e a tela permanece AuthScreen sem passo MFA. Avaliação estática.</dd>
+        <dt>Problema</dt><dd>Usuário com MFA não consegue reentrar a partir de /verbas, /gastos, etc.</dd>
+        <dt>Impacto</dt><dd>Bloqueio de tarefas principais após expiração de sessão.</dd>
+        <dt>Recomendação</dt><dd>Centralizar gate de autenticação (layout autenticado) ou tratar mfa-pending/mfa-recovery-setup em todas as rotas protegidas.</dd>
+        <dt>Aceite</dt><dd><ul><li>Login com MFA funciona a partir de qualquer rota protegida</li><li>OAuth disponível onde AuthScreen aparece</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Teste de integração do gate + manual com MFA</dd>
+        <dt>Dependências</dt><dd>Possível refactor leve do AuthProvider/layout</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-003">
+      <h3>UX-003 — Erros de autenticação e recuperação aparecem com estilo de sucesso (verde)</h3>
+      <p><span class="badge p0">P0</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: XS · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web · AuthScreen.module.css .notice; PasswordRecovery.module.css .notice</dd>
+        <dt>Tipo</dt><dd>Visual / Feedback</dd>
+        <dt>Evidência</dt><dd>.notice usa border/color/background de --success e é reutilizado para erros de login e links inválidos. Avaliação estática + tokens CSS.</dd>
+        <dt>Problema</dt><dd>Falha parece sucesso.</dd>
+        <dt>Impacto</dt><dd>Usuário pode achar que o login/recuperação funcionou e abandonar o fluxo.</dd>
+        <dt>Recomendação</dt><dd>Separar classes notice--error / notice--success; erros com role=alert e tokens --danger.</dd>
+        <dt>Aceite</dt><dd><ul><li>Erro visualmente distinto de sucesso</li><li>role=alert em erros</li><li>axe/manual confirma contraste</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Revisão visual light/dark + teste a11y</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-004">
+      <h3>UX-004 — Alerta de estouro fraco e sem feedback no momento do lançamento (web)</h3>
+      <p><span class="badge p0">P0</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: M · Confiança: Alta no código; impacto real é hipótese a validar com uso</p>
+      <dl>
+        <dt>Local</dt><dd>Web · EnvelopeCard statusText muted 0.75rem; ExpenseForm sem prévia de saldo; progress clamp a 0 quando negativo</dd>
+        <dt>Tipo</dt><dd>Feedback / Visual</dd>
+        <dt>Evidência</dt><dd>Status negativo em texto muted pequeno; barra de progresso com value 0 quando isNegative; pós-gasto só &quot;Gasto registrado&quot; sem menção a estouro. Avaliação estática.</dd>
+        <dt>Problema</dt><dd>Regra de produto (alerta, sem bloqueio) não é percebida no fluxo principal.</dd>
+        <dt>Impacto</dt><dd>Usuário estoura verba sem perceber; viola intenção do ADR-007/fundação.</dd>
+        <dt>Recomendação</dt><dd>Pré-visualizar saldo resultante no formulário; feedback pós-registro se isNegative; reforçar visual do alerta (não só cor); barra mostrar excedente ou estado &quot;estourado&quot;.</dd>
+        <dt>Aceite</dt><dd><ul><li>Prévia ou aviso claro antes/depois do gasto acima do saldo</li><li>Estado negativo legível sem depender só de cor</li><li>role=alert mantido</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta no código; impacto real é hipótese a validar com uso</dd>
+        <dt>Validação</dt><dd>Teste manual de overspend + teste de componente</dd>
+        <dt>Dependências</dt><dd>Contrato de resposta do ledger já expõe isNegative</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-005">
+      <h3>UX-005 — Mobile sem ação global de novo gasto (objetivo do canal)</h3>
+      <p><span class="badge p0">P0</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: M · Confiança: Alta quanto à ausência; impacto é hipótese de produto</p>
+      <dl>
+        <dt>Local</dt><dd>Mobile · VerbasApp.kt NavigationBar; EnvelopeCard TextButton Registrar</dd>
+        <dt>Tipo</dt><dd>Usabilidade / Arquitetura da informação</dd>
+        <dt>Evidência</dt><dd>Não há FAB nem atalho na TopAppBar. Registro exige localizar o card na lista. fundacao-tecnica.md define mobile como lançamento rápido.</dd>
+        <dt>Problema</dt><dd>Hábitos diários exigem mais esforço do que o canal promete.</dd>
+        <dt>Impacto</dt><dd>Risco de o lançamento manual não virar hábito (premissa aberta do produto).</dd>
+        <dt>Recomendação</dt><dd>FAB ou ação &quot;Novo gasto&quot; com seletor de verba, reutilizando EntryFormDialog.</dd>
+        <dt>Aceite</dt><dd><ul><li>Novo gasto acessível em ≤2 toques a partir da Visão geral</li><li>TalkBack anuncia a ação</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta quanto à ausência; impacto é hipótese de produto</dd>
+        <dt>Validação</dt><dd>Protótipo + teste de usabilidade curto (5 usuários)</dd>
+        <dt>Dependências</dt><dd>Lista de verbas disponíveis no mês</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-006">
+      <h3>UX-006 — Data do lançamento mobile exige AAAA-MM-DD com teclado numérico</h3>
+      <p><span class="badge p1">P1</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: S · Confiança: Alta no formato; comportamento do teclado é hipótese por fabricante</p>
+      <dl>
+        <dt>Local</dt><dd>Mobile · Forms.kt:74-86</dd>
+        <dt>Tipo</dt><dd>Usabilidade</dd>
+        <dt>Evidência</dt><dd>OutlinedTextField com KeyboardType.Number e rótulo Data (AAAA-MM-DD). Hífen pode faltar em teclados Android.</dd>
+        <dt>Problema</dt><dd>Corrigir data de ontem/hoje fica frágil ou impossível em alguns aparelhos.</dd>
+        <dt>Impacto</dt><dd>Fricção no lançamento diário; erros de data.</dd>
+        <dt>Recomendação</dt><dd>DatePicker Material3 e/ou atalhos Hoje/Ontem; exibir dd/mm/aaaa.</dd>
+        <dt>Aceite</dt><dd><ul><li>Usuário seleciona data sem digitar ISO</li><li>Validação de data futura permanece</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta no formato; comportamento do teclado é hipótese por fabricante</dd>
+        <dt>Validação</dt><dd>Teste em 2-3 teclados Android</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-007">
+      <h3>UX-007 — Callback OAuth sem recuperação e risco de loading infinito</h3>
+      <p><span class="badge p1">P1</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: S · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web · oauth/callback/page.tsx</dd>
+        <dt>Tipo</dt><dd>Feedback / Navegação</dd>
+        <dt>Evidência</dt><dd>Erro é &lt;main&gt;&lt;p&gt; sem link de retorno. Estado anônimo sem auth.error não tem ramo e permanece em &quot;Concluindo login…&quot;. Avaliação estática.</dd>
+        <dt>Problema</dt><dd>Falha de OAuth sem saída clara.</dd>
+        <dt>Impacto</dt><dd>Abandono do login social.</dd>
+        <dt>Recomendação</dt><dd>Tela de erro estilizada com CTA &quot;Voltar ao login&quot;; timeout/ramo para anônimo sem erro.</dd>
+        <dt>Aceite</dt><dd><ul><li>Sempre há caminho de volta</li><li>Nunca fica loading indefinido</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Teste manual forçando erro OAuth</dd>
+        <dt>Dependências</dt><dd>Fluxo OAuth</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-008">
+      <h3>UX-008 — Aviso após desativar MFA diz que MFA foi ativado</h3>
+      <p><span class="badge p1">P1</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: XS · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web · conta/seguranca/page.tsx:39-42; page.tsx notice=mfa-enabled</dd>
+        <dt>Tipo</dt><dd>Conteúdo / Confiança</dd>
+        <dt>Evidência</dt><dd>Ativar e desativar redirecionam para /?notice=mfa-enabled. Avaliação estática.</dd>
+        <dt>Problema</dt><dd>Mensagem contradiz a ação do usuário.</dd>
+        <dt>Impacto</dt><dd>Confusão sobre estado de segurança da conta.</dd>
+        <dt>Recomendação</dt><dd>Notices distintos (mfa-enabled / mfa-disabled) com copy correta.</dd>
+        <dt>Aceite</dt><dd><ul><li>Desativar mostra confirmação de desativação</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Teste E2E/manual MFA</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-009">
+      <h3>UX-009 — Dialog web não restaura foco ao trigger e foca o botão Fechar</h3>
+      <p><span class="badge p1">P1</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: S · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web · components/ui/Dialog.tsx:17-28,56-63</dd>
+        <dt>Tipo</dt><dd>Acessibilidade / Usabilidade</dd>
+        <dt>Evidência</dt><dd>Quando open=false o componente retorna null antes do efeito restaurar foco. Ao abrir, o primeiro focável é o botão ×.</dd>
+        <dt>Problema</dt><dd>Teclado/leitor perdem contexto; registrar gasto exige Tab extra.</dd>
+        <dt>Impacto</dt><dd>Barreira a11y e fricção no lançamento.</dd>
+        <dt>Recomendação</dt><dd>Manter &lt;dialog&gt; montado; restaurar foco no fechamento; focar o primeiro campo do formulário.</dd>
+        <dt>Aceite</dt><dd><ul><li>Foco volta ao botão que abriu</li><li>Ao abrir ExpenseForm, foco no campo Valor</li><li>axe/manual teclado OK</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Teste de teclado + RTL</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-010">
+      <h3>UX-010 — Edição de gasto no histórico falha em silêncio; feedback atrás do dialog</h3>
+      <p><span class="badge p1">P1</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: S · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web · HistoryPage.tsx:72-79</dd>
+        <dt>Tipo</dt><dd>Feedback</dd>
+        <dt>Evidência</dt><dd>Validação inválida faz return sem mensagem; catch seta feedback com dialog ainda aberto (feedback está atrás).</dd>
+        <dt>Problema</dt><dd>Usuário não sabe por que Salvar não funciona.</dd>
+        <dt>Impacto</dt><dd>Correção de lançamentos fica frustrante.</dd>
+        <dt>Recomendação</dt><dd>Mensagem de validação no formulário; busy no submit; fechar dialog só no sucesso ou mostrar erro dentro do dialog.</dd>
+        <dt>Aceite</dt><dd><ul><li>Valor inválido mostra erro no form</li><li>Erro de API visível com dialog aberto</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Teste de componente HistoryPage</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-011">
+      <h3>UX-011 — Botão de exportar relatório com contraste insuficiente no tema escuro</h3>
+      <p><span class="badge p1">P1</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: XS · Confiança: Alta (cálculo de contraste)</p>
+      <dl>
+        <dt>Local</dt><dd>Web · ReportsPage.module.css color:white sobre --accent #54c6c0</dd>
+        <dt>Tipo</dt><dd>Acessibilidade</dd>
+        <dt>Evidência</dt><dd>Contraste calculado ≈2,06:1 (WCAG AA exige 4,5:1 para texto). Avaliação por tokens CSS.</dd>
+        <dt>Problema</dt><dd>CTA principal ilegível no escuro.</dd>
+        <dt>Impacto</dt><dd>Barreira de leitura; falha de AA no fluxo web prioritário de relatórios.</dd>
+        <dt>Recomendação</dt><dd>Usar --on-accent ou cor de texto que atinja ≥4,5:1 nos dois temas.</dd>
+        <dt>Aceite</dt><dd><ul><li>Contraste ≥4,5:1 light e dark</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta (cálculo de contraste)</dd>
+        <dt>Validação</dt><dd>Medição de contraste</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-012">
+      <h3>UX-012 — Ícones da barra inferior mobile são glifos Unicode sem semântica</h3>
+      <p><span class="badge p1">P1</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: S · Confiança: Alta na ausência; render real é hipótese</p>
+      <dl>
+        <dt>Local</dt><dd>Mobile · VerbasApp.kt iconOf / Text(icon)</dd>
+        <dt>Tipo</dt><dd>Acessibilidade</dd>
+        <dt>Evidência</dt><dd>Símbolos ◎ ▤ ◈ ≡ ⋯ via Text; sem ícones vetoriais dedicados. Avaliação estática.</dd>
+        <dt>Problema</dt><dd>TalkBack e fontes do dispositivo podem falhar a comunicar a aba.</dd>
+        <dt>Impacto</dt><dd>Navegação principal menos acessível.</dd>
+        <dt>Recomendação</dt><dd>Material Icons / vector assets com contentDescription alinhada ao rótulo.</dd>
+        <dt>Aceite</dt><dd><ul><li>Cada aba tem ícone estável e nome acessível</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta na ausência; render real é hipótese</dd>
+        <dt>Validação</dt><dd>TalkBack em emulador</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-013">
+      <h3>UX-013 — Status MFA falho aparece como &quot;Desativada&quot; (web e mobile)</h3>
+      <p><span class="badge p1">P1</span>
+         Severidade: <span class="sev-alta">Alta</span> · Esforço: S · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web SecuritySettings.tsx; Mobile SecurityScreen.kt catch → DISABLED</dd>
+        <dt>Tipo</dt><dd>Confiança / Feedback</dd>
+        <dt>Evidência</dt><dd>Falha de rede/consulta é convertida em status DISABLED. Avaliação estática.</dd>
+        <dt>Problema</dt><dd>Conta protegida pode parecer desprotegida (ou o contrário no fluxo de ativação).</dd>
+        <dt>Impacto</dt><dd>Decisão de segurança baseada em informação falsa.</dd>
+        <dt>Recomendação</dt><dd>Estado de erro explícito com retry; nunca inferir DISABLED em falha.</dd>
+        <dt>Aceite</dt><dd><ul><li>Erro de carga mostra alerta e retry</li><li>Nunca exibe Desativada quando a consulta falhou</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Simular falha de rede na tela Segurança</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-014">
+      <h3>UX-014 — Refresh após mutação esconde conteúdo (flash/scroll) na web e no mobile</h3>
+      <p><span class="badge p1">P1</span>
+         Severidade: <span class="sev-média">Média</span> · Esforço: M · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web Dashboard/Verbas setLoading(true); Mobile FinanceDashboardController → Loading</dd>
+        <dt>Tipo</dt><dd>Feedback / Desempenho percebido</dd>
+        <dt>Evidência</dt><dd>Cada gasto/arquivamento troca UI por skeleton/spinner e perde scroll. Avaliação estática.</dd>
+        <dt>Problema</dt><dd>Lançamento rápido parece lento e desorienta.</dd>
+        <dt>Impacto</dt><dd>Reduz satisfação no hábito diário.</dd>
+        <dt>Recomendação</dt><dd>Stale-while-revalidate: manter dados anteriores com indicador discreto de atualização.</dd>
+        <dt>Aceite</dt><dd><ul><li>Lista permanece visível durante refresh pós-gasto</li><li>Scroll não reseta sem necessidade</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Teste manual de sequência de 3 gastos</dd>
+        <dt>Dependências</dt><dd>Controllers/hooks de dados</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-015">
+      <h3>UX-015 — Navegação mobile web: 7 itens em grade de 5 colunas</h3>
+      <p><span class="badge p2">P2</span>
+         Severidade: <span class="sev-média">Média</span> · Esforço: M · Confiança: Média (layout real não renderizado)</p>
+      <dl>
+        <dt>Local</dt><dd>Web · AppShell.module.css nav grid repeat(5,1fr); 7 destinos</dd>
+        <dt>Tipo</dt><dd>Responsividade</dd>
+        <dt>Evidência</dt><dd>Itens: Visão geral, Verbas, Metas, Gastos anuais, Gastos, Relatórios, Configurações. Avaliação estática; quebra visual não renderizada.</dd>
+        <dt>Problema</dt><dd>Rótulos longos competem por espaço em telas estreitas.</dd>
+        <dt>Impacto</dt><dd>Navegação web no celular fica densa e difícil.</dd>
+        <dt>Recomendação</dt><dd>Agrupar (Mais/Config), reduzir rótulos ou usar nav prioritária + overflow.</dd>
+        <dt>Aceite</dt><dd><ul><li>Em 360px todos os itens legíveis e tocáveis ≥44px</li></ul></dd>
+        <dt>Confiança</dt><dd>Média (layout real não renderizado)</dd>
+        <dt>Validação</dt><dd>Screenshot 360/390</dd>
+        <dt>Dependências</dt><dd>IA de navegação</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-016">
+      <h3>UX-016 — Paginação do histórico mostra &quot;Página 0&quot;</h3>
+      <p><span class="badge p2">P2</span>
+         Severidade: <span class="sev-média">Média</span> · Esforço: XS · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web · HistoryPage.tsx:106 — data?.page ?? 0 + 1</dd>
+        <dt>Tipo</dt><dd>Conteúdo</dd>
+        <dt>Evidência</dt><dd>Precedência de operadores: ?? antes de +; exibe índice base 0. Avaliação estática.</dd>
+        <dt>Problema</dt><dd>Numeração confunde.</dd>
+        <dt>Impacto</dt><dd>Baixo, mas erode percepção de qualidade.</dd>
+        <dt>Recomendação</dt><dd>Usar ((data?.page ?? 0) + 1).</dd>
+        <dt>Aceite</dt><dd><ul><li>Primeira página exibe Página 1</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Teste unitário/RTL</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-017">
+      <h3>UX-017 — Sem confirmação de sucesso no lançamento comum no mobile</h3>
+      <p><span class="badge p2">P2</span>
+         Severidade: <span class="sev-média">Média</span> · Esforço: XS · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Mobile · MonthWorkspace.kt snackbar só em meta alcançada</dd>
+        <dt>Tipo</dt><dd>Feedback</dd>
+        <dt>Evidência</dt><dd>Gasto comum fecha o diálogo sem snackbar. Avaliação estática.</dd>
+        <dt>Problema</dt><dd>Usuário duvida se gravou.</dd>
+        <dt>Impacto</dt><dd>Retrabalho ou checagem no histórico.</dd>
+        <dt>Recomendação</dt><dd>Snackbar &quot;Gasto de R$ X em Y&quot;.</dd>
+        <dt>Aceite</dt><dd><ul><li>Todo registro bem-sucedido tem feedback</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Teste manual</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-018">
+      <h3>UX-018 — Cobertura semântica insuficiente no Compose (headings/live regions)</h3>
+      <p><span class="badge p2">P2</span>
+         Severidade: <span class="sev-média">Média</span> · Esforço: M · Confiança: Alta na ausência de APIs; impacto real depende de TalkBack</p>
+      <dl>
+        <dt>Local</dt><dd>Mobile · Components.kt SectionHeader; buscas contentDescription/semantics</dd>
+        <dt>Tipo</dt><dd>Acessibilidade</dd>
+        <dt>Evidência</dt><dd>Poucos contentDescription; sem heading()/liveRegion/Role. Erros podem não ser anunciados.</dd>
+        <dt>Problema</dt><dd>TalkBack navega mal a hierarquia e mudanças de estado.</dd>
+        <dt>Impacto</dt><dd>Barreira para usuários de leitores de tela.</dd>
+        <dt>Recomendação</dt><dd>Marcar headings; anunciar erros; revisar contentDescription de progresso.</dd>
+        <dt>Aceite</dt><dd><ul><li>TalkBack percorre seções por heading</li><li>Erro de formulário é anunciado</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta na ausência de APIs; impacto real depende de TalkBack</dd>
+        <dt>Validação</dt><dd>Auditoria TalkBack</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-019">
+      <h3>UX-019 — Formulários e glossário com jargão técnico; glossário só no Dashboard</h3>
+      <p><span class="badge p2">P2</span>
+         Severidade: <span class="sev-média">Média</span> · Esforço: S · Confiança: Média (hipótese de compreensão)</p>
+      <dl>
+        <dt>Local</dt><dd>Web IncomeForm/ExpenseForm/EnvelopeForm; Glossary só Dashboard; mobile Auth &quot;CONTROLE SEM FICÇÃO&quot;</dd>
+        <dt>Tipo</dt><dd>Conteúdo</dd>
+        <dt>Evidência</dt><dd>Textos citam America/Sao_Paulo, idempotência, escala sem arredondamento; glossário não define verba/não alocado/saldo acumulado.</dd>
+        <dt>Problema</dt><dd>Conceitos centrais do produto exigem conhecimento de API/domínio.</dd>
+        <dt>Impacto</dt><dd>Onboarding mais lento; criação de verba por tentativa e erro.</dd>
+        <dt>Recomendação</dt><dd>Microcopy orientada a tarefa; linkar glossário no EnvelopeForm; definir termos centrais.</dd>
+        <dt>Aceite</dt><dd><ul><li>Usuário leigo configura renda/verba sem termos de API</li><li>Glossário acessível onde a dúvida ocorre</li></ul></dd>
+        <dt>Confiança</dt><dd>Média (hipótese de compreensão)</dd>
+        <dt>Validação</dt><dd>Teste de usabilidade de onboarding</dd>
+        <dt>Dependências</dt><dd>Conteúdo</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-020">
+      <h3>UX-020 — UI de compartilhamento de verbas ausente</h3>
+      <p><span class="badge p2">P2</span>
+         Severidade: <span class="sev-média">Média</span> · Esforço: L · Confiança: Alta quanto à ausência de UI; APIs não auditaram em profundidade aqui</p>
+      <dl>
+        <dt>Local</dt><dd>Web/Mobile · apenas badges PARTICIPANT; fundacao-tecnica.md prevê convite</dd>
+        <dt>Tipo</dt><dd>Navegação / Produto</dd>
+        <dt>Evidência</dt><dd>Código só reage a role; sem fluxo de convidar/remover/encerrar compartilhamento na UI auditada.</dd>
+        <dt>Problema</dt><dd>Capacidade de produto confirmada não é acionável na interface.</dd>
+        <dt>Impacto</dt><dd>Feature de compartilhamento inutilizável pelos clientes.</dd>
+        <dt>Recomendação</dt><dd>Se backend já expõe APIs, expor gestão mínima; senão registrar gap produto/ADR antes de UI.</dd>
+        <dt>Aceite</dt><dd><ul><li>Owner convida e remove participante pela UI</li><li>Participante vê permissões corretas</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta quanto à ausência de UI; APIs não auditaram em profundidade aqui</dd>
+        <dt>Validação</dt><dd>Fluxo E2E owner/participante</dd>
+        <dt>Dependências</dt><dd>API sharing + ADR se contrato mudar</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-021">
+      <h3>UX-021 — Enrolment MFA sem regenerar QR; códigos sem copiar/baixar</h3>
+      <p><span class="badge p2">P2</span>
+         Severidade: <span class="sev-média">Média</span> · Esforço: S · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web MfaSettings; Mobile MfaScreen</dd>
+        <dt>Tipo</dt><dd>Usabilidade / Confiança</dd>
+        <dt>Evidência</dt><dd>Copy fala em gerar novo QR sem ação; códigos listados sem copiar/compartilhar; &quot;Já guardei&quot; sem verificação.</dd>
+        <dt>Problema</dt><dd>Configuração MFA frágil; risco de perder acesso.</dd>
+        <dt>Impacto</dt><dd>Suporte e lockout; abandono de MFA.</dd>
+        <dt>Recomendação</dt><dd>Ação regenerar QR; copiar/compartilhar códigos; warning claro de exibição única.</dd>
+        <dt>Aceite</dt><dd><ul><li>Usuário pode copiar códigos</li><li>Pode gerar novo QR enquanto válido/expirado</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Teste manual MFA</dd>
+        <dt>Dependências</dt><dd>Backend de enrolment</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-022">
+      <h3>UX-022 — document.title fixo; títulos de TopAppBar mobile não mudam por tela</h3>
+      <p><span class="badge p3">P3</span>
+         Severidade: <span class="sev-baixa">Baixa</span> · Esforço: S · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web layout.tsx metadata; Mobile VerbasApp TopAppBar sempre &quot;Verbas&quot;</dd>
+        <dt>Tipo</dt><dd>Acessibilidade / Orientação</dd>
+        <dt>Evidência</dt><dd>Client pages não atualizam title; app bar ignora rota empilhada.</dd>
+        <dt>Problema</dt><dd>Orientação fraca em histórico de abas e leitores.</dd>
+        <dt>Impacto</dt><dd>Usuário/leitor perde contexto em fluxos profundos.</dd>
+        <dt>Recomendação</dt><dd>Títulos por rota na web; TopAppBar dinâmico no mobile.</dd>
+        <dt>Aceite</dt><dd><ul><li>Cada rota web tem title distinto</li><li>Telas empilhadas mobile mostram título da tela</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Manual</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+    <section class="finding" id="UX-023">
+      <h3>UX-023 — Criar compromisso fixo / naturezas fora da página Verbas</h3>
+      <p><span class="badge p2">P2</span>
+         Severidade: <span class="sev-média">Média</span> · Esforço: S · Confiança: Alta</p>
+      <dl>
+        <dt>Local</dt><dd>Web · VerbasPage showNewEnvelope sem initialPurpose; form lista naturezas filtradas fora da página</dd>
+        <dt>Tipo</dt><dd>Usabilidade</dd>
+        <dt>Evidência</dt><dd>CTA de FIXED não pré-seleciona FIXED; criar GOAL em /verbas some da lista. Avaliação estática.</dd>
+        <dt>Problema</dt><dd>Expectativa do botão não corresponde ao resultado.</dd>
+        <dt>Impacto</dt><dd>Usuário acha que a criação falhou.</dd>
+        <dt>Recomendação</dt><dd>initialPurpose do CTA; filtrar opções do form pelo contexto da página ou redirecionar à página correta.</dd>
+        <dt>Aceite</dt><dd><ul><li>CTA FIXED abre form em FIXED</li><li>Naturezas criadas aparecem na página corrente ou há redirect</li></ul></dd>
+        <dt>Confiança</dt><dd>Alta</dd>
+        <dt>Validação</dt><dd>Teste de componente</dd>
+        <dt>Dependências</dt><dd>Nenhuma</dd>
+      </dl>
+    </section>
+    
+
+<h2>6. Acessibilidade</h2>
+<ul>
+  <li>Pontos fortes web: skip link, lang=pt-BR, aria-current, focus-visible global, prefers-reduced-motion, labels com contexto em cards, teste axe parcial (AuthScreen).</li>
+  <li>Lacunas web: Dialog (foco), erros com role=status e estilo de sucesso, contraste do botão de relatório no dark, title de página fixo, tabs ARIA incompletas em filtros.</li>
+  <li>Lacunas mobile: ícones Unicode, headings/live regions, abas de auth sem selected, progresso negativo pouco descritivo.</li>
+  <li>Não declarar conformidade WCAG sem testes com tecnologias assistivas e contraste em runtime.</li>
+</ul>
+
+<h2>7. Consistência visual e padrões reutilizáveis</h2>
+<ul>
+  <li>Manter tokens semânticos (--accent, --danger, --purpose-*), tema SYSTEM/LIGHT/DARK e máscara BRL.</li>
+  <li>Problema: CSS duplicado (Dashboard vs Verbas), notices com semânticas conflitantes, cores hardcoded na auth, ausência de primitivos Button/Field/Alert compartilhados.</li>
+  <li>Mobile: TouchTarget 48dp e FormDialog/ConfirmDialog são bons núcleos; alinhar feedback de sucesso e ícones.</li>
+</ul>
+
+<h2>8. Plano de melhoria em etapas</h2>
+<ol>
+  <li><strong>Etapa A — P0 (correções de fricção crítica):</strong> UX-001, UX-002, UX-003, UX-004, UX-005.</li>
+  <li><strong>Etapa B — P1 (auth, a11y, confiança):</strong> UX-006 a UX-014.</li>
+  <li><strong>Etapa C — P2 (clareza e consistência):</strong> UX-015 a UX-021, UX-023.</li>
+  <li><strong>Etapa D — P3 / exploração:</strong> UX-022; eventual redesign de nav; pesquisa de usabilidade do hábito diário.</li>
+</ol>
+
+<h2>9. O que não recomendo mudar agora</h2>
+<ul>
+  <li>Paleta teal/coral e tipografia Inter/system — já evitam o “AI aesthetic” genérico e têm ADR de tema.</li>
+  <li>Redesign completo do shell ou troca de design system (MUI etc.) — alto risco, baixo ganho frente às fricções objetivas.</li>
+  <li>Adicionar cache de dados (Redis/React Query) só por “piscar” — preferir stale-while-revalidate local; cache distribuído é fora da política do projeto.</li>
+  <li>iOS polish visual — alvo não validável neste ambiente.</li>
+  <li>Prévia rica de relatórios na web — hipótese de produto (UX-073 do inventário amplo); validar demanda antes.</li>
+</ul>
+
+<h2>10. Decisões solicitadas</h2>
+<p>Quais IDs aprovar para virar issue no GitHub? Aprovação do relatório <strong>não</strong> cria issues automaticamente.</p>
+<p>Sugestão inicial de lote: <strong>UX-001, UX-002, UX-003, UX-004, UX-005</strong> (P0). Em seguida, se desejar: UX-006–UX-014.</p>
+<p class="small">Responda com os IDs explícitos (ex.: “aprovo UX-001 e UX-003”). Itens não listados não serão criados. Nota: gh auth está inválido neste ambiente; será necessário reautenticar antes da Fase 8.</p>
+
+<h2>11. Apêndice</h2>
+<ul>
+  <li>Rotas web: /, /verbas, /metas, /gastos-anuais, /gastos (/historico→), /relatorios, /configuracoes, /conta/seguranca, /recuperar-senha, /redefinir-senha, /oauth/callback.</li>
+  <li>Mobile: Visão geral, Verbas, Metas, Gastos, Mais (+ empilhados: anuais, relatórios, histórico de renda, segurança/MFA).</li>
+  <li>Verificações: git status preservado; leitura de docs/código; subanálises web e mobile; contraste estimado por tokens; sem screenshots (não fabricados).</li>
+  <li>Inventário ampliado (não todos viraram ID): ~90 observações web e ~22 mobile consolidadas nestes 23 achados priorizados.</li>
+</ul>
+
+<p class="small">Arquivo gerado em 2026-10-30. Nenhum código do produto foi modificado nesta auditoria.</p>
+</body>
+</html>

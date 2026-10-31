@@ -6,7 +6,7 @@ export function BalanceSummary({ summary, monthLabel }: { summary: LedgerSummary
   if (!summary) {
     return (
       <section className={styles.summary} aria-labelledby="resumo-titulo">
-        <div className={styles.summaryLead}><h2 id="resumo-titulo">Renda do mês</h2><strong>—</strong><span>{monthLabel}</span></div>
+        <div className={styles.summaryLead}><h2 id="resumo-titulo">Resumo do mês</h2><strong>—</strong><span>{monthLabel}</span></div>
         <dl className={styles.summaryStats}><div><dt>Já reservado</dt><dd>—</dd></div><div><dt>Não alocado</dt><dd>—</dd></div><div><dt>Uso da renda</dt><dd>—</dd></div></dl>
       </section>
     );
@@ -19,7 +19,7 @@ export function BalanceSummary({ summary, monthLabel }: { summary: LedgerSummary
   return (
     <section id="visao-geral" className={styles.summary} aria-labelledby="resumo-titulo">
       <div className={styles.summaryLead}>
-        <h2 id="resumo-titulo">Renda do mês</h2>
+        <h2 id="resumo-titulo">Resumo do mês</h2>
         <strong>{incomeText}</strong>
         <span>{summary.income ? `Vigência ${summary.income.effectiveFrom}` : monthLabel}</span>
       </div>

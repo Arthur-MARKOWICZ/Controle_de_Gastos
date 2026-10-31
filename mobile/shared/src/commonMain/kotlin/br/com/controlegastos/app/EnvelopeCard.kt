@@ -37,11 +37,7 @@ internal fun progressOf(envelope: EnvelopeView): Float {
 }
 
 @Composable
-internal fun purposeColor(purpose: String): Color = when (purpose) {
-    EnvelopePurpose.GOAL.api, EnvelopePurpose.SAVINGS_TARGET.api -> MaterialTheme.colorScheme.tertiary
-    EnvelopePurpose.FIXED.api, EnvelopePurpose.ANNUAL_EXPENSE.api -> MaterialTheme.colorScheme.secondary
-    else -> MaterialTheme.colorScheme.primary
-}
+internal fun purposeColor(purpose: String): Color = purposeTone(purpose)
 
 /**
  * Card de verba com as ações que a pessoa pode executar sobre ela.
@@ -78,7 +74,11 @@ internal fun EnvelopeCard(
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(7.dp).semantics {
-                    contentDescription = "Progresso de ${envelope.name}: ${(progress * 100).toInt()}%"
+                    contentDescription = if (envelope.isNegative) {
+                        "Progresso de ${envelope.name}: saldo negativo"
+                    } else {
+                        "Progresso de ${envelope.name}: ${(progress * 100).toInt()}%"
+                    }
                 },
                 color = if (envelope.isNegative) MaterialTheme.colorScheme.error else purposeColor(envelope.purpose),
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,

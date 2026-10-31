@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Relatório de análise de backend — Controle de Gastos / Verbas</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.45;
+    color: #1a1a1a;
+    margin: 0;
+  }
+  h1 { font-size: 20pt; margin: 0 0 8pt; letter-spacing: -0.02em; }
+  h2 {
+    font-size: 13pt;
+    margin: 22pt 0 8pt;
+    padding-bottom: 4pt;
+    border-bottom: 1.5px solid #222;
+    page-break-after: avoid;
+  }
+  h3 { font-size: 11.5pt; margin: 14pt 0 6pt; page-break-after: avoid; }
+  h4 { font-size: 10.5pt; margin: 10pt 0 4pt; page-break-after: avoid; }
+  p, li { margin: 0 0 6pt; }
+  ul, ol { margin: 0 0 8pt; padding-left: 18pt; }
+  .cover {
+    min-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-left: 6px solid #0f5c4c;
+    padding-left: 18pt;
+  }
+  .meta { color: #444; font-size: 10pt; }
+  .tag {
+    display: inline-block;
+    font-size: 8.5pt;
+    font-weight: 700;
+    padding: 2pt 6pt;
+    border-radius: 3pt;
+    margin-right: 4pt;
+    vertical-align: middle;
+  }
+  .p0 { background: #fde8e8; color: #8a1f1f; }
+  .p1 { background: #fff1d6; color: #7a4d00; }
+  .p2 { background: #e8f0fe; color: #1a3f8a; }
+  .p3 { background: #eee; color: #444; }
+  .sev-critica { background: #fde8e8; color: #8a1f1f; }
+  .sev-alta { background: #fff1d6; color: #7a4d00; }
+  .sev-media { background: #e8f0fe; color: #1a3f8a; }
+  .sev-baixa { background: #eee; color: #444; }
+  .effort { background: #eef6f3; color: #0f5c4c; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 12pt;
+    font-size: 9pt;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 5pt 6pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f3f5f4; font-weight: 700; }
+  .finding {
+    border: 1px solid #d0d5d3;
+    border-radius: 4pt;
+    padding: 10pt 12pt;
+    margin: 0 0 12pt;
+    page-break-inside: avoid;
+  }
+  .finding h3 { margin-top: 0; }
+  .label { font-weight: 700; color: #333; }
+  .muted { color: #555; }
+  .callout {
+    background: #f7faf8;
+    border: 1px solid #c5d6cf;
+    padding: 8pt 10pt;
+    margin: 8pt 0 12pt;
+  }
+  .warn {
+    background: #fff8e8;
+    border: 1px solid #e0c988;
+    padding: 8pt 10pt;
+    margin: 8pt 0 12pt;
+  }
+  .page-break { page-break-before: always; }
+  code, .path { font-family: "DejaVu Sans Mono", monospace; font-size: 8.5pt; }
+  footer.note { margin-top: 24pt; font-size: 8.5pt; color: #666; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <p class="meta">Análise técnica de backend · 30 de outubro de 2026</p>
+  <h1>Relatório de análise de backend</h1>
+  <p style="font-size:13pt;margin:0 0 14pt"><strong>Controle de Gastos / Verbas</strong></p>
+  <p class="meta">Repositório local: <span class="path">controle_gastos</span></p>
+  <p class="meta">Branch: <strong>main</strong> @ <span class="path">0629907</span> (local atrás de <span class="path">origin/main</span> em 7 commits)</p>
+  <p class="meta">Stack observada: Java 25 / Spring Boot 4.1 / Spring Modulith 2.1 / PostgreSQL / Flyway / JWT HS256</p>
+  <p class="meta">Objetivo: auditar arquitetura, APIs, regras de negócio, segurança, dados, testes e operação do backend — somente leitura.</p>
+  <div class="callout" style="margin-top:18pt">
+    <p><strong>Escopo desta entrega:</strong> análise + PDF. Issues no GitHub somente após aprovação explícita por ID (<span class="path">BE-XXX</span>). Nenhum código, branch, commit ou PR foi alterado.</p>
+  </div>
+</section>
+
+<section class="page-break">
+  <h2>1. Resumo executivo</h2>
+  <p>O backend já entrega o núcleo financeiro do produto pessoal: identidade (cadastro/login, refresh rotativo, MFA TOTP, OAuth Google/GitHub), renda mensal, verbas com cinco naturezas, ledger com saldo negativo permitido, histórico, relatórios CSV/XLSX e limites Modulith verificáveis. Money BRL com <span class="path">BigDecimal</span>/escala 2 está bem centralizado.</p>
+  <p><strong>Principais riscos / lacunas:</strong></p>
+  <ol>
+    <li><span class="tag p1">P1</span> A regra confirmada “soma das verbas-base ≤ renda” não é aplicada na criação/edição de verba — só bloqueia redução de renda.</li>
+    <li><span class="tag p1">P1</span> Hash de senha usa BCrypt, em desacordo com ADR-005 / requisitos (Argon2id).</li>
+    <li><span class="tag p1">P1</span> Ausência de fail-fast quando <span class="path">AUTH_JWT_SECRET</span> (e chave TOTP) estão vazios: gera segredo efêmero em memória.</li>
+    <li><span class="tag p1">P1</span> Módulos <span class="path">privacy</span>, <span class="path">sharing</span>, <span class="path">audit</span> e <span class="path">notifications</span> são stubs — bloqueiam abertura pública e a feature de compartilhamento.</li>
+    <li><span class="tag p2">P2</span> Três testes de integração de saldo/meta falharam nesta execução por datas fixas no passado vs. <span class="path">Clock.systemUTC()</span> atual (out/2026).</li>
+  </ol>
+  <p>Não há P0 de exploração ativa comprovada nesta auditoria estática. O sistema está maduro para uso privado controlado, mas não para cadastro público sem fechar LGPD, Argon2 e a invariante renda/verbas.</p>
+</section>
+
+<section>
+  <h2>2. Escopo e metodologia</h2>
+  <h3>Inspecionado</h3>
+  <ul>
+    <li><span class="path">docs/ideas/fundacao-tecnica.md</span>, ADRs, <span class="path">docs/privacy/</span>, <span class="path">docs/api/openapi.yaml</span>, README</li>
+    <li>Módulos Modulith: identity, income, envelopes, ledger, reporting (+ stubs)</li>
+    <li>SecurityFilterChain, sessão JWT, rate limit HMAC, OAuth clients, Money, Flyway V1–V12</li>
+    <li>Controllers REST e serviços de autorização por recurso</li>
+  </ul>
+  <h3>Comandos executados</h3>
+  <ul>
+    <li><span class="path">git status --short --branch</span></li>
+    <li>Gradle 9.5 (cache local): <span class="path">gradle -p backend test --no-daemon</span></li>
+    <li>Resultado: <strong>161 testes, 3 falhas</strong> (GoalProgress ×2, SavingsTarget ×1). Docker/Testcontainers disponível nesta execução.</li>
+  </ul>
+  <h3>Limitações</h3>
+  <ul>
+    <li>Auditoria somente leitura; sem exploração ofensiva, load test ou revisão de produção.</li>
+    <li><span class="path">.env</span> e segredos reais não foram lidos.</li>
+    <li><span class="path">gh auth</span> com token inválido — issues não podem ser criadas até reautenticação + aprovação por ID.</li>
+    <li>Branch local atrás de origin em 7 commits; achados referem-se ao HEAD local.</li>
+    <li>reportlab não instalado; PDF gerado via HTML + Chrome headless.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>3. Visão geral da arquitetura</h2>
+  <p>Monólito modular Spring Modulith, processo único, PostgreSQL + Flyway, sem filas/cache (alinhado à fundação). Dependências entre módulos respeitam boundaries (<span class="path">ModularityTest</span>). Fluxos críticos:</p>
+  <ol>
+    <li><strong>Identidade:</strong> register/login → JWT access + refresh opaco em cookie; MFA e OAuth opcionais; SessionValidationFilter consulta sessão ativa.</li>
+    <li><strong>Renda:</strong> mudança no mês corrente (America/Sao_Paulo); histórico paginado; constraint via <span class="path">IncomeChangeConstraint</span>.</li>
+    <li><strong>Verbas:</strong> CRUD/arquivo; autorização owner vs. participante na consulta; participantes persistidos em tabela, sem API de convite.</li>
+    <li><strong>Ledger:</strong> despesas/aportes, saldo acumulável, histórico, edição/exclusão soft-delete, summary e relatórios.</li>
+  </ol>
+  <div class="callout">
+    <p><span class="label">Pontos fortes:</span> Money imutável com <span class="path">RoundingMode.UNNECESSARY</span>; open-in-view=false; actuator limitado a health/info; cookies refresh bem documentados; testes de integração amplos em identity/income/reporting.</p>
+  </div>
+</section>
+
+<section class="page-break">
+  <h2>4. Matriz priorizada de achados</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th><th>Título</th><th>Pri</th><th>Sev</th><th>Tipo</th><th>Esforço</th><th>Confiança</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>BE-001</td>
+        <td>Criação/edição de verba não valida soma-base ≤ renda</td>
+        <td><span class="tag p1">P1</span></td>
+        <td><span class="tag sev-alta">Alta</span></td>
+        <td>Evidência estática</td>
+        <td><span class="tag effort">M</span></td>
+        <td>Alta</td>
+      </tr>
+      <tr>
+        <td>BE-002</td>
+        <td>Hash de senha BCrypt em vez de Argon2id (ADR-005)</td>
+        <td><span class="tag p1">P1</span></td>
+        <td><span class="tag sev-alta">Alta</span></td>
+        <td>Evidência estática</td>
+        <td><span class="tag effort">M</span></td>
+        <td>Alta</td>
+      </tr>
+      <tr>
+        <td>BE-003</td>
+        <td>Segredos JWT/TOTP vazios geram chave efêmera (sem fail-fast)</td>
+        <td><span class="tag p1">P1</span></td>
+        <td><span class="tag sev-alta">Alta</span></td>
+        <td>Risco plausível</td>
+        <td><span class="tag effort">S</span></td>
+        <td>Alta</td>
+      </tr>
+      <tr>
+        <td>BE-004</td>
+        <td>Stubs privacy/sharing/audit/notifications vs. requisitos</td>
+        <td><span class="tag p1">P1</span></td>
+        <td><span class="tag sev-alta">Alta</span></td>
+        <td>Evidência estática</td>
+        <td><span class="tag effort">XL</span></td>
+        <td>Alta</td>
+      </tr>
+      <tr>
+        <td>BE-005</td>
+        <td>Testes de saldo/meta acoplados ao calendário real</td>
+        <td><span class="tag p2">P2</span></td>
+        <td><span class="tag sev-media">Média</span></td>
+        <td>Teste falho reproduzido</td>
+        <td><span class="tag effort">S</span></td>
+        <td>Alta</td>
+      </tr>
+      <tr>
+        <td>BE-006</td>
+        <td>Listagem de lançamentos por verba não exclui soft-delete</td>
+        <td><span class="tag p2">P2</span></td>
+        <td><span class="tag sev-media">Média</span></td>
+        <td>Evidência estática</td>
+        <td><span class="tag effort">XS</span></td>
+        <td>Alta</td>
+      </tr>
+      <tr>
+        <td>BE-007</td>
+        <td>Edição/exclusão de gasto autoriza por owner da verba, não author</td>
+        <td><span class="tag p2">P2</span></td>
+        <td><span class="tag sev-media">Média</span></td>
+        <td>Risco / inconsistência produto</td>
+        <td><span class="tag effort">S</span></td>
+        <td>Média</td>
+      </tr>
+      <tr>
+        <td>BE-008</td>
+        <td>Provisão mensal de gasto anual fora do mínimo de renda</td>
+        <td><span class="tag p2">P2</span></td>
+        <td><span class="tag sev-media">Média</span></td>
+        <td>Evidência estática</td>
+        <td><span class="tag effort">M</span></td>
+        <td>Alta</td>
+      </tr>
+      <tr>
+        <td>BE-009</td>
+        <td>RestClient OAuth sem timeout explícito</td>
+        <td><span class="tag p2">P2</span></td>
+        <td><span class="tag sev-media">Média</span></td>
+        <td>Risco plausível</td>
+        <td><span class="tag effort">S</span></td>
+        <td>Média</td>
+      </tr>
+      <tr>
+        <td>BE-010</td>
+        <td>GET /envelopes expõe available = baseAmount (saldo real só no summary)</td>
+        <td><span class="tag p3">P3</span></td>
+        <td><span class="tag sev-baixa">Baixa</span></td>
+        <td>Contrato / DX</td>
+        <td><span class="tag effort">S</span></td>
+        <td>Alta</td>
+      </tr>
+      <tr>
+        <td>BE-011</td>
+        <td>usagePct do summary usa double derivado de Money</td>
+        <td><span class="tag p3">P3</span></td>
+        <td><span class="tag sev-baixa">Baixa</span></td>
+        <td>Evidência estática</td>
+        <td><span class="tag effort">XS</span></td>
+        <td>Alta</td>
+      </tr>
+      <tr>
+        <td>BE-012</td>
+        <td>Optimistic lock (@Version) exposto sem If-Match no PATCH</td>
+        <td><span class="tag p3">P3</span></td>
+        <td><span class="tag sev-baixa">Baixa</span></td>
+        <td>Hipótese</td>
+        <td><span class="tag effort">S</span></td>
+        <td>Média</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="page-break">
+  <h2>5. Detalhamento dos achados</h2>
+
+  <div class="finding">
+    <h3>BE-001 — Criação/edição de verba não valida soma-base ≤ renda</h3>
+    <p><span class="tag p1">P1</span> <span class="tag sev-alta">Alta</span> <span class="tag effort">M</span> · Categoria: regras de negócio · Confiança: alta</p>
+    <p><span class="label">Localização:</span> <span class="path">EnvelopeService.create/update</span>; domínio <span class="path">MonthlyAllocationPlan</span> / <span class="path">AllocationExceedsIncomeException</span> (handler existe, caminho de serviço não usa); <span class="path">EnvelopeIncomeConstraint</span> só alimenta redução de renda.</p>
+    <p><span class="label">Problema:</span> Comentário em create afirma delegação à constraint de renda, mas a constraint só impede baixar a renda abaixo da soma já alocada. É possível criar/aumentar verbas além da renda configurada.</p>
+    <p><span class="label">Impacto:</span> Quebra invariante central da fundação técnica; unallocated e alertas ficam inconsistentes com a intenção do produto.</p>
+    <p><span class="label">Recomendação:</span> Antes de salvar create/update, carregar renda efetiva do mês (via porta já usada pelo ledger) e aplicar <span class="path">MonthlyAllocationPlan.create</span> (ou equivalente). Manter a constraint na redução de renda.</p>
+    <p><span class="label">Aceite:</span> Tentativa de criar verba que exceda a renda retorna 4xx com problema de alocação; testes de integração cobrindo create e update; redução de renda continua bloqueada.</p>
+    <p><span class="label">Decisão sugerida:</span> corrigir.</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-002 — Hash de senha BCrypt em vez de Argon2id</h3>
+    <p><span class="tag p1">P1</span> <span class="tag sev-alta">Alta</span> <span class="tag effort">M</span> · Categoria: segurança · Confiança: alta</p>
+    <p><span class="label">Localização:</span> <span class="path">AuthConfiguration.passwordEncoder()</span> → <span class="path">BCryptPasswordEncoder(12)</span>; ADR-005 e <span class="path">docs/privacy/requisitos-de-seguranca.md</span> exigem Argon2id com parâmetros explícitos.</p>
+    <p><span class="label">Impacto:</span> Divergência documentada vs. implementação; custo de cracking diferente do perfil aceito; migração futura exige rehash no login.</p>
+    <p><span class="label">Recomendação:</span> Trocar para Argon2id (parâmetros do ADR), com migração transparente no login (detectar prefixo BCrypt e regravar). Benchmark na VPS conforme operação de autenticação.</p>
+    <p><span class="label">Aceite:</span> Novos hashes Argon2id; login de contas BCrypt existentes funciona e atualiza hash; testes unitários/integração.</p>
+    <p><span class="label">Decisão sugerida:</span> corrigir antes de abertura pública.</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-003 — Segredos JWT/TOTP vazios geram chave efêmera</h3>
+    <p><span class="tag p1">P1</span> <span class="tag sev-alta">Alta</span> <span class="tag effort">S</span> · Categoria: segurança / deploy · Confiança: alta</p>
+    <p><span class="label">Localização:</span> <span class="path">AuthConfiguration.jwtSecretBytes / totpEncryptionKeyBytes</span> — se blank, usa <span class="path">SecureRandom</span> em memória.</p>
+    <p><span class="label">Problema:</span> Em ambiente “quase produção” sem variável, a API sobe; tokens e TOTP ficam inválidos após restart ou entre instâncias.</p>
+    <p><span class="label">Recomendação:</span> Fail-fast em perfis não locais quando secrets ausentes; manter geração efêmera só em profile de teste/local documentado.</p>
+    <p><span class="label">Aceite:</span> Boot com profile prod sem secret falha; teste de configuração; local/test continua funcional.</p>
+    <p><span class="label">Decisão sugerida:</span> corrigir.</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-004 — Módulos privacy / sharing / audit / notifications vazios</h3>
+    <p><span class="tag p1">P1</span> <span class="tag sev-alta">Alta</span> <span class="tag effort">XL</span> · Categoria: arquitetura / produto / LGPD · Confiança: alta</p>
+    <p><span class="label">Localização:</span> apenas <span class="path">package-info.java</span> em cada módulo; README confirma ausência de compartilhamento e push.</p>
+    <p><span class="label">Impacto:</span> Cadastro público bloqueado pelos requisitos de privacidade; proposta de verbas compartilhadas sem superfície de API; auditoria detalhada adiada (ADR-009) permanece gap consciente.</p>
+    <p><span class="label">Recomendação:</span> Tratar como épicos separados com ADR quando iniciar. Priorizar privacy (export/delete/canal) antes de cadastro aberto; sharing com autorização owner-only para convites.</p>
+    <p><span class="label">Aceite:</span> Endpoints e testes por épico; inventário de dados atualizado.</p>
+    <p><span class="label">Decisão sugerida:</span> planejar / adiar conforme marco (privado vs. público).</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-005 — Testes de saldo/meta acoplados ao calendário</h3>
+    <p><span class="tag p2">P2</span> <span class="tag sev-media">Média</span> <span class="tag effort">S</span> · Categoria: testes · Confiança: alta · <strong>Defeito reproduzido</strong></p>
+    <p><span class="label">Evidência:</span> Em 2026-10-30, <span class="path">SavingsTargetApiIntegrationTest</span> esperava available <span class="path">1050.00</span> em <span class="path">month=2026-09</span> e obteve <span class="path">0.00</span>. GoalProgress: planned/percent zerados no mês fixo passado. Causa: envelope criado com <span class="path">clock.instant()</span> (outubro); <span class="path">availableAt</span>/<span class="path">goalProgressFor</span> retornam zero se o mês consultado é anterior à criação.</p>
+    <p><span class="label">Recomendação:</span> Congelar Clock nos testes de integração (bean de teste) ou usar mês derivado de <span class="path">YearMonth.now(BUSINESS_ZONE)</span>.</p>
+    <p><span class="label">Aceite:</span> Suite verde independentemente da data de execução.</p>
+    <p><span class="label">Decisão sugerida:</span> corrigir.</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-006 — Listagem de entries não filtra soft-delete</h3>
+    <p><span class="tag p2">P2</span> <span class="tag sev-media">Média</span> <span class="tag effort">XS</span> · Categoria: API / dados · Confiança: alta</p>
+    <p><span class="label">Localização:</span> <span class="path">LedgerEntryRepository.findFiltered</span> sem <span class="path">deletedAt IS NULL</span>; somatórios e history já excluem excluídos.</p>
+    <p><span class="label">Impacto:</span> GET <span class="path">/envelopes/{id}/entries</span> pode exibir gastos logicamente excluídos, divergindo do saldo.</p>
+    <p><span class="label">Recomendação:</span> Filtrar deleted por padrão; opcional includeDeleted alinhado ao history.</p>
+    <p><span class="label">Aceite:</span> Teste de integração: após DELETE, lista da verba não retorna o item; saldo inalterado já coberto.</p>
+    <p><span class="label">Decisão sugerida:</span> corrigir.</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-007 — Autorização de edição/exclusão por owner da verba</h3>
+    <p><span class="tag p2">P2</span> <span class="tag sev-media">Média</span> <span class="tag effort">S</span> · Categoria: autorização · Confiança: média</p>
+    <p><span class="label">Localização:</span> <span class="path">LedgerService.editExpense/deleteExpense</span> comparam <span class="path">entry.ownerId()</span> (dono da verba) ao usuário atual. README menciona edição/exclusão de “lançamentos próprios”.</p>
+    <p><span class="label">Impacto:</span> Quando sharing existir, participante autor não edita/exclui o próprio gasto; só o dono. Pode ser intencional (controle do criador) — precisa decisão explícita.</p>
+    <p><span class="label">Recomendação:</span> Documentar regra no ADR/OpenAPI; se “próprios” = authorId, ajustar checagem e testes.</p>
+    <p><span class="label">Decisão sugerida:</span> investigar / decidir regra antes de sharing.</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-008 — Gasto anual MONTHLY fora do mínimo de renda</h3>
+    <p><span class="tag p2">P2</span> <span class="tag sev-media">Média</span> <span class="tag effort">M</span> · Categoria: regras de negócio · Confiança: alta</p>
+    <p><span class="label">Localização:</span> <span class="path">EnvelopeIncomeConstraint</span> usa <span class="path">sumBaseAmounts</span>; ANNUAL_EXPENSE força <span class="path">base_amount = 0</span>.</p>
+    <p><span class="label">Impacto:</span> Parcelas mensais de provisão anual não entram no piso da renda; usuário pode reduzir renda abaixo do comprometido.</p>
+    <p><span class="label">Recomendação:</span> Incluir provisão do mês corrente das annual MONTHLY no cálculo de mínimo (e na validação de create, com BE-001).</p>
+    <p><span class="label">Decisão sugerida:</span> corrigir junto com BE-001.</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-009 — RestClient OAuth sem timeout</h3>
+    <p><span class="tag p2">P2</span> <span class="tag sev-media">Média</span> <span class="tag effort">S</span> · Categoria: confiabilidade · Confiança: média</p>
+    <p><span class="label">Localização:</span> <span class="path">GoogleOAuthClient</span> / <span class="path">GitHubOAuthClient</span> com <span class="path">RestClient.create()</span> padrão.</p>
+    <p><span class="label">Recomendação:</span> Timeouts de connect/read explícitos; manter sem retry no exchange de code (já documentado).</p>
+    <p><span class="label">Decisão sugerida:</span> corrigir.</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-010 — available enganoso em GET /envelopes</h3>
+    <p><span class="tag p3">P3</span> <span class="tag sev-baixa">Baixa</span> · Comentário no controller admite available = baseAmount para evitar ciclo Modulith; saldo real em <span class="path">/ledger/summary</span>.</p>
+    <p><span class="label">Recomendação:</span> Remover campo available da resposta de envelopes ou documentar OpenAPI como “base do mês, não saldo”; clientes devem usar summary.</p>
+    <p><span class="label">Decisão sugerida:</span> mitigar (contrato).</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-011 — usagePct com double</h3>
+    <p><span class="tag p3">P3</span> <span class="tag sev-baixa">Baixa</span> · <span class="path">LedgerController</span> calcula percentual com <span class="path">doubleValue()</span>. Não é saldo persistido, mas foge da disciplina Money.</p>
+    <p><span class="label">Recomendação:</span> Percentual com BigDecimal (escala definida) ou string decimal; alinhar OpenAPI.</p>
+    <p><span class="label">Decisão sugerida:</span> corrigir quando tocar no summary.</p>
+  </div>
+
+  <div class="finding">
+    <h3>BE-012 — @Version sem controle de concorrência na API</h3>
+    <p><span class="tag p3">P3</span> · Version é serializado, mas PATCH não exige versão do cliente. Lost updates possíveis em edição concorrente de verba.</p>
+    <p><span class="label">Decisão sugerida:</span> medir/adiar até multi-dispositivo intensivo; ou aceitar If-Match.</p>
+  </div>
+</section>
+
+<section class="page-break">
+  <h2>6. Segurança e integridade dos dados</h2>
+  <ul>
+    <li><strong>Autenticação:</strong> JWT curto + validação de sessão; MFA com desafio opaco; recovery codes hasheados; TOTP cifrado AES-GCM — maduro para uso privado.</li>
+    <li><strong>Autorização por recurso:</strong> envelopes usam owner/participante; ledger register restringe CONTRIBUTION ao owner; IDOR básico mitigado por not-found/forbidden.</li>
+    <li><strong>Rate limiting:</strong> AuthAttemptService com HMAC de e-mail/IP — alinhado à privacidade.</li>
+    <li><strong>CSRF desabilitado:</strong> esperado para API Bearer + cookie SameSite Strict no path de auth; manter origins explícitos.</li>
+    <li><strong>Gaps:</strong> BE-002, BE-003, privacy stub, cadastro sem verificação imediata de e-mail (já documentado).</li>
+    <li><strong>Integridade Money:</strong> domínio sólido; exceção do usagePct (BE-011).</li>
+    <li><strong>Soft-delete:</strong> inconsistência na listagem (BE-006).</li>
+  </ul>
+</section>
+
+<section>
+  <h2>7. APIs, testes, confiabilidade e operação</h2>
+  <h3>APIs</h3>
+  <ul>
+    <li>Prefixo <span class="path">/api/v1</span>; OpenAPI presente; validação manual via JsonNode em vários controllers (consistente, mas verbosa).</li>
+    <li>Paginação com limites (size ≤ 100) em history/income/entries.</li>
+    <li>Problemas HTTP via ProblemDetail em handlers de módulo.</li>
+  </ul>
+  <h3>Testes</h3>
+  <ul>
+    <li>161 testes; 3 falhas reproduzidas (BE-005). Identity, income, reporting, modularity e grande parte do ledger passaram.</li>
+    <li>Boa cobertura de MFA/OAuth/password-reset; falta cobertura da invariante renda×verbas no create (BE-001).</li>
+  </ul>
+  <h3>Confiabilidade / operação</h3>
+  <ul>
+    <li>Health probes habilitados; mail com timeouts SMTP; IdentityRetentionService agendado.</li>
+    <li>OAuth sem timeout HTTP (BE-009).</li>
+    <li>Compose/Nginx/ADR-012; CI valida presença de secrets no workflow (não fail-fast da app).</li>
+  </ul>
+</section>
+
+<section>
+  <h2>8. O que não recomendo fazer agora</h2>
+  <ul>
+    <li>Microserviços, Kafka, Redis/cache, CQRS ou observabilidade pesada — fora da fundação e sem evidência de necessidade.</li>
+    <li>Reintroduzir Keycloak sem novo ADR.</li>
+    <li>Refatoração ampla “Clean Architecture” — o Modulith atual é coerente.</li>
+    <li>Otimizações prematuras de N+1 no summary sem medição (hipótese apenas).</li>
+    <li>Abrir cadastro público antes de privacy + Argon2 + BE-001.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>9. Plano de execução sugerido</h2>
+  <ol>
+    <li><strong>Curto prazo:</strong> BE-005 (suite verde), BE-006 (soft-delete na lista), BE-003 (fail-fast de secrets).</li>
+    <li><strong>Núcleo financeiro:</strong> BE-001 + BE-008 (invariante renda/alocação completa).</li>
+    <li><strong>Antes de terceiros:</strong> BE-002 (Argon2), épico privacy (parte de BE-004).</li>
+    <li><strong>Produto compartilhado:</strong> decidir BE-007, depois sharing (BE-004).</li>
+    <li><strong>Higiene:</strong> BE-009, BE-010, BE-011 conforme oportunidade.</li>
+  </ol>
+</section>
+
+<section class="page-break">
+  <h2>10. Decisões solicitadas</h2>
+  <p>Quais achados você aprova para criação de issues? Responda com IDs explícitos (ex.: <span class="path">BE-001</span>, <span class="path">BE-005</span>). Nenhum outro será criado sem autorização.</p>
+  <div class="warn">
+    <p><strong>Bloqueio atual:</strong> <span class="path">gh auth status</span> reporta token inválido para a conta GitHub. Após aprovar IDs, será necessário <span class="path">gh auth login</span> (ou renovar token) antes de criar issues.</p>
+  </div>
+  <p>Sugestão inicial de lote de alto valor / esforço controlado: <strong>BE-001, BE-003, BE-005, BE-006</strong>. BE-002 e privacy (BE-004) se o marco for abertura a terceiros.</p>
+</section>
+
+<section>
+  <h2>11. Apêndice — referências</h2>
+  <ul>
+    <li><span class="path">backend/src/main/java/br/com/controlegastos/envelopes/application/EnvelopeService.java</span></li>
+    <li><span class="path">backend/src/main/java/br/com/controlegastos/envelopes/application/EnvelopeIncomeConstraint.java</span></li>
+    <li><span class="path">backend/src/main/java/br/com/controlegastos/identity/config/AuthConfiguration.java</span></li>
+    <li><span class="path">backend/src/main/java/br/com/controlegastos/identity/config/SecurityConfiguration.java</span></li>
+    <li><span class="path">backend/src/main/java/br/com/controlegastos/ledger/application/LedgerService.java</span></li>
+    <li><span class="path">backend/src/main/java/br/com/controlegastos/ledger/infrastructure/LedgerEntryRepository.java</span></li>
+    <li><span class="path">backend/src/main/java/br/com/controlegastos/ledger/web/LedgerController.java</span></li>
+    <li><span class="path">docs/decisions/0005-autenticacao-propria-por-email-e-senha.md</span></li>
+    <li><span class="path">docs/privacy/requisitos-de-seguranca.md</span></li>
+    <li>JUnit XML: falhas em SavingsTarget / GoalProgress sob <span class="path">backend/build/test-results/test/</span></li>
+  </ul>
+  <footer class="note">
+    Relatório gerado em modo somente leitura. Fatos, riscos e hipóteses foram separados nos campos “Tipo” de cada achado. Sem segredos, tokens ou dados pessoais.
+  </footer>
+</section>
+
+</body>
+</html>

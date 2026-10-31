@@ -5,8 +5,18 @@ import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -14,7 +24,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -27,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +61,7 @@ fun VerbasApp(
     themePreferenceStore: ThemePreferenceStore = VolatileThemePreferenceStore,
     onThemeResolved: (Boolean) -> Unit = {},
     qrImageContent: @Composable (dataUri: String) -> Unit = { uri -> Text(uri) },
+    onShareText: (String) -> Unit = {},
     onOpenReport: (DownloadedReport) -> Unit = {},
     /** Abre a URL no navegador do sistema. Vazio desabilita o login social. */
     onOpenInBrowser: ((String) -> Unit)? = null,
@@ -162,6 +173,7 @@ fun VerbasApp(
                 },
                 onComplete = { authState = authController.finishMfaRecoverySetup() },
                 qrImageContent = qrImageContent,
+                onShareText = onShareText,
             )
             is AuthState.Authenticated -> SignedInApp(
                 user = current.user,
@@ -171,6 +183,7 @@ fun VerbasApp(
                 themeMode = themeMode,
                 onThemeSelected = ::selectTheme,
                 qrImageContent = qrImageContent,
+                onShareText = onShareText,
                 onOpenReport = onOpenReport,
                 onSignOut = {
                     authState = AuthState.Anonymous
@@ -198,11 +211,13 @@ private fun SignedInApp(
     themeMode: ThemeMode,
     onThemeSelected: (ThemeMode) -> Unit,
     qrImageContent: @Composable (String) -> Unit,
+    onShareText: (String) -> Unit,
     onOpenReport: (DownloadedReport) -> Unit,
     onSignOut: () -> Unit,
     onSessionExpired: () -> Unit,
 ) {
     var backStack by remember { mutableStateOf<BackStack>(listOf(Route.Overview)) }
+    var quickExpenseRequested by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -228,16 +243,26 @@ private fun SignedInApp(
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
+        floatingActionButton = {
+            if (backStack.current in QUICK_EXPENSE_ROUTES) {
+                ExtendedFloatingActionButton(onClick = { quickExpenseRequested = true }) { Text("Novo gasto") }
+            }
+        },
         topBar = {
             TopAppBar(
                 navigationIcon = {
                     if (backStack.canGoBack) {
-                        TextButton(onClick = { goBack() }, modifier = Modifier.height(TouchTarget)) { Text("‹ Voltar") }
+                        IconButton(onClick = { goBack() }, modifier = Modifier.height(TouchTarget)) {
+                            Icon(
+                                Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Voltar",
+                            )
+                        }
                     }
                 },
                 title = {
                     androidx.compose.foundation.layout.Column {
-                        Text("Verbas", fontWeight = FontWeight.Black)
+                        Text(backStack.current.title, fontWeight = FontWeight.Black)
                         Text(
                             user.email,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -256,7 +281,12 @@ private fun SignedInApp(
                     NavigationBarItem(
                         selected = backStack.topLevel == destination,
                         onClick = { backStack = backStack.selectTopLevel(destination) },
-                        icon = { Text(iconOf(destination)) },
+                        icon = {
+                            Icon(
+                                imageVector = iconOf(destination),
+                                contentDescription = null,
+                            )
+                        },
                         label = { Text(destination.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     )
                 }
@@ -272,6 +302,8 @@ private fun SignedInApp(
                     onOpenEntries = { go(Route.EnvelopeEntries(it.id, it.name)) },
                     onNotify = ::notify,
                     onSessionExpired = onSessionExpired,
+                    quickExpenseRequested = quickExpenseRequested,
+                    onQuickExpenseHandled = { quickExpenseRequested = false },
                 )
                 Route.History -> HistoryScreen(
                     controller = historyController,
@@ -295,6 +327,7 @@ private fun SignedInApp(
                 Route.Security -> SecurityScreen(
                     gateway = gateways.auth,
                     qrImageContent = qrImageContent,
+                    onShareText = onShareText,
                     onLoggedOut = onSignOut,
                     onNotify = ::notify,
                 )
@@ -310,10 +343,13 @@ private fun SignedInApp(
     }
 }
 
-private fun iconOf(route: Route.TopLevel): String = when (route) {
-    Route.Overview -> "◎"
-    Route.Envelopes -> "▤"
-    Route.Goals -> "◈"
-    Route.History -> "≡"
-    Route.More -> "⋯"
+/** Telas de mês em que o gasto é o lançamento comum; em Metas o card já oferece o aporte. */
+private val QUICK_EXPENSE_ROUTES = setOf<Route>(Route.Overview, Route.Envelopes, Route.AnnualExpenses)
+
+private fun iconOf(route: Route.TopLevel): ImageVector = when (route) {
+    Route.Overview -> Icons.Outlined.Home
+    Route.Envelopes -> Icons.Outlined.AccountBalanceWallet
+    Route.Goals -> Icons.Outlined.Flag
+    Route.History -> Icons.AutoMirrored.Outlined.List
+    Route.More -> Icons.Outlined.MoreHoriz
 }

@@ -1,33 +1,58 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { AuthClient, LoginMethods, MfaStatus, OAuthProviderName } from "../../auth/auth-client";
 import { AppShell } from "../AppShell/AppShell";
 import { MfaSettings } from "../MfaSettings/MfaSettings";
+import { Notice } from "../ui/Notice";
+import { Button } from "../ui/Button";
 import pageStyles from "../VerbasPage/Verbas.module.css";
 import styles from "./SecuritySettings.module.css";
+
+export type MfaLogoutNotice = "mfa-enabled" | "mfa-disabled";
 
 type Props = {
   client: AuthClient;
   email: string;
   connectionNotice?: string | null;
-  onLoggedOut(): void;
+  onLoggedOut(notice: MfaLogoutNotice): void;
   onLogout(): void;
 };
 
 export function SecuritySettings({ client, email, connectionNotice, onLoggedOut, onLogout }: Props) {
   const [status, setStatus] = useState<MfaStatus | null>(null);
+  const [loginMethods, setLoginMethods] = useState<LoginMethods | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  const loadStatus = useCallback(() => {
+    let active = true;
+    setLoading(true);
+    setStatusError(null);
+    Promise.all([client.mfaStatus(), client.loginMethods()])
+      .then(([mfa, methods]) => {
+        if (!active) return;
+        setStatus(mfa);
+        setLoginMethods(methods);
+      })
+      .catch(() => {
+        if (!active) return;
+        setStatus(null);
+        setLoginMethods(null);
+        setStatusError("Não foi possível consultar o status da autenticação em duas etapas.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [client]);
 
   useEffect(() => {
-    let active = true;
-    client.mfaStatus()
-      .then((result) => { if (active) setStatus(result); })
-      .catch(() => { if (active) setStatus({ status: "DISABLED", pendingExpiresAt: null }); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [client]);
+    return loadStatus(); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [loadStatus]);
 
   return (
     <AppShell current="settings" email={email} onLogout={onLogout}>
@@ -38,15 +63,32 @@ export function SecuritySettings({ client, email, connectionNotice, onLoggedOut,
           <p>Contas conectadas, senha e autenticação em duas etapas.</p>
         </div>
       </header>
-      <Link className={styles.back} href="/configuracoes">← Voltar para configurações</Link>
+      <Link className={styles.back} href="/configuracoes">
+        ← Voltar para configurações
+      </Link>
       {loading ? (
-        <p role="status" aria-busy="true">Carregando…</p>
+        <p role="status" aria-busy="true">
+          Carregando…
+        </p>
+      ) : statusError || !loginMethods ? (
+        <Notice tone="danger">
+          {statusError ?? "Não foi possível carregar as contas conectadas."}{" "}
+          <Button variant="text" onClick={() => loadStatus()}>
+            Tentar novamente
+          </Button>
+        </Notice>
       ) : (
         <div className={styles.sections}>
-          <LinkedAccountsPanel client={client} connectionNotice={connectionNotice} />
-          {status?.status === "ENABLED"
-            ? <MfaEnabledPanel client={client} onLoggedOut={onLoggedOut} />
-            : <MfaSettings client={client} onComplete={onLoggedOut} embedded />}
+          <LinkedAccountsPanel
+            client={client}
+            initialMethods={loginMethods}
+            connectionNotice={connectionNotice}
+          />
+          {status?.status === "ENABLED" ? (
+            <MfaEnabledPanel client={client} onLoggedOut={() => onLoggedOut("mfa-disabled")} />
+          ) : (
+            <MfaSettings client={client} onComplete={() => onLoggedOut("mfa-enabled")} embedded />
+          )}
         </div>
       )}
     </AppShell>
@@ -56,25 +98,21 @@ export function SecuritySettings({ client, email, connectionNotice, onLoggedOut,
 const PROVIDER_LABELS: Record<OAuthProviderName, string> = { google: "Google", github: "GitHub" };
 const ALL_PROVIDERS: OAuthProviderName[] = ["google", "github"];
 
-function LinkedAccountsPanel({ client, connectionNotice }: { client: AuthClient; connectionNotice?: string | null }) {
-  const [status, setStatus] = useState<LoginMethods | null>(null);
-  const [loading, setLoading] = useState(true);
+function LinkedAccountsPanel({
+  client,
+  initialMethods,
+  connectionNotice,
+}: {
+  client: AuthClient;
+  initialMethods: LoginMethods;
+  connectionNotice?: string | null;
+}) {
+  const [status, setStatus] = useState<LoginMethods>(initialMethods);
   const [message, setMessage] = useState<string | null>(connectionNotice ?? null);
   const [busyProvider, setBusyProvider] = useState<OAuthProviderName | null>(null);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [password, setPassword] = useState("");
   const [passwordBusy, setPasswordBusy] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    client.loginMethods()
-      .then((result) => { if (active) setStatus(result); })
-      .catch(() => { if (active) setMessage("Não foi possível carregar as contas conectadas."); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [client]);
-
-  if (loading || !status) return null;
 
   const isOnlyRemainingMethod = (provider: OAuthProviderName) =>
     !status.hasPassword && status.linkedProviders.length === 1 && status.linkedProviders[0] === provider;
@@ -95,10 +133,13 @@ function LinkedAccountsPanel({ client, connectionNotice }: { client: AuthClient;
     setBusyProvider(provider);
     try {
       await client.unlinkProvider(provider);
-      setStatus((current) => current && {
-        ...current,
-        linkedProviders: current.linkedProviders.filter((linked) => linked !== provider),
-      });
+      setStatus(
+        (current) =>
+          current && {
+            ...current,
+            linkedProviders: current.linkedProviders.filter((linked) => linked !== provider),
+          },
+      );
     } catch (cause) {
       setMessage(cause instanceof Error ? cause.message : "Não foi possível desconectar.");
     } finally {
@@ -125,19 +166,30 @@ function LinkedAccountsPanel({ client, connectionNotice }: { client: AuthClient;
   return (
     <section className={styles.card} aria-labelledby="linked-accounts-title">
       <h1 id="linked-accounts-title">Contas conectadas</h1>
-      {message && <p className={styles.notice} role="status">{message}</p>}
+      {message && (
+        <p className={styles.notice} role="status">
+          {message}
+        </p>
+      )}
       <div className={styles.actions}>
         {ALL_PROVIDERS.map((provider) => {
           const linked = status.linkedProviders.includes(provider);
           return linked ? (
-            <button key={provider} type="button"
+            <button
+              key={provider}
+              type="button"
               disabled={busyProvider === provider || isOnlyRemainingMethod(provider)}
-              onClick={() => disconnect(provider)}>
+              onClick={() => disconnect(provider)}
+            >
               {busyProvider === provider ? "Aguarde…" : `Desconectar ${PROVIDER_LABELS[provider]}`}
             </button>
           ) : (
-            <button key={provider} type="button" disabled={busyProvider === provider}
-              onClick={() => connect(provider)}>
+            <button
+              key={provider}
+              type="button"
+              disabled={busyProvider === provider}
+              onClick={() => connect(provider)}
+            >
               {busyProvider === provider ? "Aguarde…" : `Conectar ${PROVIDER_LABELS[provider]}`}
             </button>
           );
@@ -145,13 +197,23 @@ function LinkedAccountsPanel({ client, connectionNotice }: { client: AuthClient;
       </div>
 
       {!status.hasPassword && !showPasswordForm && (
-        <button type="button" onClick={() => setShowPasswordForm(true)}>Cadastrar senha</button>
+        <button type="button" onClick={() => setShowPasswordForm(true)}>
+          Cadastrar senha
+        </button>
       )}
       {!status.hasPassword && showPasswordForm && (
         <form className={styles.form} onSubmit={submitPassword}>
           <label htmlFor="new-password">Nova senha</label>
-          <input id="new-password" type="password" autoComplete="new-password" minLength={12} maxLength={128}
-            required value={password} onChange={(event) => setPassword(event.target.value)} />
+          <input
+            id="new-password"
+            type="password"
+            autoComplete="new-password"
+            minLength={12}
+            maxLength={128}
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
           <button className={styles.submit} type="submit" disabled={passwordBusy}>
             {passwordBusy ? "Aguarde…" : "Salvar senha"}
           </button>
@@ -200,7 +262,11 @@ function MfaEnabledPanel({ client, onLoggedOut }: { client: AuthClient; onLogged
             Novos códigos de recuperação. Guarde-os em local seguro; eles não serão mostrados novamente.
           </p>
           <ul className={styles.codes}>
-            {recoveryCodes.map((code) => <li key={code}><code>{code}</code></li>)}
+            {recoveryCodes.map((code) => (
+              <li key={code}>
+                <code>{code}</code>
+              </li>
+            ))}
           </ul>
           <button className={styles.submit} type="button" onClick={() => setRecoveryCodes(null)}>
             Concluído
@@ -210,8 +276,12 @@ function MfaEnabledPanel({ client, onLoggedOut }: { client: AuthClient; onLogged
 
       {!recoveryCodes && action === "none" && (
         <div className={styles.actions}>
-          <button type="button" onClick={() => setAction("regenerate")}>Gerar novos recovery codes</button>
-          <button type="button" onClick={() => setAction("disable")}>Desativar MFA</button>
+          <button type="button" onClick={() => setAction("regenerate")}>
+            Gerar novos recovery codes
+          </button>
+          <button type="button" onClick={() => setAction("disable")}>
+            Desativar MFA
+          </button>
         </div>
       )}
 
@@ -226,11 +296,17 @@ function MfaEnabledPanel({ client, onLoggedOut }: { client: AuthClient; onLogged
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
-          {message && <p className={styles.notice} role="status">{message}</p>}
+          {message && (
+            <p className={styles.notice} role="status">
+              {message}
+            </p>
+          )}
           <button className={styles.submit} type="submit" disabled={busy}>
             {busy ? "Aguarde…" : action === "disable" ? "Confirmar desativação" : "Gerar novos códigos"}
           </button>
-          <button className={styles.cancel} type="button" onClick={() => setAction("none")}>Cancelar</button>
+          <button className={styles.cancel} type="button" onClick={() => setAction("none")}>
+            Cancelar
+          </button>
         </form>
       )}
     </section>

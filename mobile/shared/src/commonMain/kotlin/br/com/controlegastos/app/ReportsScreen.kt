@@ -9,12 +9,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -118,9 +122,13 @@ private fun MonthRange(label: String, month: YearMonth, onChange: (YearMonth) ->
     ) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
         androidx.compose.foundation.layout.Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            TextButton(onClick = { onChange(month.previous()) }, modifier = Modifier.height(TouchTarget)) { Text("‹") }
+            IconButton(onClick = { onChange(month.previous()) }, modifier = Modifier.height(TouchTarget)) {
+                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = "Mês anterior")
+            }
             Text(month.label(), fontWeight = FontWeight.Bold)
-            TextButton(onClick = { onChange(month.next()) }, modifier = Modifier.height(TouchTarget)) { Text("›") }
+            IconButton(onClick = { onChange(month.next()) }, modifier = Modifier.height(TouchTarget)) {
+                Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = "Próximo mês")
+            }
         }
     }
 }

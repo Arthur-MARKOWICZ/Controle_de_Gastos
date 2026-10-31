@@ -4,23 +4,37 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 private const val MAX_DESCRIPTION = 140
 private const val MAX_NAME = 80
+private const val MILLIS_PER_DAY = 86_400_000L
 
 /** Resultado de uma submissão: `null` quando deu certo, senão a mensagem de erro. */
 internal typealias FormResult = (String?) -> Unit
@@ -72,17 +86,10 @@ internal fun EntryFormDialog(
         onDismiss = onDismiss,
     ) {
         AmountField(digits, { digits = it }, "Valor")
-        OutlinedTextField(
+        EntryDateField(
             value = occurredAt,
-            onValueChange = { occurredAt = it.take(10) },
-            label = { Text("Data (AAAA-MM-DD)") },
-            isError = occurredAt.isNotEmpty() && !dateValid,
-            supportingText = {
-                if (occurredAt.isNotEmpty() && !dateValid) Text("Use AAAA-MM-DD e uma data que já aconteceu.")
-            },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            today = today,
+            onChange = { occurredAt = it },
         )
         OutlinedTextField(
             value = description,
@@ -100,6 +107,112 @@ internal fun EntryFormDialog(
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EntryDateField(
+    value: String,
+    today: String,
+    onChange: (String) -> Unit,
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    val dateValid = isIsoDate(value) && value <= today
+    val yesterday = previousIsoDay(today)
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Text("Data", style = MaterialTheme.typography.labelLarge)
+        OutlinedButton(
+            onClick = { showPicker = true },
+            modifier = Modifier.fillMaxWidth().height(TouchTarget),
+        ) {
+            Text(if (isIsoDate(value)) formatIsoDateBr(value) else "Escolher data")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = { onChange(today) }, modifier = Modifier.height(TouchTarget)) {
+                Text("Hoje")
+            }
+            TextButton(onClick = { onChange(yesterday) }, modifier = Modifier.height(TouchTarget)) {
+                Text("Ontem")
+            }
+        }
+        if (!dateValid) {
+            Text(
+                "Escolha uma data que já aconteceu.",
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+
+    if (showPicker) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = isoDateToUtcMillis(value.ifBlank { today }),
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                    utcMillisToIsoDate(utcTimeMillis) <= today
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { onChange(utcMillisToIsoDate(it)) }
+                        showPicker = false
+                    },
+                    modifier = Modifier.height(TouchTarget),
+                ) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }, modifier = Modifier.height(TouchTarget)) {
+                    Text("Cancelar")
+                }
+            },
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
+}
+
+/** Escolha da verba no lançamento rápido de gasto, aberto pelo botão global. */
+@Composable
+internal fun ExpenseEnvelopePicker(
+    envelopes: List<EnvelopeView>,
+    onSelect: (EnvelopeView) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Gasto em qual verba?", fontWeight = FontWeight.Bold) },
+        text = {
+            if (envelopes.isEmpty()) {
+                Text("Nenhuma verba de limite, compromisso fixo ou gasto anual neste mês. Crie uma para lançar gastos.")
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    items(envelopes, key = EnvelopeView::id) { envelope ->
+                        TextButton(
+                            onClick = { onSelect(envelope) },
+                            modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget),
+                        ) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(envelope.name, fontWeight = FontWeight.Bold)
+                                Text(
+                                    "Disponível ${envelope.available.toBrl()}",
+                                    color = if (envelope.isNegative) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.height(TouchTarget)) { Text("Cancelar") }
+        },
+    )
 }
 
 /** Criação de verba, com os campos que cada natureza exige. */
@@ -350,3 +463,54 @@ internal fun isIsoDate(value: String): Boolean =
     Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(value) &&
         value.substring(5, 7).toInt() in 1..12 &&
         value.substring(8, 10).toInt() in 1..31
+
+internal fun formatIsoDateBr(iso: String): String =
+    "${iso.substring(8, 10)}/${iso.substring(5, 7)}/${iso.substring(0, 4)}"
+
+internal fun previousIsoDay(iso: String): String {
+    val year = iso.substring(0, 4).toInt()
+    val month = iso.substring(5, 7).toInt()
+    val day = iso.substring(8, 10).toInt()
+    if (day > 1) return formatIsoParts(year, month, day - 1)
+    val previous = YearMonth(year, month).previous()
+    return previous.lastDay()
+}
+
+internal fun isoDateToUtcMillis(iso: String): Long {
+    val year = iso.substring(0, 4).toInt()
+    val month = iso.substring(5, 7).toInt()
+    val day = iso.substring(8, 10).toInt()
+    var days = 0L
+    for (y in 1970 until year) {
+        days += if (isGregorianLeap(y)) 366 else 365
+    }
+    val monthLengths = intArrayOf(31, if (isGregorianLeap(year)) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    for (m in 1 until month) days += monthLengths[m - 1]
+    days += (day - 1)
+    return days * MILLIS_PER_DAY
+}
+
+internal fun utcMillisToIsoDate(millis: Long): String {
+    var days = millis / MILLIS_PER_DAY
+    var year = 1970
+    while (true) {
+        val length = if (isGregorianLeap(year)) 366L else 365L
+        if (days < length) break
+        days -= length
+        year++
+    }
+    val monthLengths = intArrayOf(31, if (isGregorianLeap(year)) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+    var month = 1
+    while (month <= 12 && days >= monthLengths[month - 1]) {
+        days -= monthLengths[month - 1]
+        month++
+    }
+    val day = days.toInt() + 1
+    return formatIsoParts(year, month, day)
+}
+
+private fun formatIsoParts(year: Int, month: Int, day: Int): String =
+    "${year.toString().padStart(4, '0')}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}"
+
+private fun isGregorianLeap(year: Int): Boolean =
+    year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)

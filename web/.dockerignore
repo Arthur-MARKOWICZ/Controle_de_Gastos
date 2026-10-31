@@ -1,4 +1,14 @@
 .next
 node_modules
-npm-debug.log
-pnpm-debug.log
+npm-debug.log*
+pnpm-debug.log*
+coverage
+*.md
+.gitignore
+eslint.config.mjs
+vitest.config.mts
+tsconfig.tsbuildinfo
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx

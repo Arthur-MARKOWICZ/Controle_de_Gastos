@@ -2,9 +2,13 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "../theme/ThemeProvider";
 import { themeBootstrapScript } from "../theme/theme";
+import { PAGE_TITLES } from "./page-titles";
 
 export const metadata: Metadata = {
-  title: "Controle de gastos",
+  title: {
+    default: `${PAGE_TITLES.home} · Controle de gastos`,
+    template: "%s · Controle de gastos",
+  },
   description: "Organize sua renda em verbas que acompanham a vida real.",
 };
 

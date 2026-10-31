@@ -29,39 +29,51 @@ class HistoryController(
     var state: HistoryState = HistoryState.Loading
         private set
 
+    /** Indica atualização em segundo plano sem esconder o conteúdo já carregado. */
+    var refreshing: Boolean = false
+        private set
+
     /** Última falha de carga, para a casca distinguir sessão expirada de erro comum. */
     var lastFailure: Throwable? = null
         private set
 
     suspend fun refresh() {
-        state = HistoryState.Loading
-        state = try {
+        val keepContent = state is HistoryState.Content
+        if (keepContent) refreshing = true else state = HistoryState.Loading
+        try {
             lastFailure = null
-            HistoryState.Content(
+            state = HistoryState.Content(
                 summary = gateway.loadHistorySummary(month.firstDay(), month.lastDay()),
                 page = gateway.loadHistory(month.firstDay(), month.lastDay(), page, includeDeleted),
             )
         } catch (failure: Throwable) {
             lastFailure = failure
-            HistoryState.Error(describeFailure(failure, "Não foi possível carregar o histórico."))
+            if (!keepContent) {
+                state = HistoryState.Error(describeFailure(failure, "Não foi possível carregar o histórico."))
+            }
+        } finally {
+            refreshing = false
         }
     }
 
     suspend fun showPreviousMonth() {
         month = month.previous()
         page = 0
+        state = HistoryState.Loading
         refresh()
     }
 
     suspend fun showNextMonth() {
         month = month.next()
         page = 0
+        state = HistoryState.Loading
         refresh()
     }
 
     suspend fun showDeleted(include: Boolean) {
         includeDeleted = include
         page = 0
+        state = HistoryState.Loading
         refresh()
     }
 

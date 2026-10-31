@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { EnvelopeCard } from "./EnvelopeCard";
 
@@ -22,6 +22,17 @@ describe("EnvelopeCard", () => {
     expect(screen.getByText(/meta acumulada R\$\s*200,00/)).toBeDefined();
     expect(screen.getByRole("progressbar", { name: "Progresso de Investimentos" }).getAttribute("value")).toBe("10");
     unmount();
+  });
+
+  it("anuncia o saldo negativo por texto, sem depender só da cor", () => {
+    render(<ul><EnvelopeCard envelope={{
+      id: "limit", ownerId: "owner", name: "Mercado", purpose: "LIMIT",
+      baseAmount: { amount: "500.00", currency: "BRL" }, targetAmount: null, targetReachedAt: null,
+      available: { amount: "-35.10", currency: "BRL" }, isNegative: true, role: "OWNER", createdAt: "2026-09-01T00:00:00Z", archivedAt: null, version: 0,
+    }} /></ul>);
+
+    expect(screen.getByRole("alert").textContent).toMatch(/Saldo negativo -R\$\s*35,10/);
+    cleanup();
   });
 
   it("explica que limite de gasto reinicia a cada mês", () => {

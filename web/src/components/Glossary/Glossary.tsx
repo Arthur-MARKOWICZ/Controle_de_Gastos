@@ -2,6 +2,24 @@
 
 import styles from "./Glossary.module.css";
 
+const CORE_TERMS = [
+  {
+    term: "Verba",
+    description:
+      "Um destino para parte da renda: limite de gasto, compromisso fixo, meta ou gasto anual. Cada verba tem saldo próprio.",
+  },
+  {
+    term: "Não alocado",
+    description:
+      "Parte da renda que ainda não foi destinada a nenhuma verba. Se não for usada, acumula para o mês seguinte.",
+  },
+  {
+    term: "Saldo acumulado",
+    description:
+      "O que sobrou ao longo dos meses (renda menos gastos). Mostra o resultado contínuo, não só o mês atual.",
+  },
+] as const;
+
 const ENTRIES = [
   {
     purpose: "LIMIT",
@@ -33,8 +51,19 @@ const ENTRIES = [
 export function Glossary() {
   return (
     <>
-      <p className={styles.intro}>Cada verba tem um propósito diferente. Veja o que cada tipo significa e quando usá-lo.</p>
-      <dl className={styles.list}>
+      <p className={styles.intro}>
+        Conceitos centrais e o que cada tipo de verba significa.
+      </p>
+      <dl className={styles.list} aria-label="Conceitos centrais">
+        {CORE_TERMS.map((entry) => (
+          <div key={entry.term} className={styles.item}>
+            <dt>{entry.term}</dt>
+            <dd>{entry.description}</dd>
+          </div>
+        ))}
+      </dl>
+      <h3 className={styles.sectionTitle}>Tipos de verba</h3>
+      <dl className={styles.list} aria-label="Tipos de verba">
         {ENTRIES.map((entry) => (
           <div key={entry.purpose} className={styles.item}>
             <dt>{entry.label}</dt>

@@ -27,6 +27,21 @@ function isValidBRLNegative(plain: string): boolean {
   return /^-\d{1,17}\.\d{2}$/.test(plain);
 }
 
+function toCents(plain: string): bigint | null {
+  if (!isValidBRL(plain) && !isValidBRLNegative(plain)) return null;
+  return BigInt(plain.replace(".", ""));
+}
+
+export function subtractBRL(minuend: string, subtrahend: string): string | null {
+  const a = toCents(minuend);
+  const b = toCents(subtrahend);
+  if (a === null || b === null) return null;
+  const result = a - b;
+  const sign = result < BigInt(0) ? "-" : "";
+  const digits = (result < BigInt(0) ? -result : result).toString().padStart(3, "0");
+  return `${sign}${digits.slice(0, -2)}.${digits.slice(-2)}`;
+}
+
 export function isValidBRLInputBRL(ptBR: string): boolean {
   const plain = parseBRLInput(ptBR);
   return plain !== "" && isValidBRL(plain);

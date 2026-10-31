@@ -37,6 +37,7 @@ private sealed interface MonthDialog {
     data class Create(val purpose: EnvelopePurpose, val allowed: List<EnvelopePurpose>) : MonthDialog
     data object Income : MonthDialog
     data object Glossary : MonthDialog
+    data object ChooseExpenseEnvelope : MonthDialog
 }
 
 /**
@@ -53,10 +54,19 @@ internal fun MonthWorkspaceScreen(
     onOpenEntries: (EnvelopeView) -> Unit,
     onNotify: (String) -> Unit,
     onSessionExpired: () -> Unit = {},
+    quickExpenseRequested: Boolean = false,
+    onQuickExpenseHandled: () -> Unit = {},
 ) {
     var state by remember(controller) { mutableStateOf(controller.state) }
     var dialog by remember { mutableStateOf<MonthDialog?>(null) }
     val scope = rememberCoroutineScope()
+
+    androidx.compose.runtime.LaunchedEffect(quickExpenseRequested) {
+        if (quickExpenseRequested) {
+            dialog = MonthDialog.ChooseExpenseEnvelope
+            onQuickExpenseHandled()
+        }
+    }
 
     fun reload() = scope.launch {
         controller.refresh()
@@ -77,9 +87,9 @@ internal fun MonthWorkspaceScreen(
             state = controller.state
             if (outcome.exceptionOrNull()?.isSessionExpired() == true) onSessionExpired()
             outcome
-                .onSuccess { celebration ->
+                .onSuccess { notice ->
                     result(null)
-                    celebration?.let(onNotify)
+                    notice?.let(onNotify)
                 }
                 .onFailure { result(describeFailure(it, "Não foi possível concluir a operação.")) }
         }
@@ -226,11 +236,13 @@ internal fun MonthWorkspaceScreen(
             },
             today = today,
             onSubmit = { entry, result ->
-                submit(result) {
-                    val reached = controller.registerEntry(open.envelope.id, entry)
-                    if (reached) "Meta de ${open.envelope.name} alcançada." else null
-                }
+                submit(result) { controller.registerEntry(open.envelope.id, entry) }
             },
+            onDismiss = { dialog = null },
+        )
+        MonthDialog.ChooseExpenseEnvelope -> ExpenseEnvelopePicker(
+            envelopes = controller.expenseEnvelopes,
+            onSelect = { dialog = MonthDialog.Register(it) },
             onDismiss = { dialog = null },
         )
         is MonthDialog.Edit -> EnvelopeEditDialog(

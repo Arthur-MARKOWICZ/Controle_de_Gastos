@@ -39,6 +39,8 @@ kotlin {
             implementation("org.jetbrains.compose.runtime:runtime:1.12.0")
             implementation("org.jetbrains.compose.foundation:foundation:1.12.0")
             implementation("org.jetbrains.compose.material3:material3:1.12.0-alpha03")
+            // Última publicação multiplataforma; API estável com Compose 1.12.
+            implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
             implementation("org.jetbrains.compose.ui:ui:1.12.0")
             // Botão voltar do sistema no código comum.
             implementation("org.jetbrains.compose.ui:ui-backhandler:1.12.0")

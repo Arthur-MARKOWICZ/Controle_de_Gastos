@@ -4,19 +4,46 @@ import { useState } from "react";
 import { useAuth } from "../../auth/auth-context";
 import { createApiClient, ApiError } from "../../lib/api";
 import { formatBRLInputMask, maskToPlain } from "../../lib/money";
+import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
+import { Notice } from "../ui/Notice";
 import styles from "./EnvelopeForm.module.css";
+
+export type EnvelopePurpose = "LIMIT" | "GOAL" | "FIXED" | "SAVINGS_TARGET" | "ANNUAL_EXPENSE";
+
+const PURPOSE_OPTIONS: { value: EnvelopePurpose; label: string }[] = [
+  { value: "LIMIT", label: "Limite de gasto" },
+  { value: "GOAL", label: "Meta de aporte" },
+  { value: "FIXED", label: "Compromisso fixo" },
+  { value: "SAVINGS_TARGET", label: "Meta de acumulação" },
+  { value: "ANNUAL_EXPENSE", label: "Gasto anual" },
+];
 
 type Props = {
   onSuccess(): void;
   onCancel(): void;
-  initialPurpose?: "LIMIT" | "GOAL" | "FIXED" | "SAVINGS_TARGET" | "ANNUAL_EXPENSE";
+  initialPurpose?: EnvelopePurpose;
+  allowedPurposes?: EnvelopePurpose[];
+  onOpenGlossary?(): void;
 };
 
-export function EnvelopeForm({ onSuccess, onCancel, initialPurpose = "LIMIT" }: Props) {
+export function EnvelopeForm({
+  onSuccess,
+  onCancel,
+  initialPurpose = "LIMIT",
+  allowedPurposes,
+  onOpenGlossary,
+}: Props) {
   const { client } = useAuth();
   const api = createApiClient(client);
+  const options = allowedPurposes
+    ? PURPOSE_OPTIONS.filter((option) => allowedPurposes.includes(option.value))
+    : PURPOSE_OPTIONS;
+  const startingPurpose = options.some((option) => option.value === initialPurpose)
+    ? initialPurpose
+    : (options[0]?.value ?? "LIMIT");
   const [name, setName] = useState("");
-  const [purpose, setPurpose] = useState<"LIMIT" | "GOAL" | "FIXED" | "SAVINGS_TARGET" | "ANNUAL_EXPENSE">(initialPurpose);
+  const [purpose, setPurpose] = useState<EnvelopePurpose>(startingPurpose);
   const [amountMask, setAmountMask] = useState("");
   const [targetMask, setTargetMask] = useState("");
   const [dueMonth, setDueMonth] = useState("1");
@@ -56,48 +83,75 @@ export function EnvelopeForm({ onSuccess, onCancel, initialPurpose = "LIMIT" }: 
 
   return (
     <form onSubmit={submit} className={styles.form}>
-      {error && <p role="alert" className={styles.error}>{error}</p>}
-      <label htmlFor="envelope-name">Nome da verba</label>
-      <input id="envelope-name" value={name} onChange={e => setName(e.target.value)} maxLength={80} required placeholder="Ex: Combustível" />
-      <label htmlFor="envelope-purpose">Natureza</label>
-      <select id="envelope-purpose" value={purpose} onChange={e => setPurpose(e.target.value as never)}>
-        <option value="LIMIT">Limite de gasto</option>
-        <option value="GOAL">Meta de aporte</option>
-        <option value="FIXED">Compromisso fixo</option>
-        <option value="SAVINGS_TARGET">Meta de acumulação</option>
-        <option value="ANNUAL_EXPENSE">Gasto anual</option>
-      </select>
+      {error && <Notice tone="danger">{error}</Notice>}
+      <Field id="envelope-name" label="Nome da verba">
+        <input value={name} onChange={e => setName(e.target.value)} maxLength={80} required placeholder="Ex: Combustível" />
+      </Field>
+      <Field id="envelope-purpose" label="Natureza">
+        <select value={purpose} onChange={e => setPurpose(e.target.value as EnvelopePurpose)}>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+      </Field>
+      {onOpenGlossary && (
+        <p className={styles.glossaryHint}>
+          Em dúvida sobre o tipo?{" "}
+          <Button type="button" variant="text" onClick={onOpenGlossary}>Ver glossário</Button>
+        </p>
+      )}
       {purpose === "SAVINGS_TARGET" ? (
-        <>
-          <label htmlFor="envelope-target">Valor total da meta (BRL)</label>
-          <input id="envelope-target" inputMode="decimal" value={targetMask} onChange={e => setTargetMask(formatBRLInputMask(e.target.value))} placeholder="1.000,00" required aria-describedby="target-help" />
-          <span id="target-help" className={styles.help}>Aporte qualquer valor até chegar ao alvo. Esta verba não recebe alocação mensal.</span>
-        </>
+        <Field
+          id="envelope-target"
+          label="Valor total da meta (BRL)"
+          hint="Aporte qualquer valor até chegar ao alvo. Esta verba não recebe alocação mensal."
+        >
+          <input
+            inputMode="decimal"
+            value={targetMask}
+            onChange={e => setTargetMask(formatBRLInputMask(e.target.value))}
+            placeholder="1.000,00"
+            required
+          />
+        </Field>
       ) : purpose === "ANNUAL_EXPENSE" ? (
         <>
-          <label htmlFor="envelope-annual-amount">Valor anual (BRL)</label>
-          <input id="envelope-annual-amount" inputMode="decimal" value={targetMask} onChange={e => setTargetMask(formatBRLInputMask(e.target.value))} placeholder="1.000,00" required />
-          <label htmlFor="envelope-due-month">Mês do vencimento</label>
-          <input id="envelope-due-month" type="number" min="1" max="12" value={dueMonth} onChange={e => setDueMonth(e.target.value)} required />
-          <label htmlFor="envelope-due-day">Dia do vencimento</label>
-          <input id="envelope-due-day" type="number" min="1" max="31" value={dueDay} onChange={e => setDueDay(e.target.value)} required />
-          <label htmlFor="envelope-funding-mode">Como reservar</label>
-          <select id="envelope-funding-mode" value={fundingMode} onChange={e => setFundingMode(e.target.value as "MONTHLY" | "ONE_TIME")}>
-            <option value="MONTHLY">Uma parcela por mês até o vencimento</option>
-            <option value="ONE_TIME">Pagar somente no vencimento</option>
-          </select>
-          <span className={styles.help}>O gasto é sempre registrado manualmente. No modo mensal, o saldo reservado não reinicia.</span>
+          <Field id="envelope-annual-amount" label="Valor anual (BRL)">
+            <input
+              inputMode="decimal"
+              value={targetMask}
+              onChange={e => setTargetMask(formatBRLInputMask(e.target.value))}
+              placeholder="1.000,00"
+              required
+            />
+          </Field>
+          <Field id="envelope-due-month" label="Mês do vencimento">
+            <input type="number" min="1" max="12" value={dueMonth} onChange={e => setDueMonth(e.target.value)} required />
+          </Field>
+          <Field id="envelope-due-day" label="Dia do vencimento">
+            <input type="number" min="1" max="31" value={dueDay} onChange={e => setDueDay(e.target.value)} required />
+          </Field>
+          <Field id="envelope-funding-mode" label="Como reservar" hint="O gasto é sempre registrado manualmente. No modo mensal, o saldo reservado não reinicia.">
+            <select value={fundingMode} onChange={e => setFundingMode(e.target.value as "MONTHLY" | "ONE_TIME")}>
+              <option value="MONTHLY">Uma parcela por mês até o vencimento</option>
+              <option value="ONE_TIME">Pagar somente no vencimento</option>
+            </select>
+          </Field>
         </>
       ) : (
-        <>
-          <label htmlFor="envelope-amount">Valor-base (BRL)</label>
-          <input id="envelope-amount" inputMode="decimal" value={amountMask} onChange={e => setAmountMask(formatBRLInputMask(e.target.value))} placeholder="0,00" required aria-describedby="amount-help" />
-          <span id="amount-help" className={styles.help}>Use vírgula para centavos. Será enviado como 400.00</span>
-        </>
+        <Field id="envelope-amount" label="Valor-base (BRL)" hint="Use vírgula para centavos (ex.: 400,00).">
+          <input
+            inputMode="decimal"
+            value={amountMask}
+            onChange={e => setAmountMask(formatBRLInputMask(e.target.value))}
+            placeholder="0,00"
+            required
+          />
+        </Field>
       )}
       <div className={styles.actions}>
-        <button type="button" onClick={onCancel} disabled={busy}>Cancelar</button>
-        <button type="submit" disabled={busy} className={styles.primary}>{busy ? "Salvando…" : "Criar verba"}</button>
+        <Button variant="secondary" onClick={onCancel} disabled={busy}>Cancelar</Button>
+        <Button type="submit" busy={busy}>{busy ? "Salvando…" : "Criar verba"}</Button>
       </div>
     </form>
   );

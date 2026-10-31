@@ -1,6 +1,15 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { VerbasPage } from "./VerbasPage";
+
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
+    this.open = true;
+  });
+  HTMLDialogElement.prototype.close = vi.fn(function (this: HTMLDialogElement) {
+    this.open = false;
+  });
+});
 
 vi.mock("next/navigation", () => ({
   useSearchParams: () => ({ get: () => null }),
@@ -73,5 +82,14 @@ describe("VerbasPage", () => {
     render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
     expect(screen.getByRole("tab", { name: /Todas/ })).toBeDefined();
     expect(screen.getByLabelText(/Buscar verba/)).toBeDefined();
+  });
+
+  it("abre o formulário de compromisso fixo já com a natureza FIXED", () => {
+    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Criar compromisso fixo/i }));
+    const dialog = screen.getByRole("dialog", { name: "Nova verba" });
+    expect(within(dialog).getByLabelText("Natureza")).toHaveProperty("value", "FIXED");
+    expect(within(dialog).queryByRole("option", { name: "Meta de aporte" })).toBeNull();
   });
 });

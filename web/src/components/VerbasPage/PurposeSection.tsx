@@ -3,6 +3,7 @@
 import { formatBRL } from "../../lib/money";
 import type { EnvelopeDTO } from "../../lib/api";
 import { EnvelopeCard } from "../EnvelopeCard/EnvelopeCard";
+import { Button } from "../ui/Button";
 import styles from "./Verbas.module.css";
 
 type Purpose = "LIMIT" | "FIXED";
@@ -25,6 +26,7 @@ export function PurposeSection({ purpose, envelopes, onRegisterExpense, onArchiv
   const totalBase = envelopes.reduce((acc, e) => acc + Number(e.baseAmount.amount), 0);
   const totalAvailable = envelopes.reduce((acc, e) => acc + Number(e.available.amount), 0);
   const count = envelopes.length;
+  const negativeCount = envelopes.filter(e => e.isNegative).length;
 
   return (
     <section className={styles.purposeSection} data-purpose={purpose} aria-labelledby={`titulo-${purpose.toLowerCase()}`}>
@@ -39,19 +41,23 @@ export function PurposeSection({ purpose, envelopes, onRegisterExpense, onArchiv
             <strong>{count === 0 ? "—" : formatBRL(totalAvailable.toFixed(2))}</strong>
             <p>{count === 0 ? "Nenhuma verba" : `de ${formatBRL(totalBase.toFixed(2))} · ${count} ${count === 1 ? "verba" : "verbas"}`}</p>
           </div>
-          <span className={styles.negativeCount}>{envelopes.filter(e => e.isNegative).length > 0 ? `⚠ ${envelopes.filter(e => e.isNegative).length} negativa(s)` : ""}</span>
+          <span className={styles.negativeCount}>
+            {negativeCount > 0 ? `${negativeCount} negativa(s)` : ""}
+          </span>
+          <Button variant="secondary" onClick={() => onCreate(purpose)}>
+            Criar {meta.label.toLowerCase()}
+          </Button>
         </div>
       </div>
 
       {envelopes.length === 0 ? (
         <div className={styles.emptyState} role="status">
           <p>Nenhuma verba de {meta.label.toLowerCase()} neste mês.</p>
-          <button type="button" onClick={() => onCreate(purpose)}>Criar {meta.label.toLowerCase()}</button>
         </div>
       ) : (
         <ul className={styles.envelopeList}>
           {envelopes.map((env) => (
-            <EnvelopeCard key={env.id} envelope={env} onRegisterExpense={onRegisterExpense} onArchive={onArchive} variant="verbas" />
+            <EnvelopeCard key={env.id} envelope={env} onRegisterExpense={onRegisterExpense} onArchive={onArchive} />
           ))}
         </ul>
       )}

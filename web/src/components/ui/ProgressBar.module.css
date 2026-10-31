@@ -1,0 +1,51 @@
+.progressTrack {
+  width: 100%;
+  height: 0.5rem;
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--border-control);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--purpose-limit);
+  appearance: none;
+}
+
+.progressTrack::-webkit-progress-bar {
+  border-radius: inherit;
+  background: var(--surface-muted);
+}
+
+.progressTrack::-webkit-progress-value {
+  border-radius: inherit;
+  background: var(--purpose-limit);
+}
+
+.progressTrack::-moz-progress-bar {
+  border-radius: inherit;
+  background: var(--purpose-limit);
+}
+
+.progressTrack[data-purpose="GOAL"]::-webkit-progress-value,
+.progressTrack[data-purpose="GOAL"]::-moz-progress-bar {
+  background: var(--purpose-goal);
+}
+
+.progressTrack[data-purpose="FIXED"]::-webkit-progress-value,
+.progressTrack[data-purpose="FIXED"]::-moz-progress-bar {
+  background: var(--purpose-fixed);
+}
+
+.progressTrack[data-purpose="SAVINGS_TARGET"]::-webkit-progress-value,
+.progressTrack[data-purpose="SAVINGS_TARGET"]::-moz-progress-bar {
+  background: var(--purpose-savings);
+}
+
+.progressTrack[data-purpose="ANNUAL_EXPENSE"]::-webkit-progress-value,
+.progressTrack[data-purpose="ANNUAL_EXPENSE"]::-moz-progress-bar {
+  background: var(--purpose-annual);
+}
+
+.progressTrack[data-negative="true"]::-webkit-progress-value,
+.progressTrack[data-negative="true"]::-moz-progress-bar {
+  background: var(--danger);
+}

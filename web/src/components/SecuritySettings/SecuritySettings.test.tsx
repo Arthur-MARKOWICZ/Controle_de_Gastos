@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthClient, LoginMethods, MfaStatus } from "../../auth/auth-client";
 import { SecuritySettings } from "./SecuritySettings";
@@ -15,6 +15,8 @@ function fakeClient(
     connectOAuth: vi.fn().mockResolvedValue(undefined),
     unlinkProvider: vi.fn().mockResolvedValue(undefined),
     addPassword: vi.fn().mockResolvedValue(undefined),
+    disableMfa: vi.fn().mockResolvedValue(undefined),
+    regenerateRecoveryCodes: vi.fn().mockResolvedValue(["AAAA-BBBB"]),
     ...overrides,
   } as unknown as AuthClient;
 }
@@ -69,5 +71,35 @@ describe("SecuritySettings - contas conectadas", () => {
     render(<SecuritySettings client={client} email="ana@example.com" connectionNotice="Conta Google conectada com sucesso." onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
 
     expect(await screen.findByText("Conta Google conectada com sucesso.")).toBeDefined();
+  });
+});
+
+describe("SecuritySettings - MFA", () => {
+  it("não trata falha de consulta como Desativada e oferece retry", async () => {
+    const client = fakeClient(
+      { hasPassword: true, linkedProviders: [] },
+      { mfaStatus: vi.fn().mockRejectedValue(new Error("rede")) },
+    );
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
+
+    expect(await screen.findByRole("alert")).toBeDefined();
+    expect(screen.queryByText(/desativada/i)).toBeNull();
+    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeDefined();
+  });
+
+  it("ao desativar MFA notifica mfa-disabled", async () => {
+    const onLoggedOut = vi.fn();
+    const client = fakeClient(
+      { hasPassword: true, linkedProviders: [] },
+      { mfaStatus: vi.fn().mockResolvedValue({ status: "ENABLED", pendingExpiresAt: null } satisfies MfaStatus) },
+    );
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={onLoggedOut} onLogout={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Desativar MFA" }));
+    fireEvent.change(screen.getByLabelText("Senha atual"), { target: { value: "senha-correta-12" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Confirmar desativação" }).closest("form")!);
+
+    await waitFor(() => expect(onLoggedOut).toHaveBeenCalledWith("mfa-disabled"));
+    expect(client.disableMfa).toHaveBeenCalledWith("senha-correta-12");
   });
 });

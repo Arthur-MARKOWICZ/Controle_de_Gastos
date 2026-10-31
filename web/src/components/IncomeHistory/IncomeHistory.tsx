@@ -1,5 +1,6 @@
 import { formatBRL } from "../../lib/money";
 import styles from "../Dashboard/Dashboard.module.css";
+import { Button } from "../ui/Button";
 import type { IncomeHistoryPageDTO } from "../../lib/api";
 
 type Props = {
@@ -15,7 +16,12 @@ export function IncomeHistory({ data, loading, error, onLoadMore, onRetry }: Pro
     return <p role="status" aria-busy="true" className={styles.listState}>Carregando histórico…</p>;
   }
   if (error) {
-    return <p role="alert" className={styles.listError}>{error} {onRetry && <button type="button" onClick={onRetry} className={styles.textAction}>Tentar novamente</button>}</p>;
+    return (
+      <p role="alert" className={styles.listError}>
+        {error}{" "}
+        {onRetry && <Button variant="text" onClick={onRetry}>Tentar novamente</Button>}
+      </p>
+    );
   }
   if (!data || data.items.length === 0) {
     return <p className={styles.listState}>Nenhuma alteração registrada — a primeira configuração criará o histórico.</p>;
@@ -35,9 +41,9 @@ export function IncomeHistory({ data, loading, error, onLoadMore, onRetry }: Pro
         ))}
       </ul>
       {data.hasNext && onLoadMore && (
-        <button type="button" onClick={onLoadMore} className={`${styles.secondaryAction} ${styles.loadMore}`}>
+        <Button variant="secondary" onClick={onLoadMore} className={styles.loadMore}>
           Carregar mais
-        </button>
+        </Button>
       )}
     </div>
   );

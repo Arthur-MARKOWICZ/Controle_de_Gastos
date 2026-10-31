@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Relatório de oportunidades de negócio — Controle de Gastos / Verbas</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "DejaVu Sans", "Liberation Sans", Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.45;
+    color: #1a1a1a;
+    margin: 0;
+  }
+  h1 { font-size: 20pt; margin: 0 0 8pt; letter-spacing: -0.02em; }
+  h2 {
+    font-size: 13pt;
+    margin: 22pt 0 8pt;
+    padding-bottom: 4pt;
+    border-bottom: 1.5px solid #222;
+    page-break-after: avoid;
+  }
+  h3 { font-size: 11.5pt; margin: 14pt 0 6pt; page-break-after: avoid; }
+  h4 { font-size: 10.5pt; margin: 10pt 0 4pt; page-break-after: avoid; }
+  p, li { margin: 0 0 6pt; }
+  ul, ol { margin: 0 0 8pt; padding-left: 18pt; }
+  .cover {
+    min-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-left: 6px solid #0f5c4c;
+    padding-left: 18pt;
+  }
+  .meta { color: #444; font-size: 10pt; }
+  .tag {
+    display: inline-block;
+    font-size: 8.5pt;
+    font-weight: 700;
+    padding: 2pt 6pt;
+    border-radius: 3pt;
+    margin-right: 4pt;
+    vertical-align: middle;
+  }
+  .p0 { background: #fde8e8; color: #8a1f1f; }
+  .p1 { background: #fff1d6; color: #7a4d00; }
+  .p2 { background: #e8f0fe; color: #1a3f8a; }
+  .p3 { background: #eee; color: #444; }
+  .effort { background: #eef6f3; color: #0f5c4c; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8pt 0 12pt;
+    font-size: 9.5pt;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 5pt 6pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f3f5f4; font-weight: 700; }
+  .opp {
+    border: 1px solid #d0d5d3;
+    border-radius: 4pt;
+    padding: 10pt 12pt;
+    margin: 0 0 12pt;
+    page-break-inside: avoid;
+  }
+  .opp h3 { margin-top: 0; }
+  .label { font-weight: 700; color: #333; }
+  .muted { color: #555; }
+  .callout {
+    background: #f7faf8;
+    border: 1px solid #c5d6cf;
+    padding: 8pt 10pt;
+    margin: 8pt 0 12pt;
+  }
+  .page-break { page-break-before: always; }
+  code, .path { font-family: "DejaVu Sans Mono", monospace; font-size: 8.5pt; }
+  footer.note { margin-top: 24pt; font-size: 8.5pt; color: #666; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <p class="meta">Análise de produto e negócio · 30 de outubro de 2026</p>
+  <h1>Relatório de oportunidades</h1>
+  <p style="font-size:13pt;margin:0 0 14pt"><strong>Controle de Gastos / Verbas</strong></p>
+  <p class="meta">Repositório: <span class="path">Arthur-MARKOWICZ/Controle_de_Gastos</span></p>
+  <p class="meta">Branch analisada: <strong>main</strong> @ <span class="path">0629907</span> (local atrás de origin/main em 7 commits)</p>
+  <p class="meta">Objetivo: mapear oportunidades acionáveis sustentadas por evidências do repositório, priorizá-las e apoiar decisões de roadmap — sem alterar código nem criar issues nesta etapa.</p>
+  <div class="callout" style="margin-top:18pt">
+    <p><strong>Escopo desta entrega:</strong> análise + PDF. Issues no GitHub só após aprovação explícita por ID (OPP-XXX).</p>
+  </div>
+</section>
+
+<section class="page-break">
+  <h2>1. Resumo executivo</h2>
+  <p>O produto já ultrapassou o “esqueleto”: autenticação (e-mail/senha, MFA TOTP, OAuth Google/GitHub), renda mensal, verbas com cinco naturezas, ledger com saldo negativo permitido, histórico editável, relatórios CSV/XLSX, web (Next.js) e mobile Android em paridade funcional parcial. O posicionamento implícito na UI é <strong>Verbas — dinheiro com destino claro</strong>.</p>
+  <p><strong>Principais conclusões:</strong></p>
+  <ol>
+    <li><strong>Há bloqueio de abertura pública documentado:</strong> direitos do titular (exportação/correção/exclusão), canal publicado e revisão jurídica ainda não implementados/fechados; o módulo <span class="path">privacy</span> existe só como pacote Modulith vazio.</li>
+    <li><strong>A proposta de valor “verbas compartilhadas” ainda não existe na API nem nos clientes</strong> — módulo <span class="path">sharing</span> vazio; README admite ausência de endpoints.</li>
+    <li><strong>A hipótese central de hábito diário não foi validada</strong> (checklist aberto em fundação técnica); há empty states, mas não um onboarding guiado renda → verbas → primeiro gasto, nem notificações.</li>
+    <li><strong>Identidade está madura para uso pessoal/privado</strong>, porém cadastro não verifica e-mail de imediato (só via recuperação de senha) — risco se o cadastro for aberto.</li>
+    <li><strong>Nome público e domínio permanecem questões abertas</strong>, enquanto a tela de auth já usa a marca “Verbas”.</li>
+  </ol>
+  <p><strong>Decisões que precisam ser tomadas:</strong> (a) o próximo marco é uso privado contínuo ou preparação para terceiros? (b) compartilhamento entra antes ou depois de LGPD operacional? (c) quais OPP-XXX viram issues agora?</p>
+</section>
+
+<section>
+  <h2>2. Escopo e metodologia</h2>
+  <h3>Áreas inspecionadas</h3>
+  <ul>
+    <li>Documentação de intenção, ADRs, privacidade, deploy e API OpenAPI.</li>
+    <li>Estrutura Modulith do backend (módulos com e sem implementação).</li>
+    <li>Clientes web e mobile (paridade e lacunas declaradas).</li>
+    <li>Migrações Flyway V1–V12 e controllers REST existentes.</li>
+    <li>Estado Git local e capacidade do <span class="path">gh</span>.</li>
+  </ul>
+  <h3>Verificações executadas</h3>
+  <ul>
+    <li><span class="path">git status --short --branch</span>, log recente, remote.</li>
+    <li>Leitura de README, fundação técnica, ADRs-chave, requisitos LGPD, inventário de dados.</li>
+    <li>Inventário de controllers, pacotes vazios e rotas OpenAPI.</li>
+    <li><span class="path">gh auth status</span> / <span class="path">gh issue list</span> (falhou: token inválido — issues existentes <em>não</em> puderam ser consultadas).</li>
+  </ul>
+  <h3>Não executado / limitações</h3>
+  <ul>
+    <li><span class="path">make test</span> / <span class="path">make check</span> não foram rodados nesta análise (evitar carga longa e dependência de infra sem necessidade para a análise de negócio).</li>
+    <li>Sem entrevistas com usuários reais; premissas de adoção são hipóteses documentadas pelo próprio projeto.</li>
+    <li>Sem acesso a métricas de uso, receita ou retenção (produto ainda sem modelo de monetização declarado).</li>
+    <li>Conteúdo de <span class="path">.env</span> não foi lido (menor privilégio).</li>
+    <li>Branch local está 7 commits atrás de <span class="path">origin/main</span>; oportunidades baseiam-se no estado local + docs.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>3. Entendimento do produto</h2>
+  <h3>Fatos observados</h3>
+  <ul>
+    <li><span class="label">Problema:</span> reservar renda em verbas acumuláveis, registrar gastos com pouco esforço, permitir saldo negativo com alerta, e (no desenho) compartilhar verbas com papéis assimétricos.</li>
+    <li><span class="label">Canais:</span> mobile para lançamento rápido; web para configuração/histórico/relatórios; backend como fonte única de regras.</li>
+    <li><span class="label">Stack:</span> monorepo; Spring Modulith; Next.js; KMP (Android validável; iOS não testado neste ambiente).</li>
+    <li><span class="label">Implementado:</span> identity (incl. MFA e OAuth), income, envelopes, ledger, reporting; deploy Docker + Nginx/HTTPS documentado.</li>
+    <li><span class="label">Não implementado (pacotes vazios):</span> sharing, notifications, audit, privacy.</li>
+    <li><span class="label">Marca na UI web:</span> “Verbas” / “Dinheiro com destino claro” (<span class="path">AuthScreen.tsx</span>).</li>
+  </ul>
+  <h3>Hipóteses (não comprovadas por uso)</h3>
+  <ul>
+    <li>O lançamento manual é rápido o bastante para virar hábito diário.</li>
+    <li>O modelo de dinheiro reservado é compreendido sem explicação extensa (há glossário, mas não há evidência de compreensão por usuários).</li>
+    <li>Controle exclusivo do criador em verba compartilhada atenderá uso real (feature ainda inexistente).</li>
+    <li>Público inicial: o próprio responsável pelo repositório e, depois, pessoas próximas — <em>hipótese</em>; público-alvo comercial não está fechado.</li>
+  </ul>
+  <h3>Estágio aparente</h3>
+  <p>Produto pessoal avançado / pré-abertura pública: núcleo financeiro individual utilizável; lacunas estruturais em compartilhamento, notificações e direitos do titular.</p>
+</section>
+
+<section class="page-break">
+  <h2>4. Matriz priorizada de oportunidades</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Título</th>
+        <th>Pri.</th>
+        <th>Cat.</th>
+        <th>Esforço</th>
+        <th>Confiança</th>
+        <th>Decisão sugerida</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>OPP-001</td>
+        <td>Direitos do titular: exportar, corrigir e excluir conta</td>
+        <td><span class="tag p0">P0</span></td>
+        <td>Segurança/privacidade</td>
+        <td>L</td>
+        <td>Alta</td>
+        <td>Implementar antes de cadastro público</td>
+      </tr>
+      <tr>
+        <td>OPP-002</td>
+        <td>Canal do titular e política de privacidade publicados</td>
+        <td><span class="tag p0">P0</span></td>
+        <td>Segurança/privacidade</td>
+        <td>S</td>
+        <td>Alta</td>
+        <td>Implementar / publicar</td>
+      </tr>
+      <tr>
+        <td>OPP-003</td>
+        <td>Verificação de e-mail no cadastro</td>
+        <td><span class="tag p1">P1</span></td>
+        <td>Segurança / ativação</td>
+        <td>M</td>
+        <td>Alta</td>
+        <td>Implementar se houver abertura a terceiros</td>
+      </tr>
+      <tr>
+        <td>OPP-004</td>
+        <td>Onboarding guiado até o primeiro gasto</td>
+        <td><span class="tag p1">P1</span></td>
+        <td>Ativação / UX</td>
+        <td>M</td>
+        <td>Média</td>
+        <td>Experimentar com uso próprio + 2–3 usuários</td>
+      </tr>
+      <tr>
+        <td>OPP-005</td>
+        <td>Compartilhamento de verbas (API + web + mobile)</td>
+        <td><span class="tag p1">P1</span></td>
+        <td>Produto</td>
+        <td>XL</td>
+        <td>Alta (necessidade no desenho); média (demanda real)</td>
+        <td>Validar demanda; depois ADR + corte vertical</td>
+      </tr>
+      <tr>
+        <td>OPP-006</td>
+        <td>Alertas de saldo negativo (in-app e/ou push)</td>
+        <td><span class="tag p2">P2</span></td>
+        <td>Retenção</td>
+        <td>L</td>
+        <td>Média</td>
+        <td>Começar por alerta in-app; push depois</td>
+      </tr>
+      <tr>
+        <td>OPP-007</td>
+        <td>Fechar nome público, domínio e posicionamento</td>
+        <td><span class="tag p2">P2</span></td>
+        <td>Aquisição / marca</td>
+        <td>S</td>
+        <td>Alta</td>
+        <td>Decidir agora se houver intenção de compartilhar URL</td>
+      </tr>
+      <tr>
+        <td>OPP-008</td>
+        <td>Auditoria detalhada de edições no ledger</td>
+        <td><span class="tag p3">P3</span></td>
+        <td>Confiabilidade / privacidade</td>
+        <td>L</td>
+        <td>Alta (dívida explícita)</td>
+        <td>Não fazer agora — ADR-009</td>
+      </tr>
+      <tr>
+        <td>OPP-009</td>
+        <td>Ciclo de validação das premissas de hábito e compreensão</td>
+        <td><span class="tag p1">P1</span></td>
+        <td>Produto / retenção</td>
+        <td>S</td>
+        <td>Média</td>
+        <td>Validar com usuários antes de features grandes</td>
+      </tr>
+      <tr>
+        <td>OPP-010</td>
+        <td>Vínculo de provedor social na conta via mobile</td>
+        <td><span class="tag p3">P3</span></td>
+        <td>UX / paridade</td>
+        <td>M</td>
+        <td>Alta</td>
+        <td>Adiar — workaround na web existe</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="page-break">
+  <h2>5. Detalhamento das oportunidades</h2>
+
+  <article class="opp">
+    <h3>OPP-001 — Direitos do titular: exportar, corrigir e excluir conta</h3>
+    <p><span class="tag p0">P0</span> <span class="tag effort">Esforço L</span> · Categoria: segurança/privacidade · Confiança: alta</p>
+    <p><span class="label">Problema:</span> requisitos de privacidade exigem exportação, correção e exclusão com autenticação reforçada. Sem isso, abertura pública de cadastro viola a própria política do projeto.</p>
+    <p><span class="label">Evidências:</span></p>
+    <ul>
+      <li><span class="path">docs/privacy/requisitos-de-seguranca.md</span> — seção “Direitos do titular”.</li>
+      <li><span class="path">docs/ideas/fundacao-tecnica.md</span> — privacidade transversal inclui exportação/exclusão; revisão jurídica antes de abertura pública.</li>
+      <li>Módulo <span class="path">backend/.../privacy/</span> contém apenas <span class="path">package-info.java</span>.</li>
+      <li>OpenAPI listado não expõe endpoints de exclusão/exportação de conta (apenas relatórios financeiros).</li>
+      <li>README alerta para não abrir cadastro ao público antes dos requisitos jurídicos/operacionais.</li>
+    </ul>
+    <p><span class="label">Recomendação:</span> implementar no módulo <span class="path">privacy</span> (ou identity+privacy) fluxos: exportação estruturada dos dados do titular, correção de e-mail com re-verificação, exclusão/anonimização com confirmação reforçada (senha/MFA), revogação de sessões e tokens. Atualizar inventário de dados e ADR se necessário.</p>
+    <p><span class="label">Valor:</span> desbloqueia uso por terceiros com conformidade mínima alinhada ao desenho; reduz risco jurídico/reputacional.</p>
+    <p><span class="label">Métrica:</span> checklist LGPD operacional 100% para o corte; tempo de atendimento a pedido de exclusão &lt; prazo legal definido; zero contas sem caminho de exclusão.</p>
+    <p><span class="label">Riscos:</span> exclusão mal definida pode apagar evidências ou orphan records; exige política de retenção (ainda pendente em inventário para alguns campos).</p>
+    <p><span class="label">Dependências:</span> política de retenção; decisão sobre backups; MFA já existe (pode reforçar exclusão).</p>
+    <p><span class="label">Primeiro passo / aceite:</span> ADR curto + endpoint de exportação autenticada + endpoint de exclusão com confirmação; testes de autorização; inventário atualizado.</p>
+    <p><span class="label">Decisão sugerida:</span> implementar (bloqueio de abertura pública).</p>
+  </article>
+
+  <article class="opp">
+    <h3>OPP-002 — Canal do titular e política de privacidade publicados</h3>
+    <p><span class="tag p0">P0</span> <span class="tag effort">Esforço S</span> · Categoria: segurança/privacidade · Confiança: alta</p>
+    <p><span class="label">Problema:</span> o requisito exige canal eletrônico publicado e explicação acessível de finalidades. Sem página/contato, não há atendimento formal a titulares.</p>
+    <p><span class="label">Evidências:</span> <span class="path">docs/privacy/requisitos-de-seguranca.md</span> (direitos do titular); runbook HTTPS menciona privacidade antes de abertura; não há rota web óbvia de política/contato no inventário de <span class="path">web/src/app</span>.</p>
+    <p><span class="label">Recomendação:</span> publicar política em linguagem clara + e-mail/canal de contato no rodapé/auth e em configurações; registrar o procedimento de atendimento.</p>
+    <p><span class="label">Valor:</span> requisito mínimo e barato; habilita OPP-001 operacionalmente.</p>
+    <p><span class="label">Métrica:</span> URL pública acessível sem login; canal testado com mensagem de prova.</p>
+    <p><span class="label">Riscos:</span> texto sem revisão jurídica — marcar como “versão operacional” até parecer jurídico.</p>
+    <p><span class="label">Decisão sugerida:</span> implementar.</p>
+  </article>
+
+  <article class="opp">
+    <h3>OPP-003 — Verificação de e-mail no cadastro</h3>
+    <p><span class="tag p1">P1</span> <span class="tag effort">Esforço M</span> · Categoria: segurança / ativação · Confiança: alta</p>
+    <p><span class="label">Problema:</span> contas podem ser criadas com e-mails não controlados pelo usuário; spam de cadastro e recuperação frágil se o e-mail for falso.</p>
+    <p><span class="label">Evidências:</span> README: “O cadastro não verifica o e-mail imediatamente; uma recuperação de senha bem-sucedida o confirma”; campo <span class="path">email_verified_at</span> em <span class="path">UserAccount</span>; inventário confirma a mesma regra.</p>
+    <p><span class="label">Recomendação:</span> fluxo de verificação no cadastro (token de uso único), reutilizando infraestrutura de e-mail da recuperação (ADR-018). Opcionalmente restringir mutações financeiras até verificação.</p>
+    <p><span class="label">Valor:</span> qualidade de conta; base para comunicações e compartilhamento futuro.</p>
+    <p><span class="label">Métrica:</span> % de contas com <span class="path">emailVerifiedAt</span> não nulo em N dias após cadastro.</p>
+    <p><span class="label">Riscos:</span> fricção de ativação; dependência de SMTP/Gmail confiável.</p>
+    <p><span class="label">Decisão sugerida:</span> implementar se houver terceiros; para uso só pessoal, prioridade menor.</p>
+  </article>
+
+  <article class="opp">
+    <h3>OPP-004 — Onboarding guiado até o primeiro gasto</h3>
+    <p><span class="tag p1">P1</span> <span class="tag effort">Esforço M</span> · Categoria: ativação / UX · Confiança: média</p>
+    <p><span class="label">Problema:</span> após o login, a visão geral exige compreender renda, tipos de verba e glossário. Empty states existem, mas o caminho “renda → primeira verba → primeiro gasto” não é um fluxo único guiado — risco de abandono na ativação.</p>
+    <p><span class="label">Evidências:</span> <span class="path">Dashboard.tsx</span> (avisos de renda não configurada e empty state de verbas); glossário em dialog; premissa não marcada em <span class="path">fundacao-tecnica.md</span> (“modelo compreendido sem explicação extensa”).</p>
+    <p><span class="label">Recomendação:</span> checklist/wizard de 3 passos no primeiro acesso (web e mobile), com copy que reutilize o glossário só no momento da escolha do tipo.</p>
+    <p><span class="label">Valor:</span> aumenta chance de o núcleo do produto ser experimentado no primeiro dia.</p>
+    <p><span class="label">Métrica:</span> % de novos usuários que registram ≥1 gasto em 24h (baseline a coletar).</p>
+    <p><span class="label">Riscos:</span> wizard pode irritar usuário avançado — permitir pular.</p>
+    <p><span class="label">Decisão sugerida:</span> experimento pequeno (validar com OPP-009).</p>
+  </article>
+
+  <article class="opp">
+    <h3>OPP-005 — Compartilhamento de verbas</h3>
+    <p><span class="tag p1">P1</span> <span class="tag effort">Esforço XL</span> · Categoria: produto · Confiança: alta no desenho; média na demanda</p>
+    <p><span class="label">Problema:</span> resultado confirmado da fundação inclui verbas compartilhadas (participantes veem/registram; só o criador abastece/convida/encerra). Hoje isso não existe — diferencial prometido vs. apps genéricos de gasto fica incompleto para casais/famílias.</p>
+    <p><span class="label">Evidências:</span> fundação técnica (resultado confirmado); README (sem endpoint em nenhum cliente); <span class="path">sharing/package-info.java</span> vazio; OpenAPI sem rotas de convite/participante; ADR-007 menciona participantes na autorização.</p>
+    <p><span class="label">Recomendação:</span> validar com 3–5 possíveis co-usuários se o modelo assimétrico resolve o caso; se sim, ADR de compartilhamento + corte: convite por e-mail, papéis, autorização no ledger/reporting, UX web/mobile mínima.</p>
+    <p><span class="label">Valor:</span> completa a proposta de valor multi-pessoa; potencial de retenção viral leve (hipótese).</p>
+    <p><span class="label">Métrica:</span> nº de verbas com ≥1 participante ativo; gastos lançados por não-owners.</p>
+    <p><span class="label">Riscos:</span> complexidade de autorização e LGPD (dados de terceiros); escopo XL; depende de e-mail verificado (OPP-003).</p>
+    <p><span class="label">Dependências:</span> OPP-001/003 recomendáveis antes de convidar terceiros; ADR novo.</p>
+    <p><span class="label">Decisão sugerida:</span> validar demanda antes de construir o XL.</p>
+  </article>
+
+  <article class="opp">
+    <h3>OPP-006 — Alertas de saldo negativo</h3>
+    <p><span class="tag p2">P2</span> <span class="tag effort">Esforço L</span> · Categoria: retenção · Confiança: média</p>
+    <p><span class="label">Problema:</span> a regra de negócio permite gasto acima do saldo com alerta, mas o módulo de notificações está vazio e push depende de Firebase/APNs pendente. O “alerta” pode ficar só visual na sessão.</p>
+    <p><span class="label">Evidências:</span> fundação (mobile: alertas/notificações); <span class="path">notifications</span> vazio; ADR-007 rejeita push para todo gasto e recomenda negativo/compartilhada com consentimento; questão aberta Firebase/APNs.</p>
+    <p><span class="label">Recomendação:</span> fase 1 — centro de alertas persistente in-app + e-mail opcional; fase 2 — push com opt-in após decisão de provedor.</p>
+    <p><span class="label">Valor:</span> reforça o loop de atenção sem bloquear o gasto real.</p>
+    <p><span class="label">Métrica:</span> % de eventos <span class="path">isNegative</span> vistos/dispensados em ≤24h.</p>
+    <p><span class="label">Riscos:</span> custo/ops de push; spam se mal calibrado; LGPD (opt-in).</p>
+    <p><span class="label">Decisão sugerida:</span> investigar / fasear; não começar por Firebase.</p>
+  </article>
+
+  <article class="opp">
+    <h3>OPP-007 — Nome público, domínio e posicionamento</h3>
+    <p><span class="tag p2">P2</span> <span class="tag effort">Esforço S</span> · Categoria: aquisição / marca · Confiança: alta</p>
+    <p><span class="label">Problema:</span> fundação lista “nome público do produto” e domínio como questões abertas; a UI já usa “Verbas”, o repositório “Controle_de_Gastos” — inconsistência atrapalha comunicação e HTTPS por subdomínio.</p>
+    <p><span class="label">Evidências:</span> <span class="path">fundacao-tecnica.md</span> questões abertas; <span class="path">AuthScreen.tsx</span> marca “Verbas”.</p>
+    <p><span class="label">Recomendação:</span> decidir nome (ex.: Verbas), registrar domínio, alinhar README/app store futuro/subdomínio.</p>
+    <p><span class="label">Valor:</span> clareza de produto; base para qualquer aquisição.</p>
+    <p><span class="label">Métrica:</span> decisão documentada + URLs consistentes.</p>
+    <p><span class="label">Decisão sugerida:</span> decidir agora se houver URL compartilhada.</p>
+  </article>
+
+  <article class="opp">
+    <h3>OPP-008 — Auditoria detalhada de edições no ledger</h3>
+    <p><span class="tag p3">P3</span> <span class="tag effort">Esforço L</span> · Categoria: confiabilidade · Confiança: alta</p>
+    <p><span class="label">Problema:</span> edições/exclusões lógicas alteram totais históricos sem trilha de versões — dívida explícita.</p>
+    <p><span class="label">Evidências:</span> ADR-009 (adiamento aceito); módulo <span class="path">audit</span> vazio.</p>
+    <p><span class="label">Recomendação:</span> manter adiamento até haver requisito de disputa entre participantes ou obrigação de rastreio; então novo ADR com retenção/exportação.</p>
+    <p><span class="label">Decisão sugerida:</span> não fazer agora.</p>
+  </article>
+
+  <article class="opp">
+    <h3>OPP-009 — Ciclo de validação das premissas de produto</h3>
+    <p><span class="tag p1">P1</span> <span class="tag effort">Esforço S</span> · Categoria: produto · Confiança: média</p>
+    <p><span class="label">Problema:</span> várias premissas críticas estão unchecked; construir sharing/push/iOS sem validá-las aumenta desperdício.</p>
+    <p><span class="label">Evidências:</span> checklist “Premissas a validar” em <span class="path">fundacao-tecnica.md</span>.</p>
+    <p><span class="label">Recomendação:</span> protocolo de 2 semanas de uso pessoal instrumentado (diário simples: dias com lançamento, tempo até 1º gasto, dúvidas de tipos de verba) + 2 entrevistas curtas com possíveis usuários de verba compartilhada.</p>
+    <p><span class="label">Valor:</span> reduz risco de roadmap; alimenta OPP-004/005/006.</p>
+    <p><span class="label">Métrica:</span> premissas marcadas com evidência ou rejeitadas explicitamente.</p>
+    <p><span class="label">Decisão sugerida:</span> fazer agora (baixo custo).</p>
+  </article>
+
+  <article class="opp">
+    <h3>OPP-010 — Vincular provedor social pelo mobile</h3>
+    <p><span class="tag p3">P3</span> <span class="tag effort">Esforço M</span> · Categoria: UX · Confiança: alta</p>
+    <p><span class="label">Problema:</span> vincular Google/GitHub a conta existente só na web (limitação de token no browser do sistema).</p>
+    <p><span class="label">Evidências:</span> README — diferenças restantes.</p>
+    <p><span class="label">Recomendação:</span> adiar; documentar o caminho web na tela de segurança mobile.</p>
+    <p><span class="label">Decisão sugerida:</span> não fazer agora.</p>
+  </article>
+</section>
+
+<section class="page-break">
+  <h2>6. Riscos transversais e dependências</h2>
+  <ul>
+    <li><span class="label">Abertura pública prematura:</span> README e docs de privacidade condicionam cadastro aberto a requisitos jurídicos/operacionais ainda incompletos (OPP-001/002/003).</li>
+    <li><span class="label">Módulos fantasma:</span> sharing, notifications, audit, privacy reservados no Modulith sem comportamento — risco de falsa sensação de cobertura.</li>
+    <li><span class="label">Autenticação GitHub CLI inválida nesta sessão:</span> impossível checar duplicatas de issues antes da Fase 6.</li>
+    <li><span class="label">Branch local desatualizada:</span> 7 commits atrás de origin/main — revalidar oportunidades após atualizar.</li>
+    <li><span class="label">Dependência de e-mail transacional:</span> recuperação e futura verificação/compartilhamento dependem de provedor estável.</li>
+    <li><span class="label">iOS / push:</span> bloqueados por ambiente e decisões de provedor — não tratar como entregas próximas sem pré-requisitos.</li>
+    <li><span class="label">Sem modelo de monetização:</span> roadmap deve otimizar utilidade e sustentabilidade operacional (VPS), não receita inventada.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>7. O que não recomendo fazer agora</h2>
+  <ul>
+    <li><strong>Microserviços, filas, Redis/cache, Kubernetes</strong> — rejeitados pela fundação/AGENTS; sem evidência de necessidade.</li>
+    <li><strong>Integração bancária / Open Finance</strong> — fora de escopo explícito; alto custo LGPD e complexo.</li>
+    <li><strong>IA para categorizar gastos</strong> — sem evidência de dor; o produto valoriza registro consciente em verbas.</li>
+    <li><strong>Push para todo gasto</strong> — já rejeitado no ADR-007.</li>
+    <li><strong>Produção iOS</strong> — sem macOS/Xcode.</li>
+    <li><strong>Keycloak no runtime atual</strong> — ADR futuro se necessário; auth própria já cobre o corte.</li>
+    <li><strong>Auditoria detalhada (OPP-008) e vínculo social mobile (OPP-010)</strong> — dívida conhecida com workaround ou adiamento formal.</li>
+    <li><strong>Monetização (assinatura/ads)</strong> — prematuro sem base de usuários e sem fechamento de privacidade.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>8. Plano sugerido (sem assumir aprovação)</h2>
+  <h3>Fase A — Uso seguro (privado / piloto fechado)</h3>
+  <ol>
+    <li>OPP-009: validar hábito e compreensão em uso real.</li>
+    <li>OPP-004: onboarding mínimo se a ativação falhar na observação.</li>
+    <li>OPP-007: fechar nome/domínio se for compartilhar URL.</li>
+  </ol>
+  <h3>Fase B — Preparar terceiros</h3>
+  <ol>
+    <li>OPP-002 + OPP-001 (política/canal + direitos do titular).</li>
+    <li>OPP-003 (verificação de e-mail).</li>
+    <li>Revisão jurídica (fora do código).</li>
+  </ol>
+  <h3>Fase C — Ampliar valor multi-pessoa</h3>
+  <ol>
+    <li>Validação qualitativa de OPP-005; se positiva, ADR + corte vertical de sharing.</li>
+    <li>OPP-006 fase 1 (alertas in-app) alinhado a sharing/negativo.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>9. Decisões solicitadas</h2>
+  <p>Para cada ID, responda com uma opção: <strong>aprovar para issue</strong>, <strong>rejeitar</strong>, <strong>revisar</strong> ou <strong>investigar mais</strong>.</p>
+  <table>
+    <thead>
+      <tr><th>ID</th><th>Título curto</th><th>Sua decisão</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>OPP-001</td><td>Exportar / excluir conta (LGPD)</td><td>________________</td></tr>
+      <tr><td>OPP-002</td><td>Canal + política de privacidade</td><td>________________</td></tr>
+      <tr><td>OPP-003</td><td>Verificação de e-mail</td><td>________________</td></tr>
+      <tr><td>OPP-004</td><td>Onboarding guiado</td><td>________________</td></tr>
+      <tr><td>OPP-005</td><td>Compartilhamento de verbas</td><td>________________</td></tr>
+      <tr><td>OPP-006</td><td>Alertas de saldo negativo</td><td>________________</td></tr>
+      <tr><td>OPP-007</td><td>Nome / domínio / marca</td><td>________________</td></tr>
+      <tr><td>OPP-008</td><td>Auditoria detalhada</td><td>________________</td></tr>
+      <tr><td>OPP-009</td><td>Validação de premissas</td><td>________________</td></tr>
+      <tr><td>OPP-010</td><td>OAuth link no mobile</td><td>________________</td></tr>
+    </tbody>
+  </table>
+  <div class="callout">
+    <p><strong>Importante:</strong> aprovação genérica deste PDF <em>não</em> autoriza criar todas as issues. Informe os IDs específicos. Também será necessário reautenticar o <span class="path">gh</span> (<span class="path">gh auth login</span>) antes da Fase 6.</p>
+  </div>
+</section>
+
+<section class="page-break">
+  <h2>10. Apêndice — evidências e referências</h2>
+  <h3>Documentos</h3>
+  <ul>
+    <li><span class="path">docs/ideas/fundacao-tecnica.md</span></li>
+    <li><span class="path">docs/privacy/requisitos-de-seguranca.md</span>, <span class="path">inventario-de-dados.md</span></li>
+    <li><span class="path">docs/decisions/0007-...</span>, <span class="path">0009-...</span>, <span class="path">0014-...</span>, <span class="path">0018-...</span>, <span class="path">0019-...</span>, <span class="path">0020-...</span></li>
+    <li><span class="path">README.md</span>, <span class="path">AGENTS.md</span>, <span class="path">docs/api/openapi.yaml</span></li>
+  </ul>
+  <h3>Código / estrutura</h3>
+  <ul>
+    <li>Controllers: Auth, Mfa, OAuth, User, Income, Envelope, Ledger, History, Reporting.</li>
+    <li>Pacotes vazios: <span class="path">sharing</span>, <span class="path">notifications</span>, <span class="path">audit</span>, <span class="path">privacy</span>.</li>
+    <li>Migrações Flyway: V1–V12 (identity → income → envelopes → ledger → savings/annual → reset → MFA → OAuth).</li>
+    <li>UI: <span class="path">web/src/components/AuthScreen/AuthScreen.tsx</span>, <span class="path">Dashboard/Dashboard.tsx</span>.</li>
+    <li>Testes observáveis: ~42 classes Java de teste, ~21 testes web, ~9 testes Kotlin (contagem por nome de arquivo).</li>
+  </ul>
+  <h3>Ambiente da análise</h3>
+  <ul>
+    <li>Data: 2026-10-30</li>
+    <li>Git: branch main @ 0629907; status com skills novas untracked e 1 .class modificado.</li>
+    <li>gh: instalado 2.103.3; autenticação inválida.</li>
+    <li>PDF gerado via HTML + Chrome headless (reportlab não estava instalado; nenhuma dependência nova foi instalada no projeto).</li>
+  </ul>
+  <footer class="note">
+    Este artefato foi adicionado em <span class="path">reports/</span>. Não inclui commit automático. Nenhuma issue foi criada. Nenhuma alteração de código de produto foi feita pela análise (apenas este relatório).
+  </footer>
+</section>
+
+</body>
+</html>

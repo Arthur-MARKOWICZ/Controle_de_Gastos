@@ -25,6 +25,10 @@ class FinanceDashboardController(
     var state: DashboardState = DashboardState.Loading
         private set
 
+    /** Indica atualização em segundo plano sem esconder o conteúdo já carregado. */
+    var refreshing: Boolean = false
+        private set
+
     /** Última falha de carga, para a casca distinguir sessão expirada de erro comum. */
     var lastFailure: Throwable? = null
         private set
@@ -34,32 +38,54 @@ class FinanceDashboardController(
     val dashboard: FinancialDashboard? get() = (state as? DashboardState.Content)?.dashboard
 
     suspend fun refresh() {
-        state = DashboardState.Loading
-        state = try {
+        val keepContent = state is DashboardState.Content
+        if (keepContent) refreshing = true else state = DashboardState.Loading
+        try {
             lastFailure = null
-            DashboardState.Content(ledger.loadDashboard(month.takeUnless { it == currentMonth }))
+            state = DashboardState.Content(ledger.loadDashboard(month.takeUnless { it == currentMonth }))
         } catch (failure: Throwable) {
             lastFailure = failure
-            DashboardState.Error(describeFailure(failure, "Não foi possível carregar suas verbas."))
+            if (!keepContent) {
+                state = DashboardState.Error(describeFailure(failure, "Não foi possível carregar suas verbas."))
+            }
+        } finally {
+            refreshing = false
         }
     }
 
     suspend fun showPreviousMonth() {
         month = month.previous()
+        state = DashboardState.Loading
         refresh()
     }
 
     suspend fun showNextMonth() {
         month = month.next()
+        state = DashboardState.Loading
         refresh()
     }
 
-    /** @return `true` quando o aporte fechou a meta, para a tela comemorar. */
-    suspend fun registerEntry(envelopeId: String, entry: NewLedgerEntry): Boolean {
+    /** Verbas oferecidas no lançamento rápido de gasto; metas recebem aporte pelo próprio card. */
+    val expenseEnvelopes: List<EnvelopeView>
+        get() = envelopesOf(EnvelopePurpose.LIMIT, EnvelopePurpose.FIXED, EnvelopePurpose.ANNUAL_EXPENSE)
+
+    /** @return confirmação do lançamento, com alerta quando o gasto deixou a verba negativa. */
+    suspend fun registerEntry(envelopeId: String, entry: NewLedgerEntry): String {
+        val name = envelopeNamed(envelopeId)
         val created = ledger.createEntry(envelopeId, entry)
         refresh()
-        return created.targetJustReached
+        if (created.targetJustReached) return "Meta de $name alcançada."
+        val confirmation = "${entry.kind.label} de ${entry.amount.toBrl()} em $name."
+        val after = dashboard?.envelopes?.firstOrNull { it.id == envelopeId }
+        return if (entry.kind == LedgerKind.EXPENSE && after?.isNegative == true) {
+            "$confirmation A verba ficou negativa: ${after.available.toBrl()}."
+        } else {
+            confirmation
+        }
     }
+
+    private fun envelopeNamed(id: String): String =
+        dashboard?.envelopes?.firstOrNull { it.id == id }?.name ?: "verba"
 
     suspend fun createEnvelope(envelope: NewEnvelope) {
         envelopes.createEnvelope(envelope)

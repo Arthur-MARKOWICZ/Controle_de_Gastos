@@ -2,9 +2,13 @@ package br.com.controlegastos.app
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -71,6 +75,35 @@ private val VerbasShapes = Shapes(
     large = RoundedCornerShape(18.dp),
 )
 
+/** Cores por natureza de verba (espelham `--purpose-*` da web). */
+object PurposeColors {
+    val limitLight = Color(0xFF0B6B69)
+    val goalLight = Color(0xFF315FA8)
+    val fixedLight = Color(0xFFA84D21)
+    val savingsLight = Color(0xFF5C4D7A)
+    val annualLight = Color(0xFF7A5B1E)
+
+    val limitDark = Color(0xFF54C6C0)
+    val goalDark = Color(0xFF82ADFF)
+    val fixedDark = Color(0xFFFFAC73)
+    val savingsDark = Color(0xFFB39DDB)
+    val annualDark = Color(0xFFE0B35A)
+}
+
+@Composable
+fun purposeTone(purpose: String): Color {
+    val dark = MaterialTheme.colorScheme.background.red < 0.2f &&
+        MaterialTheme.colorScheme.background.green < 0.2f &&
+        MaterialTheme.colorScheme.background.blue < 0.2f
+    return when (purpose) {
+        EnvelopePurpose.GOAL.api -> if (dark) PurposeColors.goalDark else PurposeColors.goalLight
+        EnvelopePurpose.FIXED.api -> if (dark) PurposeColors.fixedDark else PurposeColors.fixedLight
+        EnvelopePurpose.SAVINGS_TARGET.api -> if (dark) PurposeColors.savingsDark else PurposeColors.savingsLight
+        EnvelopePurpose.ANNUAL_EXPENSE.api -> if (dark) PurposeColors.annualDark else PurposeColors.annualLight
+        else -> if (dark) PurposeColors.limitDark else PurposeColors.limitLight
+    }
+}
+
 @Composable
 fun VerbasTheme(darkTheme: Boolean, content: @Composable () -> Unit) {
     MaterialTheme(
@@ -115,7 +148,16 @@ fun ThemeMenu(mode: ThemeMode, onSelect: (ThemeMode) -> Unit) {
                 text = { Text(optionLabel) },
                 onClick = { onSelect(option); expanded = false },
                 modifier = androidx.compose.ui.Modifier.semantics { selected = option == mode },
-                leadingIcon = { Text(if (option == mode) "●" else "○") },
+                leadingIcon = {
+                    if (option == mode) {
+                        Icon(Icons.Outlined.Check, contentDescription = null)
+                    } else {
+                        RadioButton(
+                            selected = false,
+                            onClick = null,
+                        )
+                    }
+                },
             )
         }
     }
