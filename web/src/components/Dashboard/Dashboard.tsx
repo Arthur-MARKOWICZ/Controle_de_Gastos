@@ -38,7 +38,6 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
   const monthLabel = formatMonthLabel(month);
 
   const {
-    envelopes,
     loading: envelopesLoading,
     busy: envelopesBusy,
     error: envelopesError,
@@ -110,6 +109,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
     void refreshSummary();
   }
 
+  const balanceEnvelopes = summary?.envelopes ?? [];
   const expenseKind = expenseTarget && isContributionPurpose(expenseTarget.purpose) ? "CONTRIBUTION" : "EXPENSE";
 
   function handleExpenseSuccess(result: ExpenseResult) {
@@ -186,14 +186,14 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
                 <div className={styles.skeleton} />
                 <div className={styles.skeleton} />
               </div>
-            ) : envelopes.length === 0 && !error ? (
+            ) : !summary ? null : balanceEnvelopes.length === 0 ? (
               <div className={styles.emptyState}>
                 <p>Nenhuma verba neste mês — crie a primeira para começar a reservar.</p>
                 <Button onClick={() => { clearFeedback(); setShowNewEnvelope(true); }}>Criar primeira verba</Button>
               </div>
             ) : (
               <ul className={styles.envelopeList}>
-                {(summary?.envelopes ?? envelopes).slice(0, 4).map((envelope) => (
+                {balanceEnvelopes.slice(0, 4).map((envelope) => (
                   <EnvelopeCard
                     key={envelope.id}
                     envelope={envelope}

@@ -109,6 +109,10 @@ base64, `openssl rand -base64 32`) para cifrar os segredos TOTP; veja
 rotação dessa chave em
 [`docs/privacy/operacao-de-autenticacao.md`](docs/privacy/operacao-de-autenticacao.md).
 
+As chamadas OAuth para Google e GitHub usam timeout de conexão de 3 segundos e
+timeout de leitura de 5 segundos. A troca do código de autorização não tem
+retry; as tentativas de leitura do perfil aplicam esses mesmos limites.
+
 ## Verificações automáticas
 
 Duas camadas, com objetivos diferentes.
@@ -157,7 +161,7 @@ efetivo em qualquer mês e navegar pelo histórico de alterações. Dinheiro usa
 O Android tem paridade de funcionalidades com a web: painel do mês com seletor
 de competência, criação, edição e encerramento de verbas nas cinco naturezas,
 lançamento de gastos e aportes, configuração de renda e seu histórico,
-histórico de movimentações com edição e exclusão de lançamentos próprios,
+histórico de movimentações com edição e exclusão pelo autor do lançamento ou pelo proprietário da verba,
 relatórios exportáveis em CSV e XLSX, recuperação de senha, MFA por TOTP e
 login social por Google e GitHub.
 

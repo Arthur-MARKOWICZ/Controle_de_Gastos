@@ -1,5 +1,6 @@
 package br.com.controlegastos.envelopes.application;
 
+import br.com.controlegastos.envelopes.domain.MonthlyCommittedAllocation;
 import br.com.controlegastos.envelopes.infrastructure.EnvelopeRepository;
 import br.com.controlegastos.income.application.IncomeChangeConstraint;
 import br.com.controlegastos.shared.money.Money;
@@ -18,8 +19,6 @@ class EnvelopeIncomeConstraint implements IncomeChangeConstraint {
 
     @Override
     public Money minimumIncomeFor(UUID ownerId, YearMonth month) {
-        // month param is kept for interface compatibility; envelopes are not month-specific yet,
-        // so we return total base of non-archived envelopes.
-        return envelopes.sumBaseAmounts(ownerId);
+        return MonthlyCommittedAllocation.totalFor(envelopes.findActiveByOwnerId(ownerId), month);
     }
 }

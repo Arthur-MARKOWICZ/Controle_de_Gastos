@@ -63,7 +63,7 @@ class FinanceDashboardControllerTest {
     @Test
     fun `explains a rejected allocation instead of showing a generic error`() = runSuspend {
         val gateway = FakeLedgerGateway(dashboard())
-        gateway.failure = ApiException(409, ApiErrorCode.ALLOCATION_EXCEEDS_INCOME, "")
+        gateway.failure = ApiException(400, ApiErrorCode.ALLOCATION_EXCEEDS_INCOME, "")
         val controller = FinanceDashboardController(gateway, SEPTEMBER)
 
         controller.refresh()

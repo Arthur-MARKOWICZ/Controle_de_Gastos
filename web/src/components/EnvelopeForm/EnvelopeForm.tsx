@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "../../auth/auth-context";
 import { createApiClient, ApiError } from "../../lib/api";
-import { formatBRLInputMask, maskToPlain } from "../../lib/money";
+import { formatBRL, formatBRLInputMask, maskToPlain } from "../../lib/money";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Notice } from "../ui/Notice";
@@ -74,9 +74,12 @@ export function EnvelopeForm({
       onSuccess();
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.code === "ALLOCATION_EXCEEDS_INCOME") setError(`Soma das verbas excede a renda (excesso ${err.detail || plain})`);
-        else if (err.status === 409) setError("Renda insuficiente para esta verba");
-        else setError(err.detail || "Não foi possível criar a verba");
+        if (err.code === "allocation.exceeds_income") {
+          const excess = err.excess ? formatBRL(err.excess) : "";
+          setError(excess
+            ? `Soma das verbas excede a renda (excesso ${excess})`
+            : (err.detail || "Soma das verbas excede a renda"));
+        } else setError(err.detail || "Não foi possível criar a verba");
       } else setError("Erro inesperado");
     } finally { setBusy(false); }
   }

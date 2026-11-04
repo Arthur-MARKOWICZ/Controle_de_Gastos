@@ -14,7 +14,7 @@ class ApiException(
 
 /** Códigos de `problem+json` que a interface trata de forma específica. */
 object ApiErrorCode {
-    const val ALLOCATION_EXCEEDS_INCOME = "ALLOCATION_EXCEEDS_INCOME"
+    const val ALLOCATION_EXCEEDS_INCOME = "allocation.exceeds_income"
     const val INCOME_BELOW_BASE_ALLOCATIONS = "INCOME_BELOW_BASE_ALLOCATIONS"
     const val INCOME_CONCURRENT_CHANGE = "INCOME_CONCURRENT_CHANGE"
     const val INCOME_NOT_CONFIGURED = "INCOME_NOT_CONFIGURED"

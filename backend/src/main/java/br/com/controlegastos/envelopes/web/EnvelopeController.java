@@ -69,6 +69,7 @@ public class EnvelopeController {
         if (body == null || !body.isObject() || body.size() == 0) {
             throw new IllegalArgumentException("Informe ao menos um campo para atualização");
         }
+        long version = versionField(body);
         String name = body.has("name") ? textField(body, "name") : null;
         EnvelopePurpose purpose = body.has("purpose") ? purposeField(body, "purpose") : null;
         Money baseAmount = body.has("baseAmount") ? moneyField(body, "baseAmount") : null;
@@ -80,13 +81,13 @@ public class EnvelopeController {
         var fieldIt = body.properties().iterator();
         while (fieldIt.hasNext()) {
             String f = fieldIt.next().getKey();
-            if (!List.of("name", "purpose", "baseAmount", "targetAmount", "annualAmount", "dueMonth", "dueDay", "fundingMode").contains(f)) {
+            if (!List.of("name", "purpose", "baseAmount", "targetAmount", "annualAmount", "dueMonth", "dueDay", "fundingMode", "version").contains(f)) {
                 throw new IllegalArgumentException("Campo não permitido: " + f);
             }
         }
         Envelope updated = annualAmount != null || dueDate != null || fundingMode != null
-                ? envelopes.updateAnnualExpense(id, name, annualAmount, dueDate, fundingMode)
-                : envelopes.update(id, name, purpose, baseAmount, targetAmount);
+                ? envelopes.updateAnnualExpense(id, version, name, annualAmount, dueDate, fundingMode)
+                : envelopes.update(id, version, name, purpose, baseAmount, targetAmount);
         YearMonth current = YearMonth.now(EnvelopeService.BUSINESS_ZONE);
         return toResponse(updated, current);
     }
@@ -166,9 +167,21 @@ public class EnvelopeController {
         catch (IllegalArgumentException exception) { throw new IllegalArgumentException("Modo de provisão inválido"); }
     }
 
+    private long versionField(JsonNode body) {
+        if (!body.has("version") || !body.get("version").isIntegralNumber()) {
+            throw new IllegalArgumentException("O campo version é obrigatório");
+        }
+        long version = body.get("version").asLong();
+        if (version < 0) {
+            throw new IllegalArgumentException("O campo version deve ser não negativo");
+        }
+        return version;
+    }
+
     private EnvelopeResponse toResponse(Envelope e, YearMonth month) {
-        // Sem dependência em ledger para quebrar ciclo Modulith; disponível inicial = baseAmount.
-        // Saldo real com carry e ledger é fornecido por GET /ledger/summary (ledger module).
+        // Contrato documentado: em GET /envelopes*, available/isNegative/goalProgress NÃO são saldo
+        // autoritativo (available espelha baseAmount; isNegative sempre false; goalProgress nulo).
+        // Fonte de saldo real com carry/ledger: GET /api/v1/ledger/summary.
         Money available = e.baseAmount();
         boolean isNegative = false;
         UUID currentUser = authentication.currentUserId();

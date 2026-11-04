@@ -196,6 +196,7 @@ function AnnualExpenseEditForm({
     }
     try {
       await createApiClient(client).updateEnvelope(envelope.id, {
+        version: envelope.version,
         annualAmount: { amount: plain, currency: "BRL" },
         dueMonth: Number(dueMonth),
         dueDay: Number(dueDay),

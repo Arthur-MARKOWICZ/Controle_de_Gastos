@@ -6,17 +6,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.controlegastos.identity.infrastructure.AuthAttemptRepository;
-import java.sql.Timestamp;
-import java.time.Instant;
+import br.com.controlegastos.support.FixedClockTestConfiguration;
 import java.util.Map;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -30,6 +28,7 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
+@Import(FixedClockTestConfiguration.class)
 class MonthlyResetBalanceApiIntegrationTest {
 
     private static final String PASSWORD = "frase segura de teste";
@@ -49,7 +48,6 @@ class MonthlyResetBalanceApiIntegrationTest {
     @Autowired MockMvc mockMvc;
     @Autowired ObjectMapper objectMapper;
     @Autowired AuthAttemptRepository authAttempts;
-    @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
     void resetRateLimits() {
@@ -60,7 +58,6 @@ class MonthlyResetBalanceApiIntegrationTest {
     void limitDoesNotCarryUnusedBalanceIntoTheNextMonth() throws Exception {
         String token = tokenFor("limite-sem-carry@example.com");
         String envelopeId = createEnvelope(token, "Mercado", "LIMIT", "100.00");
-        backdateCreation(envelopeId, "2026-09-01T12:00:00Z");
 
         summary(token, "2026-09")
                 .andExpect(jsonPath("$.envelopes[0].available.amount").value("100.00"));
@@ -78,7 +75,6 @@ class MonthlyResetBalanceApiIntegrationTest {
     void fixedDoesNotCarryUnusedOrSpentBalanceIntoTheNextMonth() throws Exception {
         String token = tokenFor("compromisso-sem-carry@example.com");
         String envelopeId = createEnvelope(token, "Aluguel", "FIXED", "1500.00");
-        backdateCreation(envelopeId, "2026-09-01T12:00:00Z");
 
         register(token, envelopeId, "EXPENSE", "500.00", "2026-09-05");
 
@@ -93,7 +89,6 @@ class MonthlyResetBalanceApiIntegrationTest {
     void limitCountsOnlyMovementsOfTheConsultedMonth() throws Exception {
         String token = tokenFor("limite-mes-consultado@example.com");
         String envelopeId = createEnvelope(token, "Lazer", "LIMIT", "200.00");
-        backdateCreation(envelopeId, "2026-09-01T12:00:00Z");
 
         register(token, envelopeId, "EXPENSE", "50.00", "2026-09-10");
         register(token, envelopeId, "CONTRIBUTION", "20.00", "2026-10-02");
@@ -116,11 +111,6 @@ class MonthlyResetBalanceApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsByteArray()).get("id").asString();
-    }
-
-    private void backdateCreation(String envelopeId, String createdAt) {
-        jdbc.update("UPDATE envelope SET created_at = ? WHERE id = ?",
-                Timestamp.from(Instant.parse(createdAt)), UUID.fromString(envelopeId));
     }
 
     private String register(String token, String envelopeId, String kind, String amount, String occurredAt) throws Exception {

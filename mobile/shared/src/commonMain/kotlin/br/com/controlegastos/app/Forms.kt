@@ -363,6 +363,7 @@ internal fun EnvelopeEditDialog(
             message = null
             val edit = if (annual) {
                 EnvelopeEdit(
+                    version = envelope.version,
                     name = name.trim().takeIf { it != envelope.name },
                     annualAmount = AmountInput.toMoney(annualDigits),
                     dueMonth = dueMonth.toIntOrNull(),
@@ -371,6 +372,7 @@ internal fun EnvelopeEditDialog(
                 )
             } else {
                 EnvelopeEdit(
+                    version = envelope.version,
                     name = name.trim().takeIf { it != envelope.name },
                     baseAmount = AmountInput.toMoney(baseDigits),
                     targetAmount = AmountInput.toMoney(targetDigits)

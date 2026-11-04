@@ -76,6 +76,7 @@ data class EnvelopeView(
     val goalProgress: GoalProgressView? = null,
     val role: EnvelopeRole = EnvelopeRole.OWNER,
     val archivedAt: String? = null,
+    val version: Long = 0,
 ) {
     val purposeLabel: String get() = EnvelopePurpose.labelOf(purpose)
     val isOwner: Boolean get() = role == EnvelopeRole.OWNER
@@ -96,8 +97,9 @@ data class NewEnvelope(
     val fundingMode: FundingMode? = null,
 )
 
-/** Alteração parcial de verba: só os campos não nulos são enviados. */
+/** Alteração parcial de verba: só os campos de negócio não nulos são enviados; version é obrigatória. */
 data class EnvelopeEdit(
+    val version: Long,
     val name: String? = null,
     val baseAmount: Money? = null,
     val targetAmount: Money? = null,

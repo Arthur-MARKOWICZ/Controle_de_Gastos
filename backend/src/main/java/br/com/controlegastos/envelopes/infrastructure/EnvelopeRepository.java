@@ -37,6 +37,13 @@ public interface EnvelopeRepository extends JpaRepository<Envelope, UUID> {
     }
 
     @Query("""
+        SELECT e FROM Envelope e
+        WHERE e.ownerId = :ownerId AND e.archivedAt IS NULL
+        ORDER BY e.createdAt ASC
+        """)
+    List<Envelope> findActiveByOwnerId(@Param("ownerId") UUID ownerId);
+
+    @Query("""
         SELECT CASE WHEN COUNT(e) > 0 THEN true ELSE false END FROM Envelope e
         WHERE e.id = :envelopeId AND e.archivedAt IS NULL AND (
           e.ownerId = :userId OR EXISTS (

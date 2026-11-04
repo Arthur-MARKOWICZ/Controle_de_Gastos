@@ -82,20 +82,22 @@ class AuthConfiguration {
     }
 
     @Bean
-    JwtDecoder jwtDecoder(SecretKey jwtSecretKey) {
+    JwtDecoder jwtDecoder(SecretKey jwtSecretKey, Clock clock) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(jwtSecretKey)
                 .macAlgorithm(MacAlgorithm.HS256)
                 .build();
-        decoder.setJwtValidator(validators());
+        decoder.setJwtValidator(validators(clock));
         return decoder;
     }
 
-    private OAuth2TokenValidator<Jwt> validators() {
+    private OAuth2TokenValidator<Jwt> validators(Clock clock) {
         OAuth2TokenValidator<Jwt> audienceValidator = token -> token.getAudience().contains(audience)
                 ? OAuth2TokenValidatorResult.success()
                 : OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Audience inválida", null));
+        JwtTimestampValidator timestampValidator = new JwtTimestampValidator(java.time.Duration.ZERO);
+        timestampValidator.setClock(clock);
         return new DelegatingOAuth2TokenValidator<>(
-                new JwtTimestampValidator(java.time.Duration.ZERO),
+                timestampValidator,
                 new JwtIssuerValidator(issuer),
                 audienceValidator
         );

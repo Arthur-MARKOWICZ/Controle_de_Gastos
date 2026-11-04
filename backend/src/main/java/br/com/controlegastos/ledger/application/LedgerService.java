@@ -275,9 +275,11 @@ public class LedgerService implements LedgerReportingQuery {
     public LedgerEntry editExpense(UUID entryId, UUID destinationEnvelopeId, Money amount, String description) {
         LedgerEntry entry = entries.findById(entryId).orElseThrow(() -> new LedgerEntryNotFoundException(entryId));
         UUID userId = authentication.currentUserId();
-        if (!entry.ownerId().equals(userId)) throw new EnvelopeForbiddenException("Somente o proprietário pode editar o gasto");
+        requireAuthorOrOwner(entry, userId, "Somente o autor ou o proprietário da verba pode editar o gasto");
         Envelope destination = envelopes.getVisible(destinationEnvelopeId);
-        if (!destination.isOwnedBy(userId)) throw new EnvelopeForbiddenException("O gasto só pode ser movido para uma verba própria");
+        if (!destination.ownerId().equals(entry.ownerId())) {
+            throw new EnvelopeForbiddenException("Não é permitido mover o gasto para a verba de outro proprietário");
+        }
         entry.edit(destination.id(), destination.ownerId(), amount, description);
         return entries.save(entry);
     }
@@ -285,11 +287,16 @@ public class LedgerService implements LedgerReportingQuery {
     @Transactional
     public void deleteExpense(UUID entryId) {
         LedgerEntry entry = entries.findById(entryId).orElseThrow(() -> new LedgerEntryNotFoundException(entryId));
-        if (!entry.ownerId().equals(authentication.currentUserId())) {
-            throw new EnvelopeForbiddenException("Somente o proprietário pode excluir o gasto");
-        }
+        requireAuthorOrOwner(entry, authentication.currentUserId(),
+                "Somente o autor ou o proprietário da verba pode excluir o gasto");
         entry.delete(clock.instant());
         entries.save(entry);
+    }
+
+    private void requireAuthorOrOwner(LedgerEntry entry, UUID userId, String message) {
+        if (!entry.authorId().equals(userId) && !entry.ownerId().equals(userId)) {
+            throw new EnvelopeForbiddenException(message);
+        }
     }
 
     private Money incomeForIntersectingMonths(UUID userId, LocalDate from, LocalDate to) {
