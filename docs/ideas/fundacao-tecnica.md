@@ -51,11 +51,20 @@ Ela aproveita a experiência existente em Spring, React e Kotlin, mantém os cli
 
 ## Premissas a validar
 
-- [ ] O lançamento manual é rápido o suficiente para virar hábito diário.
-- [ ] O modelo de dinheiro reservado e acumulável é compreendido sem explicação extensa.
-- [ ] O controle de uma verba compartilhada pelo criador atende ao uso real.
-- [ ] A VPS mantém folga de memória e CPU com API, web e PostgreSQL junto dos demais projetos.
-- [ ] Haverá acesso futuro a macOS/Xcode antes de declarar suporte de produção ao iOS.
+Ciclo de evidência mínima: issue #37 / OPP-009 — protocolo e templates em
+[`validacao-premissas/`](validacao-premissas/README.md). Status detalhado em
+[`validacao-premissas/sintese.md`](validacao-premissas/sintese.md).
+
+| Premissa | Status | Onde registrar evidência |
+|---|---|---|
+| O lançamento manual é rápido o suficiente para virar hábito diário. | ainda aberta | [`diario.md`](validacao-premissas/diario.md) |
+| O modelo de dinheiro reservado e acumulável é compreendido sem explicação extensa. | ainda aberta | [`diario.md`](validacao-premissas/diario.md) |
+| O controle de uma verba compartilhada pelo criador atende ao uso real. | ainda aberta | [`entrevistas/`](validacao-premissas/entrevistas/) |
+| A VPS mantém folga de memória e CPU com API, web e PostgreSQL junto dos demais projetos. | ainda aberta | [`sintese.md`](validacao-premissas/sintese.md) (medição operacional) |
+| Haverá acesso futuro a macOS/Xcode antes de declarar suporte de produção ao iOS. | ainda aberta | [`sintese.md`](validacao-premissas/sintese.md) (sem Mac neste ambiente hoje) |
+
+Não marque como validada/rejeitada sem preencher a síntese. Amostra pequena é
+indicativa, não estatística.
 
 ## Escopo do primeiro corte vertical
 

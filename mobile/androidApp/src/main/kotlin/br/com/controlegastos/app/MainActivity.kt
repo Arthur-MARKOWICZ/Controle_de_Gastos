@@ -40,6 +40,8 @@ class MainActivity : ComponentActivity() {
                     ledger = gateway,
                     income = gateway,
                     reports = gateway,
+                    alerts = gateway,
+                    sharing = gateway,
                 ),
                 // Data e mês de referência vêm da plataforma, no mesmo fuso que o
                 // backend usa para resolver o mês corrente.

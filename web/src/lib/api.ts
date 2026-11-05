@@ -67,6 +67,37 @@ export type HistoryItemDTO = {
 };
 
 export type HistoryPageDTO = { items: HistoryItemDTO[]; page: number; size: number; hasNext: boolean };
+
+export type InAppAlertDTO = {
+  id: string;
+  type: "NEGATIVE_BALANCE";
+  envelopeId: string;
+  envelopeName: string;
+  referenceMonth: string;
+  createdAt: string;
+};
+
+export type AlertListDTO = { items: InAppAlertDTO[] };
+
+export type ParticipantDTO = { userId: string; email: string; addedAt: string };
+export type ParticipantListDTO = { items: ParticipantDTO[] };
+
+export type LedgerEntryRevisionDTO = {
+  id: string;
+  ledgerEntryId: string;
+  action: "EDIT" | "DELETE";
+  actorUserId: string;
+  previousEnvelopeId: string;
+  previousAmount: MoneyDTO;
+  previousDescription: string | null;
+  changedAt: string;
+};
+export type LedgerEntryRevisionPageDTO = {
+  items: LedgerEntryRevisionDTO[];
+  page: number;
+  size: number;
+  hasNext: boolean;
+};
 export type HistorySummaryDTO = {
   income: MoneyDTO;
   expenses: MoneyDTO;
@@ -252,6 +283,41 @@ export function createApiClient(authClient: AuthClient) {
     },
     deleteHistoryEntry(id: string): Promise<void> {
       return authClient.request(`/api/v1/ledger/entries/${encodeURIComponent(id)}`, { method: "DELETE" }).then(handleResponse<void>);
+    },
+    listEntryRevisions(id: string, page = 0, size = 20): Promise<LedgerEntryRevisionPageDTO> {
+      const params = new URLSearchParams({ page: String(page), size: String(size) });
+      return authClient
+        .request(`/api/v1/ledger/entries/${encodeURIComponent(id)}/revisions?${params}`)
+        .then(handleResponse<LedgerEntryRevisionPageDTO>);
+    },
+    listAlerts(): Promise<AlertListDTO> {
+      return authClient.request("/api/v1/alerts").then(handleResponse<AlertListDTO>);
+    },
+    dismissAlert(id: string): Promise<void> {
+      return authClient.request(`/api/v1/alerts/${encodeURIComponent(id)}/dismiss`, { method: "POST" })
+        .then(handleResponse<void>);
+    },
+    listParticipants(envelopeId: string): Promise<ParticipantListDTO> {
+      return authClient
+        .request(`/api/v1/envelopes/${encodeURIComponent(envelopeId)}/participants`)
+        .then(handleResponse<ParticipantListDTO>);
+    },
+    inviteParticipant(envelopeId: string, email: string): Promise<ParticipantDTO> {
+      return authClient
+        .request(`/api/v1/envelopes/${encodeURIComponent(envelopeId)}/participants`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        })
+        .then(handleResponse<ParticipantDTO>);
+    },
+    removeParticipant(envelopeId: string, userId: string): Promise<void> {
+      return authClient
+        .request(
+          `/api/v1/envelopes/${encodeURIComponent(envelopeId)}/participants/${encodeURIComponent(userId)}`,
+          { method: "DELETE" },
+        )
+        .then(handleResponse<void>);
     },
   };
 }

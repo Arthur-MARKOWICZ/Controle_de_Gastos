@@ -168,6 +168,37 @@ internal fun NegativeBalanceAlert(envelopes: List<EnvelopeView>) {
     }
 }
 
+/** Alertas persistentes (issue #35) — sobrevivem à sessão até dispensa ou recuperação do saldo. */
+@Composable
+internal fun PersistentNegativeAlerts(
+    alerts: List<InAppAlertView>,
+    onDismiss: (String) -> Unit,
+) {
+    if (alerts.isEmpty()) return
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        alerts.forEach { alert ->
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "${alert.envelopeName} ficou negativa em ${alert.referenceMonth}",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    Text(
+                        "O gasto não foi bloqueado. Dispense quando já tiver tratado o estouro.",
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedButton(
+                        onClick = { onDismiss(alert.id) },
+                        modifier = Modifier.fillMaxWidth().height(TouchTarget),
+                    ) { Text("Dispensar") }
+                }
+            }
+        }
+    }
+}
+
 internal fun LazyListScope.envelopeSection(
     title: String,
     envelopes: List<EnvelopeView>,
@@ -176,6 +207,7 @@ internal fun LazyListScope.envelopeSection(
     onEdit: (EnvelopeView) -> Unit,
     onArchive: (EnvelopeView) -> Unit,
     onOpenEntries: (EnvelopeView) -> Unit,
+    onParticipants: (EnvelopeView) -> Unit = {},
 ) {
     item { Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
     if (envelopes.isEmpty()) {
@@ -187,6 +219,7 @@ internal fun LazyListScope.envelopeSection(
             envelope = envelope,
             onRegister = { onRegister(envelope) },
             onOpenEntries = { onOpenEntries(envelope) },
+            onParticipants = if (envelope.isOwner) ({ onParticipants(envelope) }) else null,
             onEdit = if (envelope.isOwner) ({ onEdit(envelope) }) else null,
             onArchive = if (envelope.isOwner) ({ onArchive(envelope) }) else null,
         )

@@ -223,4 +223,6 @@ private class FakeLedgerGateway(private var dashboard: FinancialDashboard) : Led
     )
     override suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView = error("não usado")
     override suspend fun deleteEntry(id: String) = error("não usado")
+    override suspend fun listEntryRevisions(id: String, page: Int) =
+        LedgerEntryRevisionPageView(emptyList(), false)
 }

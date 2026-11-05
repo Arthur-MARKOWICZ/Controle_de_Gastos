@@ -14,6 +14,7 @@ import { EnvelopeForm } from "../EnvelopeForm/EnvelopeForm";
 import { ExpenseForm, type ExpenseResult } from "../ExpenseForm/ExpenseForm";
 import { EnvelopeCard } from "../EnvelopeCard/EnvelopeCard";
 import { AppShell } from "../AppShell/AppShell";
+import { ParticipantsPanel } from "../ParticipantsPanel/ParticipantsPanel";
 import styles from "../VerbasPage/Verbas.module.css";
 
 const ARCHIVE_MESSAGE =
@@ -22,11 +23,14 @@ const ARCHIVE_MESSAGE =
 export function MetasPage({ email, onLogout }: { email: string; onLogout(): void }) {
   const { client } = useAuth();
   const { summary, loading, busy, error, refresh } = useLedgerSummary();
+  const api = useMemo(() => createApiClient(client), [client]);
   const [newGoal, setNewGoal] = useState(false);
   const [contribution, setContribution] = useState<EnvelopeDTO | null>(null);
+  const [participantsTarget, setParticipantsTarget] = useState<EnvelopeDTO | null>(null);
   const [editingTarget, setEditingTarget] = useState<EnvelopeDTO | null>(null);
   const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const contributionKind = contribution?.role === "OWNER" ? "CONTRIBUTION" : "EXPENSE";
   const goals = useMemo(() => (summary?.envelopes ?? []).filter((envelope) => envelope.purpose === "GOAL"), [summary]);
   const targets = useMemo(() => (summary?.envelopes ?? []).filter((envelope) => envelope.purpose === "SAVINGS_TARGET"), [summary]);
 
@@ -41,7 +45,13 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
 
   function contributionSaved({ targetJustReached }: ExpenseResult) {
     setContribution(null);
-    setFeedback(targetJustReached ? "Parabéns! Você alcançou esta meta pela primeira vez." : "Aporte registrado.");
+    setFeedback(
+      targetJustReached
+        ? "Parabéns! Você alcançou esta meta pela primeira vez."
+        : contributionKind === "CONTRIBUTION"
+          ? "Aporte registrado."
+          : "Gasto registrado.",
+    );
     void refresh();
   }
 
@@ -91,6 +101,10 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
               setFeedback(null);
               setContribution(envelope);
             }}
+            onManageParticipants={(envelope) => {
+              setFeedback(null);
+              setParticipantsTarget(envelope);
+            }}
             onArchive={(envelope) => {
               setFeedback(null);
               setPendingArchive(envelope);
@@ -103,6 +117,10 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
             onContribute={(envelope) => {
               setFeedback(null);
               setContribution(envelope);
+            }}
+            onManageParticipants={(envelope) => {
+              setFeedback(null);
+              setParticipantsTarget(envelope);
             }}
             onArchive={(envelope) => {
               setFeedback(null);
@@ -126,14 +144,32 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
       <Dialog
         open={contribution !== null}
         onClose={() => setContribution(null)}
-        title={contribution ? `Aportar em ${contribution.name}` : "Registrar aporte"}
+        title={
+          contribution
+            ? `${contributionKind === "CONTRIBUTION" ? "Aportar" : "Registrar gasto"} em ${contribution.name}`
+            : "Registrar lançamento"
+        }
       >
         {contribution && (
           <ExpenseForm
             envelope={contribution}
-            kind="CONTRIBUTION"
+            kind={contributionKind}
             onCancel={() => setContribution(null)}
             onSuccess={contributionSaved}
+          />
+        )}
+      </Dialog>
+      <Dialog
+        open={!!participantsTarget}
+        onClose={() => setParticipantsTarget(null)}
+        title={participantsTarget ? `Participantes de ${participantsTarget.name}` : "Participantes"}
+      >
+        {participantsTarget && (
+          <ParticipantsPanel
+            client={api}
+            envelopeId={participantsTarget.id}
+            envelopeName={participantsTarget.name}
+            onClose={() => setParticipantsTarget(null)}
           />
         )}
       </Dialog>
@@ -171,6 +207,7 @@ function GoalSection({
   rule,
   envelopes,
   onContribute,
+  onManageParticipants,
   onArchive,
   onEditTarget,
 }: {
@@ -178,6 +215,7 @@ function GoalSection({
   rule: string;
   envelopes: EnvelopeDTO[];
   onContribute(envelope: EnvelopeDTO): void;
+  onManageParticipants(envelope: EnvelopeDTO): void;
   onArchive(envelope: EnvelopeDTO): void;
   onEditTarget?: (envelope: EnvelopeDTO) => void;
 }) {
@@ -198,6 +236,7 @@ function GoalSection({
               key={envelope.id}
               envelope={envelope}
               onRegisterExpense={onContribute}
+              onManageParticipants={onManageParticipants}
               onArchive={onArchive}
               onEditTarget={onEditTarget}
               variant="verbas"

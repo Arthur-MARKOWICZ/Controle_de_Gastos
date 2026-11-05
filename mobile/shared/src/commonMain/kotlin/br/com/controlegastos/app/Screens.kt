@@ -14,7 +14,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,6 +36,7 @@ private sealed interface MonthDialog {
     data class Register(val envelope: EnvelopeView) : MonthDialog
     data class Edit(val envelope: EnvelopeView) : MonthDialog
     data class Archive(val envelope: EnvelopeView) : MonthDialog
+    data class Participants(val envelope: EnvelopeView) : MonthDialog
     data class Create(val purpose: EnvelopePurpose, val allowed: List<EnvelopePurpose>) : MonthDialog
     data object Income : MonthDialog
     data object Glossary : MonthDialog
@@ -50,6 +53,7 @@ private sealed interface MonthDialog {
 internal fun MonthWorkspaceScreen(
     route: Route,
     controller: FinanceDashboardController,
+    sharing: SharingGateway,
     today: String,
     onOpenEntries: (EnvelopeView) -> Unit,
     onNotify: (String) -> Unit,
@@ -58,6 +62,7 @@ internal fun MonthWorkspaceScreen(
     onQuickExpenseHandled: () -> Unit = {},
 ) {
     var state by remember(controller) { mutableStateOf(controller.state) }
+    var alerts by remember(controller) { mutableStateOf(controller.activeAlerts) }
     var dialog by remember { mutableStateOf<MonthDialog?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -71,6 +76,7 @@ internal fun MonthWorkspaceScreen(
     fun reload() = scope.launch {
         controller.refresh()
         state = controller.state
+        alerts = controller.activeAlerts
         if (controller.lastFailure?.isSessionExpired() == true) onSessionExpired()
     }
 
@@ -85,6 +91,7 @@ internal fun MonthWorkspaceScreen(
         scope.launch {
             val outcome = runCatching { action() }
             state = controller.state
+            alerts = controller.activeAlerts
             if (outcome.exceptionOrNull()?.isSessionExpired() == true) onSessionExpired()
             outcome
                 .onSuccess { notice ->
@@ -112,6 +119,15 @@ internal fun MonthWorkspaceScreen(
                     )
                 }
                 item { NegativeBalanceAlert(dashboard.envelopes) }
+                item {
+                    PersistentNegativeAlerts(alerts) { id ->
+                        scope.launch {
+                            runCatching { controller.dismissAlert(id) }
+                                .onSuccess { alerts = controller.activeAlerts }
+                                .onFailure { onNotify(describeFailure(it, "Não foi possível dispensar o alerta.")) }
+                        }
+                    }
+                }
                 envelopeSection(
                     title = "Limites de gasto",
                     envelopes = dashboard.envelopes.filter { it.purpose == EnvelopePurpose.LIMIT.api },
@@ -120,6 +136,7 @@ internal fun MonthWorkspaceScreen(
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
+                    onParticipants = { dialog = MonthDialog.Participants(it) },
                 )
                 envelopeSection(
                     title = "Compromissos fixos",
@@ -129,6 +146,7 @@ internal fun MonthWorkspaceScreen(
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
+                    onParticipants = { dialog = MonthDialog.Participants(it) },
                 )
                 item {
                     NewEnvelopeButton("Nova verba") {
@@ -147,6 +165,7 @@ internal fun MonthWorkspaceScreen(
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
+                    onParticipants = { dialog = MonthDialog.Participants(it) },
                 )
                 envelopeSection(
                     title = "Metas de acumulação",
@@ -156,6 +175,7 @@ internal fun MonthWorkspaceScreen(
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
+                    onParticipants = { dialog = MonthDialog.Participants(it) },
                 )
                 item {
                     NewEnvelopeButton("Nova meta") {
@@ -180,6 +200,7 @@ internal fun MonthWorkspaceScreen(
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
+                    onParticipants = { dialog = MonthDialog.Participants(it) },
                 )
                 item {
                     NewEnvelopeButton("Novo gasto anual") {
@@ -209,6 +230,7 @@ internal fun MonthWorkspaceScreen(
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
+                    onParticipants = { dialog = MonthDialog.Participants(it) },
                 )
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -229,7 +251,9 @@ internal fun MonthWorkspaceScreen(
         null -> Unit
         is MonthDialog.Register -> EntryFormDialog(
             envelope = open.envelope,
-            kind = if (open.envelope.purpose in setOf(EnvelopePurpose.GOAL.api, EnvelopePurpose.SAVINGS_TARGET.api)) {
+            kind = if (open.envelope.isOwner
+                && open.envelope.purpose in setOf(EnvelopePurpose.GOAL.api, EnvelopePurpose.SAVINGS_TARGET.api)
+            ) {
                 LedgerKind.CONTRIBUTION
             } else {
                 LedgerKind.EXPENSE
@@ -265,6 +289,12 @@ internal fun MonthWorkspaceScreen(
             },
             onDismiss = { dialog = null },
         )
+        is MonthDialog.Participants -> ParticipantsDialog(
+            envelope = open.envelope,
+            sharing = sharing,
+            onNotify = onNotify,
+            onDismiss = { dialog = null },
+        )
         is MonthDialog.Create -> EnvelopeFormDialog(
             initialPurpose = open.purpose,
             allowedPurposes = open.allowed,
@@ -283,6 +313,113 @@ internal fun MonthWorkspaceScreen(
 @Composable
 private fun NewEnvelopeButton(label: String, onClick: () -> Unit) {
     Button(onClick = onClick, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text(label) }
+}
+
+/** Convite e remoção de participantes — só o owner chega aqui. */
+@Composable
+private fun ParticipantsDialog(
+    envelope: EnvelopeView,
+    sharing: SharingGateway,
+    onNotify: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var items by remember(envelope.id) { mutableStateOf<List<ParticipantView>>(emptyList()) }
+    var email by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    androidx.compose.runtime.LaunchedEffect(envelope.id) {
+        runCatching { sharing.listParticipants(envelope.id) }
+            .onSuccess { items = it; error = null }
+            .onFailure { error = describeFailure(it, "Não foi possível carregar os participantes.") }
+    }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Participantes de ${envelope.name}", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "Convidados veem a verba e registram gastos. Só você abastece, convida e encerra.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                error?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
+                if (items.isEmpty()) {
+                    Text("Nenhum participante ainda.", style = MaterialTheme.typography.bodySmall)
+                } else {
+                    items.forEach { participant ->
+                        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+                            Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                                Text(participant.email, fontWeight = FontWeight.SemiBold)
+                                TextButton(
+                                    onClick = {
+                                        if (busy) return@TextButton
+                                        busy = true
+                                        scope.launch {
+                                            runCatching { sharing.removeParticipant(envelope.id, participant.userId) }
+                                                .onSuccess {
+                                                    items = items.filterNot { it.userId == participant.userId }
+                                                    error = null
+                                                }
+                                                .onFailure {
+                                                    error = describeFailure(it, "Não foi possível remover.")
+                                                }
+                                            busy = false
+                                        }
+                                    },
+                                    enabled = !busy,
+                                    modifier = Modifier.height(TouchTarget),
+                                ) { Text("Remover") }
+                            }
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("E-mail (conta já verificada)") },
+                    singleLine = true,
+                    enabled = !busy,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val trimmed = email.trim()
+                    if (trimmed.isEmpty() || busy) return@Button
+                    busy = true
+                    scope.launch {
+                        runCatching { sharing.inviteParticipant(envelope.id, trimmed) }
+                            .onSuccess { created ->
+                                if (items.none { it.userId == created.userId }) {
+                                    items = items + created
+                                }
+                                email = ""
+                                error = null
+                                onNotify("Participante convidado.")
+                            }
+                            .onFailure {
+                                error = describeFailure(it, "Não foi possível convidar este e-mail.")
+                            }
+                        busy = false
+                    }
+                },
+                enabled = !busy && email.trim().isNotEmpty(),
+                modifier = Modifier.height(TouchTarget),
+            ) { Text(if (busy) "Aguarde…" else "Convidar") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !busy, modifier = Modifier.height(TouchTarget)) {
+                Text("Fechar")
+            }
+        },
+    )
 }
 
 /** Glossário das naturezas de verba, espelhando o da web. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import styles from "./Dashboard.module.css";
@@ -25,6 +25,7 @@ import type { EnvelopeDTO } from "../../lib/api";
 import { createApiClient } from "../../lib/api";
 import { useAuth } from "../../auth/auth-context";
 import { AppShell } from "../AppShell/AppShell";
+import { ParticipantsPanel } from "../ParticipantsPanel/ParticipantsPanel";
 
 const ARCHIVE_MESSAGE =
   "A verba deixa de aparecer nos próximos meses. Os lançamentos já registrados continuam no histórico.";
@@ -70,9 +71,11 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
   const [showNewEnvelope, setShowNewEnvelope] = useState(false);
   const [showIncomeForm, setShowIncomeForm] = useState(false);
   const [expenseTarget, setExpenseTarget] = useState<EnvelopeDTO | null>(null);
+  const [participantsTarget, setParticipantsTarget] = useState<EnvelopeDTO | null>(null);
   const [showGlossary, setShowGlossary] = useState(false);
   const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const api = useMemo(() => createApiClient(client), [client]);
 
   const loading = envelopesLoading || summaryLoading || incomeLoading;
   const busy = envelopesBusy || summaryBusy || incomeBusy || historyBusy;
@@ -110,7 +113,11 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
   }
 
   const balanceEnvelopes = summary?.envelopes ?? [];
-  const expenseKind = expenseTarget && isContributionPurpose(expenseTarget.purpose) ? "CONTRIBUTION" : "EXPENSE";
+  const expenseKind = expenseTarget
+    && expenseTarget.role === "OWNER"
+    && isContributionPurpose(expenseTarget.purpose)
+    ? "CONTRIBUTION"
+    : "EXPENSE";
 
   function handleExpenseSuccess(result: ExpenseResult) {
     const name = expenseTarget?.name ?? "verba";
@@ -198,6 +205,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
                     key={envelope.id}
                     envelope={envelope}
                     onRegisterExpense={(target) => { clearFeedback(); setExpenseTarget(target); }}
+                    onManageParticipants={(target) => { clearFeedback(); setParticipantsTarget(target); }}
                     onArchive={(target) => { clearFeedback(); setPendingArchive(target); }}
                   />
                 ))}
@@ -242,6 +250,21 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
 
         <Dialog open={!!expenseTarget} onClose={() => setExpenseTarget(null)} title={expenseTarget ? `${expenseKind === "CONTRIBUTION" ? "Aportar" : "Registrar gasto"} em ${expenseTarget.name}` : "Registrar gasto"}>
           {expenseTarget && <ExpenseForm envelope={expenseTarget} kind={expenseKind} onSuccess={handleExpenseSuccess} onCancel={() => setExpenseTarget(null)} />}
+        </Dialog>
+
+        <Dialog
+          open={!!participantsTarget}
+          onClose={() => setParticipantsTarget(null)}
+          title={participantsTarget ? `Participantes de ${participantsTarget.name}` : "Participantes"}
+        >
+          {participantsTarget && (
+            <ParticipantsPanel
+              client={api}
+              envelopeId={participantsTarget.id}
+              envelopeName={participantsTarget.name}
+              onClose={() => setParticipantsTarget(null)}
+            />
+          )}
         </Dialog>
 
         <Dialog open={showGlossary} onClose={() => setShowGlossary(false)} title="Glossário de verbas">

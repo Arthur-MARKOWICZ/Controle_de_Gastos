@@ -4,9 +4,11 @@ import br.com.controlegastos.envelopes.domain.AllocationExceedsIncomeException;
 import br.com.controlegastos.envelopes.domain.AnnualExpenseFundingMode;
 import br.com.controlegastos.envelopes.domain.BaseAllocation;
 import br.com.controlegastos.envelopes.domain.Envelope;
+import br.com.controlegastos.envelopes.domain.EnvelopeParticipant;
 import br.com.controlegastos.envelopes.domain.EnvelopePurpose;
 import br.com.controlegastos.envelopes.domain.MonthlyAllocationPlan;
 import br.com.controlegastos.envelopes.domain.MonthlyCommittedAllocation;
+import br.com.controlegastos.envelopes.infrastructure.EnvelopeParticipantRepository;
 import br.com.controlegastos.envelopes.infrastructure.EnvelopeRepository;
 import br.com.controlegastos.identity.application.AuthenticationService;
 import br.com.controlegastos.income.application.IncomeQuery;
@@ -32,15 +34,18 @@ public class EnvelopeService {
     public static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Sao_Paulo");
 
     private final EnvelopeRepository envelopes;
+    private final EnvelopeParticipantRepository participants;
     private final AuthenticationService authentication;
     private final IncomeQuery incomes;
     private final Clock clock;
 
     public EnvelopeService(EnvelopeRepository envelopes,
+                           EnvelopeParticipantRepository participants,
                            AuthenticationService authentication,
                            IncomeQuery incomes,
                            Clock clock) {
         this.envelopes = envelopes;
+        this.participants = participants;
         this.authentication = authentication;
         this.incomes = incomes;
         this.clock = clock;
@@ -160,6 +165,45 @@ public class EnvelopeService {
         if (envelope.isArchived()) return;
         envelope.archive(clock.instant());
         envelopes.save(envelope);
+    }
+
+    /** Garante que o usuário corrente é o proprietário da verba ativa. */
+    @Transactional(readOnly = true)
+    public Envelope requireOwned(UUID envelopeId) {
+        UUID userId = authentication.currentUserId();
+        Envelope envelope = envelopes.findById(envelopeId)
+                .orElseThrow(() -> new EnvelopeNotFoundException(envelopeId));
+        if (envelope.isArchived()) {
+            throw new EnvelopeNotFoundException(envelopeId);
+        }
+        if (!envelope.ownerId().equals(userId)) {
+            throw new EnvelopeForbiddenException("Somente o proprietário pode gerenciar o compartilhamento");
+        }
+        return envelope;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isParticipant(UUID envelopeId, UUID userId) {
+        return participants.existsByEnvelopeIdAndUserId(envelopeId, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnvelopeParticipant> listParticipants(UUID envelopeId) {
+        return participants.findByEnvelopeIdOrderByAddedAtAsc(envelopeId);
+    }
+
+    @Transactional
+    public EnvelopeParticipant addParticipant(UUID envelopeId, UUID userId, UUID addedBy, Instant now) {
+        EnvelopeParticipant row = new EnvelopeParticipant(envelopeId, userId, now, addedBy);
+        return participants.save(row);
+    }
+
+    @Transactional
+    public void removeParticipant(UUID envelopeId, UUID userId) {
+        if (!participants.existsByEnvelopeIdAndUserId(envelopeId, userId)) {
+            throw new EnvelopeNotFoundException(envelopeId);
+        }
+        participants.deleteByEnvelopeIdAndUserId(envelopeId, userId);
     }
 
     private void ensureFitsIncome(UUID ownerId, YearMonth month, UUID replacingEnvelopeId, Money candidateAmount) {

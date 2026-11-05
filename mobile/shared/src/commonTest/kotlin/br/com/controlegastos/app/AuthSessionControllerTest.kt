@@ -134,6 +134,8 @@ class AuthSessionControllerTest {
         override suspend fun addPassword(password: String) = error("not used")
         override suspend fun unlinkProvider(provider: OAuthProvider) = error("not used")
         override fun oauthStartUrl(provider: OAuthProvider): String = "https://api.example/start"
+        override suspend fun oauthConnectAuthorizationUrl(provider: OAuthProvider): String =
+            "https://accounts.example/authorize?provider=${provider.api}"
         override suspend fun redeemOAuthHandoff(code: String): AuthUser = handoffUser ?: error("not used")
     }
 }

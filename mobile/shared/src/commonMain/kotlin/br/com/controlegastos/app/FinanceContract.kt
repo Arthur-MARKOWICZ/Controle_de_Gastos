@@ -18,6 +18,7 @@ class FinanceDashboardController(
     private val currentMonth: YearMonth,
     private val envelopes: EnvelopeGateway = UnavailableGateway,
     private val income: IncomeGateway = UnavailableGateway,
+    private val alerts: AlertGateway = UnavailableGateway,
 ) {
     var month: YearMonth = currentMonth
         private set
@@ -33,6 +34,10 @@ class FinanceDashboardController(
     var lastFailure: Throwable? = null
         private set
 
+    /** Alertas persistentes de saldo negativo ainda ativos para o titular. */
+    var activeAlerts: List<InAppAlertView> = emptyList()
+        private set
+
     val isCurrentMonth: Boolean get() = month == currentMonth
 
     val dashboard: FinancialDashboard? get() = (state as? DashboardState.Content)?.dashboard
@@ -43,6 +48,7 @@ class FinanceDashboardController(
         try {
             lastFailure = null
             state = DashboardState.Content(ledger.loadDashboard(month.takeUnless { it == currentMonth }))
+            activeAlerts = runCatching { alerts.listActiveAlerts() }.getOrDefault(emptyList())
         } catch (failure: Throwable) {
             lastFailure = failure
             if (!keepContent) {
@@ -51,6 +57,11 @@ class FinanceDashboardController(
         } finally {
             refreshing = false
         }
+    }
+
+    suspend fun dismissAlert(id: String) {
+        alerts.dismissAlert(id)
+        activeAlerts = activeAlerts.filterNot { it.id == id }
     }
 
     suspend fun showPreviousMonth() {

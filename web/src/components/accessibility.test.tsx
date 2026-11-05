@@ -128,6 +128,8 @@ vi.mock("../lib/api", async (importOriginal) => {
       }),
       getEnvelopes: vi.fn().mockResolvedValue([envelope]),
       downloadReport: vi.fn(),
+      listAlerts: vi.fn().mockResolvedValue({ items: [] }),
+      dismissAlert: vi.fn().mockResolvedValue(undefined),
     }),
   };
 });

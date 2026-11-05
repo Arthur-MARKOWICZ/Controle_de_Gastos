@@ -34,6 +34,7 @@ public class TitularRightsService {
         payload.put("income", exportIncome(userId));
         payload.put("envelopes", exportEnvelopes(userId));
         payload.put("ledgerEntries", exportLedger(userId));
+        payload.put("ledgerEntryRevisions", exportLedgerRevisions(userId));
         return payload;
     }
 
@@ -118,6 +119,32 @@ public class TitularRightsService {
                     row.put("deletedAt", rs.getTimestamp("deleted_at") == null
                             ? null
                             : rs.getTimestamp("deleted_at").toInstant().toString());
+                    return row;
+                },
+                userId,
+                userId);
+    }
+
+    private List<Map<String, Object>> exportLedgerRevisions(UUID userId) {
+        return jdbc.query(
+                """
+                SELECT id, ledger_entry_id, action, actor_user_id, previous_envelope_id,
+                       previous_amount::text AS previous_amount, previous_description, changed_at
+                FROM ledger_entry_revision
+                WHERE owner_id = ? OR actor_user_id = ?
+                ORDER BY changed_at, id
+                """,
+                (rs, rowNum) -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("id", rs.getObject("id", UUID.class).toString());
+                    row.put("ledgerEntryId", rs.getObject("ledger_entry_id", UUID.class).toString());
+                    row.put("action", rs.getString("action"));
+                    row.put("actorUserId", rs.getObject("actor_user_id", UUID.class).toString());
+                    row.put("previousEnvelopeId", rs.getObject("previous_envelope_id", UUID.class).toString());
+                    row.put("previousAmount", rs.getString("previous_amount"));
+                    row.put("currency", "BRL");
+                    row.put("previousDescription", rs.getString("previous_description"));
+                    row.put("changedAt", rs.getTimestamp("changed_at").toInstant().toString());
                     return row;
                 },
                 userId,

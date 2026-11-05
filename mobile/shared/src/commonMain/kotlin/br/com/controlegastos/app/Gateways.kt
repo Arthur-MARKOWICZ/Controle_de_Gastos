@@ -12,6 +12,8 @@ data class VerbasGateways(
     val ledger: LedgerGateway,
     val income: IncomeGateway,
     val reports: ReportGateway,
+    val alerts: AlertGateway,
+    val sharing: SharingGateway,
 ) {
     companion object {
         val Unavailable = VerbasGateways(
@@ -20,6 +22,8 @@ data class VerbasGateways(
             ledger = UnavailableGateway,
             income = UnavailableGateway,
             reports = UnavailableGateway,
+            alerts = UnavailableGateway,
+            sharing = UnavailableGateway,
         )
     }
 }
@@ -27,11 +31,18 @@ data class VerbasGateways(
 private const val UNAVAILABLE = "Dados financeiros não configurados para esta plataforma"
 
 /** Usado pelo iOS, que ainda não tem cliente HTTP (ADR-004). */
-object UnavailableGateway : EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway {
+object UnavailableGateway : EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway {
     override suspend fun listEnvelopes(month: YearMonth?): List<EnvelopeView> = error(UNAVAILABLE)
     override suspend fun createEnvelope(envelope: NewEnvelope): EnvelopeView = error(UNAVAILABLE)
     override suspend fun updateEnvelope(id: String, edit: EnvelopeEdit): EnvelopeView = error(UNAVAILABLE)
     override suspend fun archiveEnvelope(id: String) = error(UNAVAILABLE)
+
+    override suspend fun listActiveAlerts(): List<InAppAlertView> = error(UNAVAILABLE)
+    override suspend fun dismissAlert(id: String) = error(UNAVAILABLE)
+
+    override suspend fun listParticipants(envelopeId: String): List<ParticipantView> = error(UNAVAILABLE)
+    override suspend fun inviteParticipant(envelopeId: String, email: String): ParticipantView = error(UNAVAILABLE)
+    override suspend fun removeParticipant(envelopeId: String, userId: String) = error(UNAVAILABLE)
 
     override suspend fun loadDashboard(month: YearMonth?): FinancialDashboard = error(UNAVAILABLE)
     override suspend fun listEntries(envelopeId: String, month: YearMonth?): List<LedgerEntryView> = error(UNAVAILABLE)
@@ -41,6 +52,7 @@ object UnavailableGateway : EnvelopeGateway, LedgerGateway, IncomeGateway, Repor
     override suspend fun loadHistorySummary(from: String, to: String): HistorySummaryView = error(UNAVAILABLE)
     override suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView = error(UNAVAILABLE)
     override suspend fun deleteEntry(id: String) = error(UNAVAILABLE)
+    override suspend fun listEntryRevisions(id: String, page: Int): LedgerEntryRevisionPageView = error(UNAVAILABLE)
 
     override suspend fun loadIncome(month: YearMonth?): IncomeView? = error(UNAVAILABLE)
     override suspend fun saveIncome(amount: Money): IncomeView = error(UNAVAILABLE)

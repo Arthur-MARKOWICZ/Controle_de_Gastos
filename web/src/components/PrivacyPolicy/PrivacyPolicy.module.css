@@ -1,0 +1,122 @@
+.page {
+  min-height: 100svh;
+  padding: clamp(1.25rem, 4vw, 3rem);
+  background:
+    linear-gradient(var(--brand-panel-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--brand-panel-grid) 1px, transparent 1px),
+    var(--brand-panel);
+  background-size: 2rem 2rem;
+}
+
+.article {
+  width: min(100%, 44rem);
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1.75rem;
+  color: var(--text-primary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.brand span {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-sm);
+  color: var(--on-brand-mark);
+  background: var(--brand-mark);
+}
+
+.eyebrow {
+  color: var(--accent-strong);
+  font: 800 0.75rem ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.article h1 {
+  margin: 0.55rem 0 0.85rem;
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.05;
+  letter-spacing: -0.05em;
+}
+
+.lead {
+  margin-bottom: 1.25rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.banner {
+  margin: 0 0 1.75rem;
+  padding: 0.85rem 1rem;
+  border-left: 0.25rem solid var(--accent);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+  background: var(--surface-muted);
+  line-height: 1.55;
+}
+
+.article section {
+  margin-bottom: 1.75rem;
+}
+
+.article h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.article p,
+.article li {
+  color: var(--text-primary);
+  line-height: 1.65;
+}
+
+.article ul {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0;
+  padding-left: 1.15rem;
+}
+
+.article a {
+  color: var(--accent-strong);
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.article a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.muted {
+  color: var(--text-muted) !important;
+  font-size: 0.9rem;
+}
+
+.updated {
+  margin-top: 2rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.footerLinks {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}

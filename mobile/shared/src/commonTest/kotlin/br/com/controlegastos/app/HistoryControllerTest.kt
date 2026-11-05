@@ -90,4 +90,6 @@ private class FakeHistoryGateway(private val hasNext: Boolean = false) : LedgerG
     override suspend fun listEntries(envelopeId: String, month: YearMonth?): List<LedgerEntryView> = error("não usado")
     override suspend fun createEntry(envelopeId: String, entry: NewLedgerEntry): LedgerEntryView = error("não usado")
     override suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView = error("não usado")
+    override suspend fun listEntryRevisions(id: String, page: Int) =
+        LedgerEntryRevisionPageView(emptyList(), false)
 }

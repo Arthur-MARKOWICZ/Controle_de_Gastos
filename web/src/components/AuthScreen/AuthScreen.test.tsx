@@ -14,6 +14,15 @@ describe("AuthScreen", () => {
     expect(screen.getByLabelText("Senha")).toBeDefined();
   });
 
+  it("oferece link para a política de privacidade sem exigir login", () => {
+    render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Política de privacidade" })).toHaveProperty(
+      "href",
+      "http://localhost:3000/privacidade",
+    );
+  });
+
   it("mantém o cadastro separado e comunica que não há login automático", async () => {
     const register = vi.fn().mockResolvedValue(undefined);
     render(<AuthScreen onLogin={vi.fn()} onRegister={register} />);

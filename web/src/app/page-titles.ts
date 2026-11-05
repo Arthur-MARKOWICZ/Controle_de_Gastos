@@ -11,4 +11,5 @@ export const PAGE_TITLES = {
   recuperarSenha: "Recuperar senha",
   redefinirSenha: "Redefinir senha",
   oauthCallback: "Entrando…",
+  privacidade: "Política de privacidade",
 } as const;

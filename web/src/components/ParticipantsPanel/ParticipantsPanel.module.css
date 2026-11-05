@@ -1,0 +1,60 @@
+.panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.lead {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.item,
+.empty {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.empty {
+  color: var(--text-muted);
+}
+
+.form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.form label {
+  font-size: 0.8125rem;
+  font-weight: 750;
+}
+
+.form input {
+  min-height: 3rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  background: var(--surface-raised);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}

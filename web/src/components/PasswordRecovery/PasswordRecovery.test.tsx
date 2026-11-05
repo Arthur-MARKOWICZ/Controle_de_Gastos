@@ -19,6 +19,15 @@ describe("recuperação de senha", () => {
     expect(request).toHaveBeenCalledWith("pessoa@example.com");
   });
 
+  it("oferece link para a política de privacidade na solicitação", () => {
+    render(<PasswordRecoveryRequest onRequest={vi.fn()} />);
+
+    expect(screen.getByRole("link", { name: "Política de privacidade" })).toHaveProperty(
+      "href",
+      "http://localhost:3000/privacidade",
+    );
+  });
+
   it("lê o token do fragmento, remove-o da URL e altera a senha", async () => {
     window.history.replaceState(null, "", "/redefinir-senha#token=token-seguro");
     const reset = vi.fn().mockResolvedValue(undefined);

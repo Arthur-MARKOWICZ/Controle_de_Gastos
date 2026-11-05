@@ -7,6 +7,7 @@ import styles from "./EnvelopeCard.module.css";
 type Props = {
   envelope: EnvelopeDTO;
   onRegisterExpense?: (envelope: EnvelopeDTO) => void;
+  onManageParticipants?: (envelope: EnvelopeDTO) => void;
   onArchive?: (envelope: EnvelopeDTO) => void;
   onEditTarget?: (envelope: EnvelopeDTO) => void;
   onEditAnnual?: (envelope: EnvelopeDTO) => void;
@@ -43,6 +44,7 @@ function purposeRule(purpose: string) {
 export function EnvelopeCard({
   envelope,
   onRegisterExpense,
+  onManageParticipants,
   onArchive,
   onEditTarget,
   onEditAnnual,
@@ -87,7 +89,8 @@ export function EnvelopeCard({
     status = envelope.role === "PARTICIPANT" ? "Compartilhada · Participante" : `${available} disponíveis`;
   }
 
-  const registerActionLabel = isContributionPurpose(envelope.purpose) ? "Aportar" : "Registrar gasto";
+  const registerActionLabel =
+    envelope.role === "OWNER" && isContributionPurpose(envelope.purpose) ? "Aportar" : "Registrar gasto";
 
   return (
     <li>
@@ -127,6 +130,15 @@ export function EnvelopeCard({
             aria-label={`${registerActionLabel} em ${envelope.name}`}
           >
             {registerActionLabel}
+          </Button>
+        )}
+        {onManageParticipants && envelope.role === "OWNER" && (
+          <Button
+            variant="text"
+            onClick={() => onManageParticipants(envelope)}
+            aria-label={`Participantes de ${envelope.name}`}
+          >
+            Participantes
           </Button>
         )}
         {onArchive && envelope.role === "OWNER" && (

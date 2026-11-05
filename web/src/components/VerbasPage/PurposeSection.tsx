@@ -17,11 +17,19 @@ type Props = {
   purpose: Purpose;
   envelopes: EnvelopeDTO[];
   onRegisterExpense: (e: EnvelopeDTO) => void;
+  onManageParticipants: (e: EnvelopeDTO) => void;
   onArchive: (e: EnvelopeDTO) => void;
   onCreate: (purpose: Purpose) => void;
 };
 
-export function PurposeSection({ purpose, envelopes, onRegisterExpense, onArchive, onCreate }: Props) {
+export function PurposeSection({
+  purpose,
+  envelopes,
+  onRegisterExpense,
+  onManageParticipants,
+  onArchive,
+  onCreate,
+}: Props) {
   const meta = PURPOSE_META[purpose];
   const totalBase = envelopes.reduce((acc, e) => acc + Number(e.baseAmount.amount), 0);
   const totalAvailable = envelopes.reduce((acc, e) => acc + Number(e.available.amount), 0);
@@ -57,7 +65,13 @@ export function PurposeSection({ purpose, envelopes, onRegisterExpense, onArchiv
       ) : (
         <ul className={styles.envelopeList}>
           {envelopes.map((env) => (
-            <EnvelopeCard key={env.id} envelope={env} onRegisterExpense={onRegisterExpense} onArchive={onArchive} />
+            <EnvelopeCard
+              key={env.id}
+              envelope={env}
+              onRegisterExpense={onRegisterExpense}
+              onManageParticipants={onManageParticipants}
+              onArchive={onArchive}
+            />
           ))}
         </ul>
       )}

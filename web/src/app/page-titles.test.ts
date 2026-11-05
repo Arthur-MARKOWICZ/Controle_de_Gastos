@@ -16,5 +16,6 @@ describe("PAGE_TITLES", () => {
     expect(PAGE_TITLES.recuperarSenha).toBe("Recuperar senha");
     expect(PAGE_TITLES.redefinirSenha).toBe("Redefinir senha");
     expect(PAGE_TITLES.oauthCallback).toBe("Entrando…");
+    expect(PAGE_TITLES.privacidade).toBe("Política de privacidade");
   });
 });

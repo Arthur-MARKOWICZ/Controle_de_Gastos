@@ -168,11 +168,14 @@ histórico de movimentações com edição e exclusão pelo autor do lançamento
 relatórios exportáveis em CSV e XLSX, recuperação de senha, MFA por TOTP e
 login social por Google e GitHub.
 
-Duas diferenças permanecem, por dependerem de coisas que não existem na API:
-compartilhamento de verbas não tem endpoint em nenhum cliente, e notificações
-push dependem do projeto Firebase/APNs ainda pendente. Vincular um provedor
-social a uma conta existente continua sendo feito na web, porque a requisição
-precisa do token de acesso, que o navegador do sistema não carrega.
+Compartilhamento assimétrico de verbas (owner convida por e-mail verificado;
+participante vê e registra gasto) está na API e nos clientes web/Android
+([ADR-0026](docs/decisions/0026-compartilhamento-assimetrico-de-verbas.md)).
+Notificações push ainda dependem do projeto Firebase/APNs. Vincular Google ou
+GitHub a uma conta já autenticada no Android usa
+`POST /api/v1/auth/oauth/{provider}/authorize-url` com o access token do app e
+abre o provedor no Custom Tab; o callback ainda redireciona à página web de
+segurança — ao voltar, toque em Atualizar na tela Segurança do app.
 
 O login social no aplicativo exige o App Link verificado descrito no
 [runbook de HTTPS](docs/deploy/https-producao.md).

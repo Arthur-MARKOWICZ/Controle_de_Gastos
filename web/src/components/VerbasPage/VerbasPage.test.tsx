@@ -105,6 +105,18 @@ vi.mock("../../auth/auth-context", () => ({
   useAuth: () => ({ client: { request: vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve([]), status: 200 })) }, state: "authenticated" }),
 }));
 
+vi.mock("../../lib/api", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../lib/api")>();
+  return {
+    ...original,
+    createApiClient: () => ({
+      archiveEnvelope: vi.fn().mockResolvedValue(undefined),
+      listAlerts: vi.fn().mockResolvedValue({ items: [] }),
+      dismissAlert: vi.fn().mockResolvedValue(undefined),
+    }),
+  };
+});
+
 vi.mock("../../hooks/useEnvelopes", () => ({
   useEnvelopes: () => envelopesHook,
 }));

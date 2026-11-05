@@ -52,6 +52,7 @@ internal fun EnvelopeCard(
     onEdit: (() -> Unit)? = null,
     onArchive: (() -> Unit)? = null,
     onOpenEntries: (() -> Unit)? = null,
+    onParticipants: (() -> Unit)? = null,
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -90,15 +91,18 @@ internal fun EnvelopeCard(
                 else MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
-            if (onRegister != null || onEdit != null || onArchive != null || onOpenEntries != null) {
+            if (onRegister != null || onEdit != null || onArchive != null || onOpenEntries != null || onParticipants != null) {
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     onRegister?.let {
                         TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) {
-                            Text(if (isGoal(envelope)) "Aportar" else "Registrar")
+                            Text(if (isGoal(envelope) && envelope.isOwner) "Aportar" else "Registrar")
                         }
                     }
                     onOpenEntries?.let {
                         TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) { Text("Lançamentos") }
+                    }
+                    onParticipants?.let {
+                        TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) { Text("Participantes") }
                     }
                     onEdit?.let {
                         TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) { Text("Editar") }

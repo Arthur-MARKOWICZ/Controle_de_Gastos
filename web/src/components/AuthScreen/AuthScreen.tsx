@@ -122,6 +122,10 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, n
             )}
           </div>
         )}
+
+        <p className={styles.privacy}>
+          <Link href="/privacidade">Política de privacidade</Link>
+        </p>
       </section>
     </main>
   );
