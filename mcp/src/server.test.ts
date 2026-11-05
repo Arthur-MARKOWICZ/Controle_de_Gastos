@@ -5,6 +5,7 @@ describe("MCP tool surface", () => {
   it("exposes only the allowed tools for this ADR cut", () => {
     expect([...MCP_TOOL_NAMES].sort()).toEqual(
       [
+        "auth_status",
         "create_envelope",
         "get_envelope",
         "get_ledger_summary",
@@ -12,8 +13,11 @@ describe("MCP tool surface", () => {
         "list_envelope_expenses",
         "list_envelopes",
         "list_expenses",
+        "login",
+        "logout",
         "register_expense",
         "update_envelope",
+        "verify_mfa",
       ].sort(),
     );
   });

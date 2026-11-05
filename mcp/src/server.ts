@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
   ApiError,
+  AuthRequiredError,
   ControleGastosApiClient,
   type EnvelopePurpose,
 } from "./api-client.js";
@@ -37,6 +38,25 @@ function textResult(data: unknown) {
 }
 
 function errorResult(error: unknown) {
+  if (error instanceof AuthRequiredError) {
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(
+            {
+              code: "AUTH_REQUIRED",
+              message: error.message,
+              action: "Chame a tool login com e-mail e senha. Se a API pedir MFA, use verify_mfa em seguida.",
+            },
+            null,
+            2,
+          ),
+        },
+      ],
+      isError: true as const,
+    };
+  }
   if (error instanceof ApiError) {
     return {
       content: [
@@ -64,6 +84,10 @@ function safeJson(body: string): unknown {
 }
 
 export const MCP_TOOL_NAMES = [
+  "login",
+  "verify_mfa",
+  "logout",
+  "auth_status",
   "get_user_email",
   "list_envelopes",
   "get_envelope",
@@ -80,6 +104,73 @@ export function createMcpServer(client: ControleGastosApiClient): McpServer {
     name: "controle-gastos",
     version: "0.1.0",
   });
+
+  server.registerTool(
+    "login",
+    {
+      title: "Entrar na API",
+      description:
+        "Autentica com e-mail e senha (estilo mobile). Persiste access+refresh localmente. Não devolve tokens. Se mfaRequired, chame verify_mfa.",
+      inputSchema: {
+        email: z.string().email(),
+        password: z.string().min(1),
+      },
+    },
+    async ({ email, password }) => {
+      try {
+        return textResult(await client.login(email, password));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "verify_mfa",
+    {
+      title: "Confirmar MFA",
+      description:
+        "Conclui o login quando login retornou mfaRequired. Informe challengeId e o código TOTP.",
+      inputSchema: {
+        challengeId: z.string().min(1).max(512),
+        code: z.string().min(1).max(10),
+      },
+    },
+    async ({ challengeId, code }) => {
+      try {
+        return textResult(await client.verifyMfa(challengeId, code));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "logout",
+    {
+      title: "Sair",
+      description: "Revoga a sessão na API (se possível) e apaga a sessão local do MCP.",
+      inputSchema: {},
+    },
+    async () => {
+      try {
+        await client.logout();
+        return textResult({ loggedOut: true });
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "auth_status",
+    {
+      title: "Status da sessão",
+      description: "Indica se há sessão local salva (sem expor tokens).",
+      inputSchema: {},
+    },
+    async () => textResult(client.authStatus()),
+  );
 
   server.registerTool(
     "get_user_email",
