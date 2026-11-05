@@ -18,6 +18,11 @@ pre-commit:
       glob: "*.{ts,tsx,js,jsx,mjs,mts,css,json}"
       run: pnpm test
 
+    - name: mcp-test
+      root: mcp/
+      glob: "*.{ts,json}"
+      run: pnpm test
+
     - name: backend-unit-test
       root: backend/
       glob: "*.{java,kts,properties,sql,yaml,yml}"

@@ -8,14 +8,15 @@ Leia primeiro [`docs/ideas/fundacao-tecnica.md`](docs/ideas/fundacao-tecnica.md)
 
 ```text
 web (Next.js) ─────┐
-                   ├── API Spring Modulith ── PostgreSQL
-mobile (KMP) ──────┘          │
+mobile (KMP) ──────┼── API Spring Modulith ── PostgreSQL
+mcp (stdio) ───────┘          │
                               └── identity: e-mail/senha, JWT e sessões
 ```
 
 - `backend/`: regras, REST, persistência e integrações.
 - `web/`: configuração e relatórios.
 - `mobile/`: lançamentos, saldos, alertas, histórico e relatórios.
+- `mcp/`: servidor MCP (stdio) cliente da API; ver [ADR-023](docs/decisions/0023-mcp-cliente-rest-stdio.md).
 - `infra/`: serviços locais e arquivos de deploy.
 - `docs/`: intenção, ADRs, privacidade e API.
 
@@ -90,6 +91,8 @@ contra a API local.
 | `cd backend && ./gradlew unitTest` | Só os testes Java que não usam Docker |
 | `cd web && pnpm test` | Testes unitários da web |
 | `cd web && pnpm lint` | Lint da web |
+| `cd mcp && pnpm test` | Testes do servidor MCP |
+| `cd mcp && pnpm build` | Compila o servidor MCP (stdio) |
 
 O ambiente de teste usa uma chave JWT efêmera e cookie sem `Secure` apenas
 porque serve HTTP. Ele não é configuração de produção.
