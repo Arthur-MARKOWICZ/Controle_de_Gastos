@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
 
 @Entity
@@ -105,5 +106,16 @@ public class UserAccount {
         }
         passwordCredential = new PasswordCredential(passwordHash, now);
         updatedAt = now;
+    }
+
+    public void closeAsDeleted(Instant now) {
+        if (status == UserStatus.DELETED) {
+            return;
+        }
+        this.emailNormalized = "deleted-" + id + "@invalid.local";
+        this.emailVerifiedAt = null;
+        this.passwordCredential = null;
+        this.status = UserStatus.DELETED;
+        this.updatedAt = Objects.requireNonNull(now, "O instante é obrigatório");
     }
 }

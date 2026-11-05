@@ -16,4 +16,6 @@ public interface IdentityProviderLinkRepository extends JpaRepository<IdentityPr
     long countByUserId(UUID userId);
 
     void deleteByUserIdAndProvider(UUID userId, OAuthProvider provider);
+
+    void deleteByUserId(UUID userId);
 }

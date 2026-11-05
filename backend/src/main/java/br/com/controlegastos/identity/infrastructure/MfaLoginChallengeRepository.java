@@ -22,4 +22,8 @@ public interface MfaLoginChallengeRepository extends JpaRepository<MfaLoginChall
             + "or (challenge.consumedAt is not null and challenge.consumedAt < :cutoff) "
             + "or (challenge.invalidatedAt is not null and challenge.invalidatedAt < :cutoff)")
     int deleteEndedBefore(@Param("cutoff") Instant cutoff);
+
+    @Modifying
+    @Query("delete from MfaLoginChallenge challenge where challenge.userId = :userId")
+    int deleteByUserId(@Param("userId") UUID userId);
 }

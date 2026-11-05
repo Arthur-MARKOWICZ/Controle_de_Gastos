@@ -28,7 +28,7 @@ conformidade jurídica nem autoriza cadastro público de terceiros.
 | Operador, região e transferência internacional | pendente | Controlador deve verificar contrato, região da VPS, acesso de suporte, suboperadores e mecanismo aplicável antes de terceiros. |
 | Retenção e backup | pendente | Definir retenção do error log, backup cifrado, restauração e propagação de exclusão. |
 | Transparência, hipótese legal e canal | pendente | Publicar aviso, identificar controlador/canal e registrar a hipótese por finalidade com revisão jurídica. |
-| Direitos do titular | pendente | Exportação, correção e exclusão verificável ainda não estão prontas para abertura pública. |
+| Direitos do titular | parcial | Exportação e exclusão lógica de dados ativos existem (`/api/v1/privacy/*`, ADR-0023). Canal do titular, correção e backups (DB-004) seguem pendentes para abertura pública. |
 | Incidentes | pendente | Definir responsáveis, contenção, preservação de evidência, avaliação e comunicação. |
 
 ## Barreira de ativação

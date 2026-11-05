@@ -21,4 +21,8 @@ public interface OAuthAuthorizationStateRepository extends JpaRepository<OAuthAu
     @Query("delete from OAuthAuthorizationState state where state.expiresAt < :cutoff "
             + "or (state.consumedAt is not null and state.consumedAt < :cutoff)")
     int deleteEndedBefore(@Param("cutoff") Instant cutoff);
+
+    @Modifying
+    @Query("delete from OAuthAuthorizationState state where state.linkingUserId = :userId")
+    int deleteByLinkingUserId(@Param("userId") UUID userId);
 }
