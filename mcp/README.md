@@ -6,14 +6,23 @@ atua como cliente da API REST (`/api/v1`). Decisão: [ADR-023](../docs/decisions
 ## Autenticação (estilo mobile)
 
 1. Configure só a URL da API no host MCP.
-2. Chame a tool `login` com e-mail e senha.
-3. Se a API pedir MFA, chame `verify_mfa` com o `challengeId` e o código TOTP.
+2. Prefira o CLI local (senha fica no terminal, não no chat do agente):
+
+```bash
+cd mcp
+CONTROLE_GASTOS_API_BASE_URL=https://gastos.arthurmlopes.systems pnpm auth-login
+```
+
+   Use `pnpm auth-login` (não `pnpm login` — esse é o login do npm).
+   Se a API pedir MFA, o CLI solicita o código TOTP na sequência.
+3. Alternativa: chame a tool `login` / `verify_mfa` no host MCP (a senha passa
+   pelo contexto do agente — evite quando possível).
 4. Access + refresh ficam em `~/.config/controle-gastos/mcp-session.json` (ou
    `CONTROLE_GASTOS_SESSION_PATH`), modo `0600`.
 5. Em `401`, o cliente renova via `/auth/refresh` e repete a chamada uma vez.
-6. Se o refresh falhar, as tools respondem `AUTH_REQUIRED` pedindo `login` de novo.
+6. Se o refresh falhar, as tools respondem `AUTH_REQUIRED` pedindo login de novo.
 
-As tools **não** devolvem tokens nem ecoam a senha.
+As tools e o CLI **não** devolvem tokens nem ecoam a senha.
 
 ## Tools
 
@@ -62,8 +71,9 @@ Variáveis:
 }
 ```
 
-Depois de conectar o servidor, peça ao agente para usar `login` uma vez. Em
-desenvolvimento sem build: `"command": "pnpm"`, `"args": ["--dir", ".../mcp", "exec", "tsx", "src/index.ts"]`.
+Depois de conectar o servidor, rode `pnpm auth-login` no terminal (recomendado)
+ou peça ao agente a tool `login`. Em desenvolvimento sem build: `"command": "pnpm"`,
+`"args": ["--dir", ".../mcp", "exec", "tsx", "src/index.ts"]`.
 
 ## Privacidade
 
