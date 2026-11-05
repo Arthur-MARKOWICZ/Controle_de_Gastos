@@ -6,6 +6,8 @@ import br.com.controlegastos.identity.application.AuthenticationService;
 import br.com.controlegastos.income.application.IncomeQuery;
 import br.com.controlegastos.ledger.application.LedgerService;
 import br.com.controlegastos.shared.money.Money;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
@@ -61,7 +63,7 @@ public class LedgerController {
         var incomeOpt = incomes.findEffective(userId, ym);
         Money unallocated;
         IncomeDTO incomeDTO = null;
-        double usagePct = 0;
+        BigDecimal usagePct = BigDecimal.ZERO;
         if (incomeOpt.isPresent()) {
             var income = incomeOpt.get();
             Money incomeAmount = income.amount();
@@ -69,7 +71,9 @@ public class LedgerController {
             if (unallocated.isNegative()) unallocated = Money.zero();
             incomeDTO = new IncomeDTO(incomeAmount.toPlainString(), incomeAmount.currency(), ym.toString(), income.changedAt());
             if (!incomeAmount.equals(Money.zero())) {
-                usagePct = allocated.amount().doubleValue() / incomeAmount.amount().doubleValue() * 100.0;
+                usagePct = allocated.amount()
+                        .multiply(BigDecimal.valueOf(100))
+                        .divide(incomeAmount.amount(), 2, RoundingMode.HALF_UP);
             }
         } else {
             unallocated = Money.zero();
@@ -101,5 +105,5 @@ public class LedgerController {
     }
     record IncomeDTO(String amount, String currency, String effectiveFrom, Instant changedAt) {}
     record SummaryEnvelope(UUID id, UUID ownerId, String name, String purpose, MoneyDTO baseAmount, MoneyDTO targetAmount, Instant targetReachedAt, AnnualExpenseDTO annualExpense, GoalProgressDTO goalProgress, MoneyDTO available, boolean isNegative, String role, Instant createdAt, Instant archivedAt, long version) {}
-    record SummaryResponse(IncomeDTO income, MoneyDTO allocated, MoneyDTO unallocated, double usagePct, List<SummaryEnvelope> envelopes) {}
+    record SummaryResponse(IncomeDTO income, MoneyDTO allocated, MoneyDTO unallocated, BigDecimal usagePct, List<SummaryEnvelope> envelopes) {}
 }

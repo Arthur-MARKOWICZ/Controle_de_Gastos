@@ -25,6 +25,9 @@ a limitação, em vez de deixar mutações sem uma posição de produto document
   uma entrega futura.
 - Preservar a autoria e o instante de criação do lançamento. A exclusão será
   lógica e não deve remover o lançamento fisicamente.
+- Autorizar edição e exclusão lógica quando o usuário autenticado for o
+  **autor** do lançamento (`authorId`) **ou** o **proprietário** da verba
+  (`ownerId`). Terceiros recebem 403.
 - Não preservar, neste corte, os valores, a descrição ou a verba anteriores à
   edição; relatórios históricos são recalculados conforme o estado atual do
   lançamento.
@@ -53,8 +56,9 @@ a decisão de exclusão lógica necessária para a experiência de histórico.
 
 ## Consequências
 
-- O proprietário pode editar e excluir logicamente lançamentos, mas a aplicação
-  não oferecerá histórico detalhado de versões nesta entrega.
+- O autor do lançamento e o proprietário da verba podem editar e excluir
+  logicamente o gasto, mas a aplicação não oferecerá histórico detalhado de
+  versões nesta entrega.
 - Totais de períodos passados podem mudar após uma edição ou exclusão posterior.
 - A dívida de auditoria fica explícita e não pode ser confundida com uma
   implementação completa de rastreabilidade.

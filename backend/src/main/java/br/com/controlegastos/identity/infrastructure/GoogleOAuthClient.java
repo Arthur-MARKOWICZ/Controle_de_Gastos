@@ -26,11 +26,12 @@ public class GoogleOAuthClient implements OAuthProviderClient {
     private final String redirectUri;
 
     public GoogleOAuthClient(
+            RestClient restClient,
             @Value("${app.oauth.google.client-id}") String clientId,
             @Value("${app.oauth.google.client-secret}") String clientSecret,
             @Value("${app.oauth.callback-base-url}") String callbackBaseUrl
     ) {
-        this.restClient = RestClient.create();
+        this.restClient = restClient;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.redirectUri = callbackBaseUrl.replaceAll("/+$", "") + "/api/v1/auth/oauth/google/callback";

@@ -40,7 +40,6 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   const monthLabel = formatMonthLabel(month);
 
   const {
-    envelopes,
     loading: envelopesLoading,
     busy: envelopesBusy,
     error: envelopesError,
@@ -67,7 +66,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   const busy = envelopesBusy || summaryBusy;
   const error = envelopesError || summaryError;
 
-  const source = (summary?.envelopes ?? envelopes).filter((envelope) => envelope.purpose === "LIMIT" || envelope.purpose === "FIXED");
+  const source = (summary?.envelopes ?? []).filter((envelope) => envelope.purpose === "LIMIT" || envelope.purpose === "FIXED");
 
   const counts = useMemo(() => {
     const c: Record<PurposeFilter, number> = { ALL: source.length, LIMIT: 0, FIXED: 0 };

@@ -6,15 +6,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.controlegastos.identity.infrastructure.AuthAttemptRepository;
+import br.com.controlegastos.support.FixedClockTestConfiguration;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -30,6 +31,7 @@ import tools.jackson.databind.ObjectMapper;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Testcontainers
+@Import(FixedClockTestConfiguration.class)
 class GoalProgressApiIntegrationTest {
 
     private static final String PASSWORD = "frase segura de teste";
@@ -60,7 +62,6 @@ class GoalProgressApiIntegrationTest {
     void accumulatesTheMonthlyGoalWhileOnlyActiveContributionsAdvanceItsProgress() throws Exception {
         String token = tokenFor("progresso-meta@example.com");
         String envelopeId = createGoal(token);
-        backdateCreation(envelopeId, "2026-09-01T12:00:00Z");
 
         summary(token, "2026-09")
                 .andExpect(jsonPath("$.envelopes[0].goalProgress.plannedAmount.amount").value("100.00"))
@@ -95,7 +96,6 @@ class GoalProgressApiIntegrationTest {
     void capsProgressAtOneHundredPercentWhenContributionsExceedTheAccumulatedGoal() throws Exception {
         String token = tokenFor("progresso-meta-ultrapassada@example.com");
         String envelopeId = createGoal(token);
-        backdateCreation(envelopeId, "2026-09-01T12:00:00Z");
 
         register(token, envelopeId, "CONTRIBUTION", "150.00", "2026-09-01");
 
@@ -117,11 +117,6 @@ class GoalProgressApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andReturn();
         return objectMapper.readTree(result.getResponse().getContentAsByteArray()).get("id").asString();
-    }
-
-    private void backdateCreation(String envelopeId, String createdAt) {
-        jdbc.update("UPDATE envelope SET created_at = ? WHERE id = ?",
-                Timestamp.from(Instant.parse(createdAt)), UUID.fromString(envelopeId));
     }
 
     private String register(String token, String envelopeId, String kind, String amount, String occurredAt) throws Exception {

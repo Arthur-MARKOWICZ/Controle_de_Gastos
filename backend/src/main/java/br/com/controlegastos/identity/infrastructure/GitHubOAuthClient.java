@@ -26,11 +26,12 @@ public class GitHubOAuthClient implements OAuthProviderClient {
     private final String redirectUri;
 
     public GitHubOAuthClient(
+            RestClient restClient,
             @Value("${app.oauth.github.client-id}") String clientId,
             @Value("${app.oauth.github.client-secret}") String clientSecret,
             @Value("${app.oauth.callback-base-url}") String callbackBaseUrl
     ) {
-        this.restClient = RestClient.create();
+        this.restClient = restClient;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.redirectUri = callbackBaseUrl.replaceAll("/+$", "") + "/api/v1/auth/oauth/github/callback";

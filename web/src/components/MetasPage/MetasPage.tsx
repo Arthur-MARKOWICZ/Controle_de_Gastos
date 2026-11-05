@@ -232,6 +232,7 @@ function TargetForm({
     setBusy(true);
     try {
       await createApiClient(client).updateEnvelope(envelope.id, {
+        version: envelope.version,
         targetAmount: { amount: plain, currency: "BRL" },
       });
       onSuccess();

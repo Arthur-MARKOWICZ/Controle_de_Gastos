@@ -32,9 +32,9 @@ class EnvelopeExceptionHandler {
 
     @ExceptionHandler(AllocationExceedsIncomeException.class)
     ProblemDetail allocation(AllocationExceedsIncomeException ex) {
-        ProblemDetail p = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
-        p.setTitle("Renda menor que as verbas-base");
-        p.setProperty("code", "ALLOCATION_EXCEEDS_INCOME");
+        ProblemDetail p = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        p.setTitle("Alocação excede a renda");
+        p.setProperty("code", "allocation.exceeds_income");
         p.setProperty("excess", ex.excess().toPlainString());
         p.setProperty("currency", ex.excess().currency());
         return p;

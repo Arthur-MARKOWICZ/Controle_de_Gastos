@@ -360,6 +360,7 @@ class AndroidApiGateway(
         },
         role = role(json.optString("role")),
         archivedAt = json.optStringOrNull("archivedAt"),
+        version = json.optLong("version", 0),
     )
 
     private fun readEntry(json: JSONObject) = LedgerEntryView(
@@ -409,6 +410,7 @@ private fun NewEnvelope.toJson(): String = JSONObject()
     .toString()
 
 private fun EnvelopeEdit.toJson(): String = JSONObject()
+    .put("version", version)
     .apply {
         name?.let { put("name", it) }
         baseAmount?.let { put("baseAmount", moneyJson(it)) }

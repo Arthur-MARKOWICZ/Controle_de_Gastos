@@ -35,6 +35,7 @@ export type CreateEnvelopeRequest = {
 };
 
 export type UpdateEnvelopeRequest = {
+  version: number;
   name?: string;
   baseAmount?: MoneyDTO;
   purpose?: EnvelopePurpose;
@@ -105,16 +106,18 @@ export type ReportFormat = "csv" | "xlsx";
 export class ApiError extends Error {
   public readonly requiredMinimum?: string;
   public readonly shortfall?: string;
+  public readonly excess?: string;
   constructor(
     public readonly status: number,
     public readonly code: string,
     public readonly detail: string,
     public readonly title: string,
-    extra?: { requiredMinimum?: string; shortfall?: string; currency?: string },
+    extra?: { requiredMinimum?: string; shortfall?: string; excess?: string; currency?: string },
   ) {
     super(detail || title);
     this.requiredMinimum = extra?.requiredMinimum;
     this.shortfall = extra?.shortfall;
+    this.excess = extra?.excess;
   }
 }
 
@@ -133,11 +136,13 @@ async function parseProblem(response: Response): Promise<ApiError> {
       status: number;
       requiredMinimum?: string;
       shortfall?: string;
+      excess?: string;
       currency?: string;
     };
     return new ApiError(response.status, p.code ?? "unknown", p.detail ?? "", p.title ?? "", {
       requiredMinimum: p.requiredMinimum,
       shortfall: p.shortfall,
+      excess: p.excess,
       currency: p.currency,
     });
   }

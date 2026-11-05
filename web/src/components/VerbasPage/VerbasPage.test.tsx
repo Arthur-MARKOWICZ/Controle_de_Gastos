@@ -1,6 +1,91 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { VerbasPage } from "./VerbasPage";
+
+const envelopesHook = vi.hoisted(() => ({
+  envelopes: [] as Array<{
+    id: string;
+    name: string;
+    purpose: string;
+    baseAmount: { amount: string; currency: string };
+    available: { amount: string; currency: string };
+    isNegative: boolean;
+    role: string;
+    createdAt: string;
+    archivedAt: null;
+    version: number;
+  }>,
+  loading: false,
+  error: null as string | null,
+  refresh: vi.fn(),
+  setEnvelopes: vi.fn(),
+}));
+
+const ledgerHook = vi.hoisted(() => ({
+  summary: null as {
+    income: { amount: string; currency: string; effectiveFrom: string; changedAt: string };
+    allocated: { amount: string; currency: string };
+    unallocated: { amount: string; currency: string };
+    usagePct: number;
+    envelopes: Array<{
+      id: string;
+      name: string;
+      purpose: string;
+      baseAmount: { amount: string; currency: string };
+      available: { amount: string; currency: string };
+      isNegative: boolean;
+      role: string;
+      createdAt: string;
+      archivedAt: null;
+      version: number;
+    }>;
+  } | null,
+  loading: false,
+  error: null as string | null,
+  refresh: vi.fn(),
+  setSummary: vi.fn(),
+}));
+
+function listEnvelopes() {
+  return [
+    { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "400.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "1500.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "2000.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "300.00", currency: "BRL" }, isNegative: true, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+  ];
+}
+
+function summaryEnvelopes() {
+  return [
+    { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "0.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "1200.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "-50.00", currency: "BRL" }, isNegative: true, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+  ];
+}
+
+function happyLedgerSummary() {
+  return {
+    income: { amount: "5000.00", currency: "BRL", effectiveFrom: "2026-08", changedAt: new Date().toISOString() },
+    allocated: { amount: "4200.00", currency: "BRL" },
+    unallocated: { amount: "800.00", currency: "BRL" },
+    usagePct: 84,
+    envelopes: summaryEnvelopes(),
+  };
+}
+
+function resetHooks() {
+  envelopesHook.envelopes = listEnvelopes();
+  envelopesHook.loading = false;
+  envelopesHook.error = null;
+  envelopesHook.refresh = vi.fn();
+  envelopesHook.setEnvelopes = vi.fn();
+  ledgerHook.summary = happyLedgerSummary();
+  ledgerHook.loading = false;
+  ledgerHook.error = null;
+  ledgerHook.refresh = vi.fn();
+  ledgerHook.setSummary = vi.fn();
+}
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
@@ -21,40 +106,14 @@ vi.mock("../../auth/auth-context", () => ({
 }));
 
 vi.mock("../../hooks/useEnvelopes", () => ({
-  useEnvelopes: () => ({
-    envelopes: [
-      { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-      { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "0.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-      { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "1200.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-      { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "-50.00", currency: "BRL" }, isNegative: true, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    ],
-    loading: false,
-    error: null,
-    refresh: vi.fn(),
-    setEnvelopes: vi.fn(),
-  }),
+  useEnvelopes: () => envelopesHook,
 }));
 
 vi.mock("../../hooks/useLedgerSummary", () => ({
-  useLedgerSummary: () => ({
-    summary: {
-      income: { amount: "5000.00", currency: "BRL", effectiveFrom: "2026-08", changedAt: new Date().toISOString() },
-      allocated: { amount: "4200.00", currency: "BRL" },
-      unallocated: { amount: "800.00", currency: "BRL" },
-      usagePct: 84,
-      envelopes: [
-        { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-        { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "0.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-        { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "1200.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-        { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "-50.00", currency: "BRL" }, isNegative: true, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-      ],
-    },
-    loading: false,
-    error: null,
-    refresh: vi.fn(),
-    setSummary: vi.fn(),
-  }),
+  useLedgerSummary: () => ledgerHook,
 }));
+
+beforeEach(resetHooks);
 
 afterEach(cleanup);
 
@@ -91,5 +150,28 @@ describe("VerbasPage", () => {
     const dialog = screen.getByRole("dialog", { name: "Nova verba" });
     expect(within(dialog).getByLabelText("Natureza")).toHaveProperty("value", "FIXED");
     expect(within(dialog).queryByRole("option", { name: "Meta de aporte" })).toBeNull();
+  });
+
+  it("não mostra saldo de GET /envelopes quando o resumo do ledger não está disponível", () => {
+    ledgerHook.summary = null;
+    ledgerHook.error = null;
+
+    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    expect(screen.queryByRole("heading", { name: "Combustível" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Lazer" })).toBeNull();
+    expect(screen.queryByText(/R\$\s*400,00 disponíveis/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Registrar gasto em Combustível" })).toBeNull();
+  });
+
+  it("não mostra saldo de GET /envelopes quando o resumo do ledger falha", () => {
+    ledgerHook.summary = null;
+    ledgerHook.error = "Não foi possível carregar o resumo";
+
+    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    expect(screen.getByText("Não foi possível carregar o resumo")).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Combustível" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Registrar gasto em Combustível" })).toBeNull();
   });
 });

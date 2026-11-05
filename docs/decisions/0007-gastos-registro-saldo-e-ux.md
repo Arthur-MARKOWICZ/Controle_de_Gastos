@@ -165,7 +165,7 @@ Errors: 400 ProblemDetail { code:"envelope.not_found"|"amount.invalid_scale"|"al
 
 **1.6. Validação de renda:**
 
-`envelopes` implementa `IncomeChangeConstraint.minimumIncomeFor(ownerId, month)` retornando `SUM(base_amount) WHERE archived_at IS NULL`. Assim `IncomeService.requireAllowedAmount` já impede reduzir renda abaixo das verbas-base sem criar dependência inversa.
+`envelopes` implementa `IncomeChangeConstraint.minimumIncomeFor(ownerId, month)` via helper mês-aware (`MonthlyCommittedAllocation`): bases de LIMIT/GOAL/FIXED/SAVINGS_TARGET mais a parcela do mês de `ANNUAL_EXPENSE` `MONTHLY` (`AnnualExpensePlan`); `ONE_TIME` não compete como base mensal. O mesmo helper alimenta create/update de verba via `MonthlyAllocationPlan` quando há renda efetiva. Assim `IncomeService.requireAllowedAmount` impede reduzir renda abaixo da alocação comprometida do mês sem dependência inversa nem `envelopes → ledger`.
 
 ---
 

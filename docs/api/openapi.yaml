@@ -405,6 +405,9 @@ paths:
   /envelopes:
      get:
        summary: Lista verbas visíveis ao usuário (owner ou participante)
+       description: >
+         Os campos available, isNegative e goalProgress nesta resposta NÃO são saldo autoritativo;
+         available espelha baseAmount e isNegative é sempre false. Use GET /ledger/summary para saldo real.
        security: [{ bearerAuth: [] }]
        parameters:
          - in: query
@@ -413,7 +416,7 @@ paths:
            description: Mês no formato YYYY-MM; padrão mês corrente em America/Sao_Paulo.
        responses:
          '200':
-           description: Lista de verbas com saldo do mês
+           description: Lista de verbas (saldo autoritativo apenas via /ledger/summary)
            content:
              application/json:
                schema: { type: array, items: { $ref: '#/components/schemas/Envelope' } }
@@ -433,12 +436,18 @@ paths:
            content:
              application/json:
                schema: { $ref: '#/components/schemas/Envelope' }
-         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '400':
+           description: Dados inválidos, ou soma das verbas-base excede a renda (code allocation.exceeds_income)
+           content:
+             application/problem+json:
+               schema: { $ref: '#/components/schemas/Problem' }
          '401': { $ref: '#/components/responses/AuthenticationFailed' }
-         '409': { $ref: '#/components/responses/IncomeConflict' }
   /envelopes/{id}:
      get:
        summary: Detalha uma verba
+       description: >
+         available/isNegative/goalProgress nesta resposta não são saldo autoritativo;
+         use GET /ledger/summary.
        security: [{ bearerAuth: [] }]
        parameters:
          - in: path
@@ -455,6 +464,7 @@ paths:
          '401': { $ref: '#/components/responses/AuthenticationFailed' }
      patch:
        summary: Atualiza nome, propósito ou valor-base da verba (somente owner)
+       description: Requer version do GET/summary; conflito de versão retorna 409 ENVELOPE_CONCURRENT_CHANGE.
        security: [{ bearerAuth: [] }]
        parameters:
          - in: path
@@ -472,11 +482,19 @@ paths:
            content:
              application/json:
                schema: { $ref: '#/components/schemas/Envelope' }
-         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '400':
+           description: Dados inválidos, ou soma das verbas-base excede a renda (code allocation.exceeds_income)
+           content:
+             application/problem+json:
+               schema: { $ref: '#/components/schemas/Problem' }
          '401': { $ref: '#/components/responses/AuthenticationFailed' }
          '403': { $ref: '#/components/responses/Forbidden' }
          '404': { $ref: '#/components/responses/NotFound' }
-         '409': { $ref: '#/components/responses/IncomeConflict' }
+         '409':
+           description: Conflito de versão otimista (code ENVELOPE_CONCURRENT_CHANGE)
+           content:
+             application/problem+json:
+               schema: { $ref: '#/components/schemas/Problem' }
   /envelopes/{id}/archive:
      post:
        summary: Arquiva verba (idempotente, somente owner)
@@ -645,7 +663,8 @@ paths:
          '401': { $ref: '#/components/responses/AuthenticationFailed' }
   /ledger/entries/{id}:
      patch:
-       summary: Edita valor, verba e descrição de um gasto (somente owner; data imutável)
+       summary: Edita valor, verba e descrição de um gasto (autor ou owner da verba; data imutável)
+       description: Autorizado se currentUser == authorId do lançamento ou currentUser == ownerId da verba.
        security: [{ bearerAuth: [] }]
        parameters:
          - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
@@ -658,7 +677,8 @@ paths:
          '403': { $ref: '#/components/responses/Forbidden' }
          '404': { $ref: '#/components/responses/NotFound' }
      delete:
-       summary: Exclui logicamente um gasto (somente owner)
+       summary: Exclui logicamente um gasto (autor ou owner da verba)
+       description: Autorizado se currentUser == authorId do lançamento ou currentUser == ownerId da verba.
        security: [{ bearerAuth: [] }]
        parameters:
          - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
@@ -895,8 +915,14 @@ components:
         targetReachedAt: { type: string, format: date-time, nullable: true }
         annualExpense: { allOf: [{ $ref: '#/components/schemas/AnnualExpense' }], nullable: true }
         goalProgress: { allOf: [{ $ref: '#/components/schemas/GoalProgress' }], nullable: true, description: Preenchido no resumo do ledger somente para GOAL. }
-        available: { $ref: '#/components/schemas/MoneyNegative' }
-        isNegative: { type: boolean }
+        available:
+          allOf: [{ $ref: '#/components/schemas/MoneyNegative' }]
+          description: >
+            Em GET /envelopes* espelha baseAmount (não é saldo autoritativo).
+            Em GET /ledger/summary é o saldo real do mês.
+        isNegative:
+          type: boolean
+          description: Em GET /envelopes* é sempre false; saldo negativo autoritativo vem de /ledger/summary.
         role: { type: string, enum: [OWNER, PARTICIPANT] }
         createdAt: { type: string, format: date-time }
         archivedAt: { type: string, format: date-time, nullable: true }
@@ -917,7 +943,9 @@ components:
     UpdateEnvelope:
       type: object
       additionalProperties: false
+      required: [version]
       properties:
+        version: { type: integer, minimum: 0, description: Versão lida no GET/summary; obrigatória para lock otimista. }
         name: { type: string, minLength: 1, maxLength: 80 }
         purpose: { type: string, enum: [LIMIT, GOAL, FIXED, SAVINGS_TARGET, ANNUAL_EXPENSE] }
         baseAmount: { $ref: '#/components/schemas/Money' }
@@ -1037,7 +1065,7 @@ components:
             changedAt: { type: string, format: date-time }
         allocated: { $ref: '#/components/schemas/Money' }
         unallocated: { $ref: '#/components/schemas/Money' }
-        usagePct: { type: number, minimum: 0 }
+        usagePct: { type: number, minimum: 0, description: 'Percentual da renda alocada, com escala 2 e arredondamento HALF_UP.' }
         envelopes: { type: array, items: { $ref: '#/components/schemas/Envelope' } }
   parameters:
     OAuthProvider:
