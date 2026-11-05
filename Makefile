@@ -1,8 +1,8 @@
-.PHONY: test check hooks pre-commit backend-test backend-unit-test web-test web-check deploy-check mobile-check mobile-unit-test infra-up infra-down
+.PHONY: test check hooks pre-commit backend-test backend-unit-test web-test web-check mcp-test mcp-check deploy-check mobile-check mobile-unit-test infra-up infra-down
 
-test: backend-test web-test
+test: backend-test web-test mcp-test
 
-check: backend-test web-check deploy-check
+check: backend-test web-check mcp-check deploy-check
 
 backend-test:
 	cd backend && ./gradlew test
@@ -18,6 +18,13 @@ web-check:
 	cd web && pnpm lint
 	cd web && pnpm test
 	cd web && pnpm build
+
+mcp-test:
+	cd mcp && pnpm test
+
+mcp-check:
+	cd mcp && pnpm test
+	cd mcp && pnpm build
 
 deploy-check:
 	sh infra/test-production-config.sh

@@ -1,0 +1,3 @@
+# Isola o pacote MCP do package.json da raiz (lefthook).
+allowBuilds:
+  esbuild: true

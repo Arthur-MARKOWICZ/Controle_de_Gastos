@@ -13,6 +13,7 @@ plans/
 # Node / Next.js
 node_modules/
 .next/
+dist/
 coverage/
 playwright-report/
 test-results/
