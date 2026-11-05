@@ -9,6 +9,8 @@ import br.com.controlegastos.envelopes.domain.EnvelopePurpose;
 import br.com.controlegastos.identity.application.AuthenticationService;
 import br.com.controlegastos.income.application.IncomeQuery;
 import br.com.controlegastos.ledger.infrastructure.LedgerEntryRepository;
+import br.com.controlegastos.ledger.infrastructure.LedgerEntryRevisionRepository;
+import br.com.controlegastos.notifications.application.AlertService;
 import br.com.controlegastos.shared.money.Money;
 import java.time.Clock;
 import java.time.Instant;
@@ -27,13 +29,15 @@ class LedgerServiceTest {
 
     @Mock EnvelopeService envelopes;
     @Mock LedgerEntryRepository entries;
+    @Mock LedgerEntryRevisionRepository revisions;
     @Mock AuthenticationService authentication;
     @Mock IncomeQuery incomes;
+    @Mock AlertService alerts;
 
     @Test
     void returnsZeroAvailableAndGoalProgressWhenTheQueryMonthIsBeforeEnvelopeCreation() {
         Clock clock = Clock.fixed(CREATED_AT, ZoneOffset.UTC);
-        LedgerService ledger = new LedgerService(envelopes, entries, authentication, clock, incomes);
+        LedgerService ledger = new LedgerService(envelopes, entries, revisions, authentication, clock, incomes, alerts);
         Envelope envelope = Envelope.create(
                 UUID.randomUUID(), "Investimentos", EnvelopePurpose.GOAL, Money.brl("100.00"), clock.instant());
         YearMonth beforeCreation = YearMonth.of(2026, 8);

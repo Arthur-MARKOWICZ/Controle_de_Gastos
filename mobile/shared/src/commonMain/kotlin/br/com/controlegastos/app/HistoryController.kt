@@ -99,4 +99,7 @@ class HistoryController(
         gateway.deleteEntry(id)
         refresh()
     }
+
+    suspend fun listRevisions(entryId: String): List<LedgerEntryRevisionView> =
+        gateway.listEntryRevisions(entryId).items
 }

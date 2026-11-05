@@ -14,7 +14,7 @@ import org.json.JSONObject
 class AndroidApiGateway(
     private val context: Context,
     private val client: AndroidApiClient,
-) : AuthGateway, EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway {
+) : AuthGateway, EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway {
 
     // ---------------------------------------------------------------- sessão
 
@@ -135,6 +135,15 @@ class AndroidApiGateway(
 
     override fun oauthStartUrl(provider: OAuthProvider): String =
         client.absoluteUrl("/api/v1/auth/oauth/${provider.api}/start", mapOf("client" to "mobile"))
+
+    override suspend fun oauthConnectAuthorizationUrl(provider: OAuthProvider): String {
+        val body = client.requestJson(
+            "POST",
+            "/api/v1/auth/oauth/${provider.api}/authorize-url",
+            failure = "Não foi possível iniciar a conexão com ${provider.label}",
+        )
+        return body.getString("authorizationUrl")
+    }
 
     override suspend fun redeemOAuthHandoff(code: String): AuthUser {
         val response = client.request(
@@ -272,6 +281,27 @@ class AndroidApiGateway(
         client.request("DELETE", "/api/v1/ledger/entries/$id").orThrow("Não foi possível excluir o lançamento")
     }
 
+    override suspend fun listEntryRevisions(id: String, page: Int): LedgerEntryRevisionPageView {
+        val body = client.requestJson(
+            "GET", "/api/v1/ledger/entries/$id/revisions",
+            query = mapOf("page" to page.toString(), "size" to "20"),
+            failure = "Não foi possível carregar as alterações",
+        )
+        return LedgerEntryRevisionPageView(
+            items = body.getJSONArray("items").mapObjects { json ->
+                LedgerEntryRevisionView(
+                    id = json.getString("id"),
+                    action = json.getString("action"),
+                    previousAmount = money(json.getJSONObject("previousAmount")),
+                    previousDescription = json.optStringOrNull("previousDescription"),
+                    previousEnvelopeId = json.getString("previousEnvelopeId"),
+                    changedAt = json.getString("changedAt"),
+                )
+            },
+            hasNext = body.optBoolean("hasNext", false),
+        )
+    }
+
     // ------------------------------------------------------------------ renda
 
     override suspend fun loadIncome(month: YearMonth?): IncomeView? {
@@ -308,6 +338,50 @@ class AndroidApiGateway(
             page = body.optInt("page", page),
             hasNext = body.optBoolean("hasNext", false),
         )
+    }
+
+    // ---------------------------------------------------------------- alertas
+
+    override suspend fun listActiveAlerts(): List<InAppAlertView> {
+        val body = client.requestJson("GET", "/api/v1/alerts", failure = "Não foi possível carregar os alertas")
+        return body.getJSONArray("items").mapObjects { json ->
+            InAppAlertView(
+                id = json.getString("id"),
+                type = json.getString("type"),
+                envelopeId = json.getString("envelopeId"),
+                envelopeName = json.getString("envelopeName"),
+                referenceMonth = json.getString("referenceMonth"),
+                createdAt = json.getString("createdAt"),
+            )
+        }
+    }
+
+    override suspend fun dismissAlert(id: String) {
+        client.request("POST", "/api/v1/alerts/$id/dismiss")
+            .orThrow("Não foi possível dispensar o alerta")
+    }
+
+    // ------------------------------------------------------ compartilhamento
+
+    override suspend fun listParticipants(envelopeId: String): List<ParticipantView> {
+        val body = client.requestJson(
+            "GET", "/api/v1/envelopes/$envelopeId/participants",
+            failure = "Não foi possível carregar os participantes",
+        )
+        return body.getJSONArray("items").mapObjects(::readParticipant)
+    }
+
+    override suspend fun inviteParticipant(envelopeId: String, email: String): ParticipantView = readParticipant(
+        client.requestJson(
+            "POST", "/api/v1/envelopes/$envelopeId/participants",
+            jsonBody = JSONObject().put("email", email).toString(),
+            failure = "Não foi possível convidar este e-mail",
+        ),
+    )
+
+    override suspend fun removeParticipant(envelopeId: String, userId: String) {
+        client.request("DELETE", "/api/v1/envelopes/$envelopeId/participants/$userId")
+            .orThrow("Não foi possível remover o participante")
     }
 
     // ------------------------------------------------------------- relatórios
@@ -378,6 +452,12 @@ class AndroidApiGateway(
         amount = Money.fromApiAmount(json.getString("amount")),
         effectiveFrom = json.getString("effectiveFrom"),
         changedAt = json.getString("changedAt"),
+    )
+
+    private fun readParticipant(json: JSONObject) = ParticipantView(
+        userId = json.getString("userId"),
+        email = json.getString("email"),
+        addedAt = json.getString("addedAt"),
     )
 
     private fun money(json: JSONObject) = Money.fromApiAmount(json.getString("amount"))

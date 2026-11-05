@@ -8,8 +8,12 @@ import br.com.controlegastos.envelopes.domain.AnnualExpenseInstallment;
 import br.com.controlegastos.identity.application.AuthenticationService;
 import br.com.controlegastos.income.application.IncomeQuery;
 import br.com.controlegastos.ledger.domain.LedgerEntry;
+import br.com.controlegastos.ledger.domain.LedgerEntryRevision;
 import br.com.controlegastos.ledger.domain.LedgerKind;
+import br.com.controlegastos.ledger.domain.LedgerRevisionAction;
 import br.com.controlegastos.ledger.infrastructure.LedgerEntryRepository;
+import br.com.controlegastos.ledger.infrastructure.LedgerEntryRevisionRepository;
+import br.com.controlegastos.notifications.application.AlertService;
 import br.com.controlegastos.shared.money.Money;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,6 +28,7 @@ import java.util.Map;
 import java.util.function.Function;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,17 +39,23 @@ public class LedgerService implements LedgerReportingQuery {
 
     private final EnvelopeService envelopes;
     private final LedgerEntryRepository entries;
+    private final LedgerEntryRevisionRepository revisions;
     private final AuthenticationService authentication;
     private final Clock clock;
     private final IncomeQuery incomes;
+    private final AlertService alerts;
 
     public LedgerService(EnvelopeService envelopes, LedgerEntryRepository entries,
-                         AuthenticationService authentication, Clock clock, IncomeQuery incomes) {
+                         LedgerEntryRevisionRepository revisions,
+                         AuthenticationService authentication, Clock clock, IncomeQuery incomes,
+                         AlertService alerts) {
         this.envelopes = envelopes;
         this.entries = entries;
+        this.revisions = revisions;
         this.authentication = authentication;
         this.clock = clock;
         this.incomes = incomes;
+        this.alerts = alerts;
     }
 
     @Transactional
@@ -66,6 +77,8 @@ public class LedgerService implements LedgerReportingQuery {
         }
 
         Instant now = clock.instant();
+        YearMonth balanceMonth = YearMonth.from(occurredAt);
+        Money balanceBefore = availableFor(envelope, balanceMonth);
         Money availableBefore = envelope.isSavingsTarget() && kind == LedgerKind.CONTRIBUTION
                 ? availableAt(envelope, today) : null;
         LedgerEntry entry = kind == LedgerKind.EXPENSE
@@ -80,6 +93,7 @@ public class LedgerService implements LedgerReportingQuery {
                 targetJustReached = envelope.recordTargetReached(now);
             }
         }
+        notifyBalanceTransition(envelope, balanceMonth, balanceBefore);
         return new Registration(saved, targetJustReached);
     }
 
@@ -280,17 +294,68 @@ public class LedgerService implements LedgerReportingQuery {
         if (!destination.ownerId().equals(entry.ownerId())) {
             throw new EnvelopeForbiddenException("Não é permitido mover o gasto para a verba de outro proprietário");
         }
+        YearMonth month = YearMonth.from(entry.occurredAt());
+        Envelope source = envelopes.getVisible(entry.envelopeId());
+        Money sourceBefore = availableFor(source, month);
+        Money destinationBefore = destination.id().equals(source.id())
+                ? sourceBefore
+                : availableFor(destination, month);
+        revisions.save(LedgerEntryRevision.captureBefore(entry, LedgerRevisionAction.EDIT, userId, clock.instant()));
         entry.edit(destination.id(), destination.ownerId(), amount, description);
-        return entries.save(entry);
+        LedgerEntry saved = entries.saveAndFlush(entry);
+        notifyBalanceTransition(source, month, sourceBefore);
+        if (!destination.id().equals(source.id())) {
+            notifyBalanceTransition(destination, month, destinationBefore);
+        }
+        return saved;
     }
 
     @Transactional
     public void deleteExpense(UUID entryId) {
         LedgerEntry entry = entries.findById(entryId).orElseThrow(() -> new LedgerEntryNotFoundException(entryId));
-        requireAuthorOrOwner(entry, authentication.currentUserId(),
+        UUID userId = authentication.currentUserId();
+        requireAuthorOrOwner(entry, userId,
                 "Somente o autor ou o proprietário da verba pode excluir o gasto");
+        if (entry.isDeleted()) {
+            return;
+        }
+        YearMonth month = YearMonth.from(entry.occurredAt());
+        Envelope envelope = envelopes.getVisible(entry.envelopeId());
+        Money before = availableFor(envelope, month);
+        revisions.save(LedgerEntryRevision.captureBefore(entry, LedgerRevisionAction.DELETE, userId, clock.instant()));
         entry.delete(clock.instant());
-        entries.save(entry);
+        entries.saveAndFlush(entry);
+        notifyBalanceTransition(envelope, month, before);
+    }
+
+    @Transactional(readOnly = true)
+    public RevisionPage listRevisions(UUID entryId, int page, int size) {
+        LedgerEntry entry = entries.findById(entryId).orElseThrow(() -> new LedgerEntryNotFoundException(entryId));
+        UUID userId = authentication.currentUserId();
+        if (!entry.ownerId().equals(userId)) {
+            throw new EnvelopeForbiddenException("Somente o proprietário pode consultar o histórico de alterações");
+        }
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), 100);
+        Slice<LedgerEntryRevision> slice = revisions.findByLedgerEntryIdOrderByChangedAtDescIdDesc(
+                entryId, PageRequest.of(safePage, safeSize));
+        return new RevisionPage(slice.getContent(), safePage, safeSize, slice.hasNext());
+    }
+
+    public record RevisionPage(List<LedgerEntryRevision> items, int page, int size, boolean hasNext) {
+    }
+
+    private void notifyBalanceTransition(Envelope envelope, YearMonth month, Money before) {
+        Money after = availableFor(envelope, month);
+        alerts.onBalanceTransition(
+                envelope.ownerId(),
+                envelope.id(),
+                envelope.name(),
+                month,
+                before.isNegative(),
+                after.isNegative(),
+                clock.instant()
+        );
     }
 
     private void requireAuthorOrOwner(LedgerEntry entry, UUID userId, String message) {

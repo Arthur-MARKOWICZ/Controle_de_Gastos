@@ -36,6 +36,7 @@ export function PasswordRecoveryRequest({ onRequest }: RequestProps) {
         <button type="submit" disabled={busy}>{busy ? "Enviando…" : "Enviar link de recuperação"}</button>
       </form>}
     <Link className={styles.back} href="/">Voltar para entrar</Link>
+    <Link className={styles.back} href="/privacidade">Política de privacidade</Link>
   </RecoveryFrame>;
 }
 

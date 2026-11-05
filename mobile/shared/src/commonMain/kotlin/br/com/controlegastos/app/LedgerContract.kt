@@ -63,6 +63,20 @@ data class HistorySummaryView(
     val purposeTotals: List<PurposeTotalView>,
 )
 
+data class LedgerEntryRevisionView(
+    val id: String,
+    val action: String,
+    val previousAmount: Money,
+    val previousDescription: String?,
+    val previousEnvelopeId: String,
+    val changedAt: String,
+)
+
+data class LedgerEntryRevisionPageView(
+    val items: List<LedgerEntryRevisionView>,
+    val hasNext: Boolean,
+)
+
 /** Lançamento novo. `occurredAt` é `YYYY-MM-DD` e não pode ser futuro. */
 data class NewLedgerEntry(
     val kind: LedgerKind,
@@ -89,6 +103,7 @@ interface LedgerGateway {
     suspend fun loadHistorySummary(from: String, to: String): HistorySummaryView
     suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView
     suspend fun deleteEntry(id: String)
+    suspend fun listEntryRevisions(id: String, page: Int = 0): LedgerEntryRevisionPageView
 }
 
 interface IncomeGateway {

@@ -2,6 +2,7 @@ package br.com.controlegastos.ledger.web;
 
 import br.com.controlegastos.ledger.application.LedgerService;
 import br.com.controlegastos.ledger.domain.LedgerEntry;
+import br.com.controlegastos.ledger.domain.LedgerEntryRevision;
 import br.com.controlegastos.shared.money.Money;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -74,6 +75,14 @@ public class HistoryController {
         ledger.deleteExpense(id);
     }
 
+    @GetMapping("/ledger/entries/{id}/revisions")
+    RevisionPageResponse revisions(
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return RevisionPageResponse.from(ledger.listRevisions(id, page, size));
+    }
+
     private LocalDate parseDate(String value) {
         try {
             return LocalDate.parse(value);
@@ -136,6 +145,32 @@ public class HistoryController {
                     MoneyResponse.from(summary.netBalance()), MoneyResponse.from(summary.accumulatedBalance()),
                     summary.monthlyTotals().stream().map(MonthlyTotalResponse::from).toList(),
                     summary.purposeTotals().stream().map(PurposeTotalResponse::from).toList());
+        }
+    }
+
+    record RevisionResponse(UUID id, UUID ledgerEntryId, String action, UUID actorUserId,
+                            UUID previousEnvelopeId, MoneyResponse previousAmount,
+                            String previousDescription, Instant changedAt) {
+        static RevisionResponse from(LedgerEntryRevision revision) {
+            return new RevisionResponse(
+                    revision.id(),
+                    revision.ledgerEntryId(),
+                    revision.action().name(),
+                    revision.actorUserId(),
+                    revision.previousEnvelopeId(),
+                    MoneyResponse.from(revision.previousAmount()),
+                    revision.previousDescription(),
+                    revision.changedAt());
+        }
+    }
+
+    record RevisionPageResponse(List<RevisionResponse> items, int page, int size, boolean hasNext) {
+        static RevisionPageResponse from(LedgerService.RevisionPage page) {
+            return new RevisionPageResponse(
+                    page.items().stream().map(RevisionResponse::from).toList(),
+                    page.page(),
+                    page.size(),
+                    page.hasNext());
         }
     }
 }

@@ -14,6 +14,7 @@ import { PageHeader } from "../ui/PageHeader";
 import { EnvelopeCard } from "../EnvelopeCard/EnvelopeCard";
 import { EnvelopeForm } from "../EnvelopeForm/EnvelopeForm";
 import { ExpenseForm, overdraftNotice } from "../ExpenseForm/ExpenseForm";
+import { ParticipantsPanel } from "../ParticipantsPanel/ParticipantsPanel";
 import { formatBRLInputMask, maskToPlain } from "../../lib/money";
 import styles from "../VerbasPage/Verbas.module.css";
 
@@ -23,8 +24,10 @@ const ARCHIVE_MESSAGE =
 export function AnnualExpensesPage({ email, onLogout }: { email: string; onLogout(): void }) {
   const { summary, loading, busy, error, refresh } = useLedgerSummary();
   const { client } = useAuth();
+  const api = useMemo(() => createApiClient(client), [client]);
   const [creating, setCreating] = useState(false);
   const [expense, setExpense] = useState<EnvelopeDTO | null>(null);
+  const [participantsTarget, setParticipantsTarget] = useState<EnvelopeDTO | null>(null);
   const [editing, setEditing] = useState<EnvelopeDTO | null>(null);
   const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -101,6 +104,10 @@ export function AnnualExpensesPage({ email, onLogout }: { email: string; onLogou
                     setFeedback(null);
                     setExpense(target);
                   }}
+                  onManageParticipants={(target) => {
+                    setFeedback(null);
+                    setParticipantsTarget(target);
+                  }}
                   onArchive={(target) => {
                     setFeedback(null);
                     setPendingArchive(target);
@@ -139,6 +146,20 @@ export function AnnualExpensesPage({ email, onLogout }: { email: string; onLogou
               setFeedback(`Gasto registrado${overdraftNotice(result)}.`);
               void refresh();
             }}
+          />
+        )}
+      </Dialog>
+      <Dialog
+        open={!!participantsTarget}
+        onClose={() => setParticipantsTarget(null)}
+        title={participantsTarget ? `Participantes de ${participantsTarget.name}` : "Participantes"}
+      >
+        {participantsTarget && (
+          <ParticipantsPanel
+            client={api}
+            envelopeId={participantsTarget.id}
+            envelopeName={participantsTarget.name}
+            onClose={() => setParticipantsTarget(null)}
           />
         )}
       </Dialog>

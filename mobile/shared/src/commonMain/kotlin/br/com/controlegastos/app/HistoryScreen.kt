@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 private sealed interface HistoryDialog {
     data class Edit(val item: HistoryItemView) : HistoryDialog
     data class Delete(val item: HistoryItemView) : HistoryDialog
+    data class Revisions(val item: HistoryItemView) : HistoryDialog
 }
 
 @Composable
@@ -114,6 +115,11 @@ internal fun HistoryScreen(
                     items(current.page.items, key = { it.entry.id }) { item ->
                         HistoryRow(
                             item = item,
+                            onRevisions = if (item.isOwner) {
+                                { dialog = HistoryDialog.Revisions(item) }
+                            } else {
+                                null
+                            },
                             onEdit = if (item.isOwner && item.entry.deletedAt == null) {
                                 { dialog = HistoryDialog.Edit(item) }
                             } else {
@@ -177,6 +183,11 @@ internal fun HistoryScreen(
             },
             onDismiss = { dialog = null },
         )
+        is HistoryDialog.Revisions -> EntryRevisionsDialog(
+            item = open.item,
+            load = { controller.listRevisions(open.item.entry.id) },
+            onDismiss = { dialog = null },
+        )
     }
 }
 
@@ -222,7 +233,12 @@ private fun PurposeTotals(totals: List<PurposeTotalView>) {
 }
 
 @Composable
-private fun HistoryRow(item: HistoryItemView, onEdit: (() -> Unit)?, onDelete: (() -> Unit)?) {
+private fun HistoryRow(
+    item: HistoryItemView,
+    onRevisions: (() -> Unit)?,
+    onEdit: (() -> Unit)?,
+    onDelete: (() -> Unit)?,
+) {
     val deleted = item.entry.deletedAt != null
     Card(
         colors = CardDefaults.cardColors(
@@ -254,8 +270,11 @@ private fun HistoryRow(item: HistoryItemView, onEdit: (() -> Unit)?, onDelete: (
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }
-            if (onEdit != null || onDelete != null) {
+            if (onRevisions != null || onEdit != null || onDelete != null) {
                 Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    onRevisions?.let {
+                        TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) { Text("Alterações") }
+                    }
                     onEdit?.let {
                         TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) { Text("Editar") }
                     }
@@ -266,6 +285,51 @@ private fun HistoryRow(item: HistoryItemView, onEdit: (() -> Unit)?, onDelete: (
             }
         }
     }
+}
+
+@Composable
+private fun EntryRevisionsDialog(
+    item: HistoryItemView,
+    load: suspend () -> List<LedgerEntryRevisionView>,
+    onDismiss: () -> Unit,
+) {
+    var items by remember(item.entry.id) { mutableStateOf<List<LedgerEntryRevisionView>?>(null) }
+    var error by remember(item.entry.id) { mutableStateOf<String?>(null) }
+    LaunchedEffect(item.entry.id) {
+        runCatching { load() }
+            .onSuccess { items = it; error = null }
+            .onFailure { error = describeFailure(it, "Não foi possível carregar as alterações.") }
+    }
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Alterações · ${item.envelopeName}", fontWeight = FontWeight.Bold) },
+        text = {
+            when {
+                error != null -> Text(error!!, color = MaterialTheme.colorScheme.error)
+                items == null -> Text("Carregando…")
+                items!!.isEmpty() -> Text("Nenhuma edição ou exclusão registrada ainda.")
+                else -> Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items!!.forEach { revision ->
+                        Column {
+                            Text(
+                                if (revision.action == "DELETE") "Exclusão" else "Edição",
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                            Text(
+                                "${revision.previousAmount.toBrl()}" +
+                                    (revision.previousDescription?.let { " · $it" } ?: ""),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.height(TouchTarget)) { Text("Fechar") }
+        },
+    )
 }
 
 /** Edição de lançamento. A data é imutável na API e por isso não é oferecida. */

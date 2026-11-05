@@ -62,11 +62,20 @@ interface AuthGateway {
      * o backend monta a autorização e devolve a sessão por um código de uso
      * único no App Link. Ver ADR-020.
      *
-     * Serve apenas para entrar. Vincular um provedor a uma conta existente
-     * exige o token de acesso na requisição, que o navegador do sistema não
-     * carrega, e por isso continua sendo feito na web.
+     * Serve apenas para **entrar**. Para vincular um provedor a uma conta já
+     * autenticada, use [oauthConnectAuthorizationUrl].
      */
     fun oauthStartUrl(provider: OAuthProvider): String
+
+    /**
+     * URL de autorização para vincular [provider] à conta da sessão atual.
+     *
+     * O app chama a API com o access token (o Custom Tab não o envia) e abre o
+     * `authorizationUrl` no navegador do sistema. O callback conclui o vínculo
+     * no backend e redireciona para a página web de segurança; ao voltar ao app,
+     * a tela de segurança recarrega os métodos.
+     */
+    suspend fun oauthConnectAuthorizationUrl(provider: OAuthProvider): String
 
     /** Troca o código recebido pelo App Link pela sessão. */
     suspend fun redeemOAuthHandoff(code: String): AuthUser
@@ -171,6 +180,8 @@ object UnavailableAuthGateway : AuthGateway {
     override suspend fun unlinkProvider(provider: OAuthProvider) =
         error("Autenticação não configurada para esta plataforma")
     override fun oauthStartUrl(provider: OAuthProvider): String =
+        error("Autenticação não configurada para esta plataforma")
+    override suspend fun oauthConnectAuthorizationUrl(provider: OAuthProvider): String =
         error("Autenticação não configurada para esta plataforma")
     override suspend fun redeemOAuthHandoff(code: String): AuthUser =
         error("Autenticação não configurada para esta plataforma")

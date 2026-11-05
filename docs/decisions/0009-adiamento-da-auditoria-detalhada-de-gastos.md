@@ -2,7 +2,7 @@
 
 ## Status
 
-Aceito
+Substituído por [ADR-0027](0027-auditoria-detalhada-de-edicoes-no-ledger.md)
 
 ## Data
 

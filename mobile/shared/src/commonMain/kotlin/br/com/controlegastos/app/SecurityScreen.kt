@@ -39,15 +39,16 @@ private sealed interface SecurityDialog {
 /**
  * Segurança da conta: métodos de login e segundo fator.
  *
- * Conectar um provedor social ainda não é possível no aplicativo: a API entrega
- * a sessão do OAuth por cookie, redirecionando para a web. O fluxo nativo está
- * decidido no ADR-020 e depende do handoff que o backend ainda não expõe.
+ * Vincular Google/GitHub usa `POST …/authorize-url` com o access token do app e
+ * abre o `authorizationUrl` no Custom Tab (ADR-020). O callback redireciona à
+ * web; ao voltar, use "Atualizar" para ver o vínculo.
  */
 @Composable
 internal fun SecurityScreen(
     gateway: AuthGateway,
     qrImageContent: @Composable (String) -> Unit,
     onShareText: (String) -> Unit = {},
+    onOpenInBrowser: ((String) -> Unit)? = null,
     onLoggedOut: () -> Unit,
     onNotify: (String) -> Unit,
 ) {
@@ -57,6 +58,8 @@ internal fun SecurityScreen(
     var error by remember { mutableStateOf<String?>(null) }
     var mfaStatusError by remember { mutableStateOf<String?>(null) }
     var showMfa by remember { mutableStateOf(false) }
+    var awaitingConnectRefresh by remember { mutableStateOf(false) }
+    var connectingProvider by remember { mutableStateOf<OAuthProvider?>(null) }
     val scope = rememberCoroutineScope()
 
     fun reload() = scope.launch {
@@ -68,8 +71,29 @@ internal fun SecurityScreen(
                 mfaStatusError = describeFailure(it, "Não foi possível consultar o status da autenticação em duas etapas.")
             }
         runCatching { gateway.loginMethods() }
-            .onSuccess { methods = it }
+            .onSuccess {
+                methods = it
+                awaitingConnectRefresh = false
+            }
             .onFailure { error = describeFailure(it, "Não foi possível consultar seus métodos de login.") }
+    }
+
+    fun connect(provider: OAuthProvider) {
+        val open = onOpenInBrowser ?: return
+        scope.launch {
+            connectingProvider = provider
+            error = null
+            runCatching { gateway.oauthConnectAuthorizationUrl(provider) }
+                .onSuccess { url ->
+                    open(url)
+                    awaitingConnectRefresh = true
+                    onNotify("Conclua a conexão no navegador. Depois toque em Atualizar.")
+                }
+                .onFailure {
+                    error = describeFailure(it, "Não foi possível iniciar a conexão com ${provider.label}.")
+                }
+            connectingProvider = null
+        }
     }
 
     LaunchedEffect(gateway) { reload() }
@@ -140,8 +164,13 @@ internal fun SecurityScreen(
                 null -> LoadingBox("Carregando métodos de login", Modifier.fillMaxWidth())
                 else -> LoginMethodsCard(
                     methods = current,
+                    connectEnabled = onOpenInBrowser != null,
+                    connectingProvider = connectingProvider,
+                    awaitingConnectRefresh = awaitingConnectRefresh,
                     onAddPassword = { dialog = SecurityDialog.AddPassword },
                     onUnlink = { dialog = SecurityDialog.Unlink(it) },
+                    onConnect = ::connect,
+                    onRefresh = { reload() },
                 )
             }
         }
@@ -204,8 +233,13 @@ internal fun SecurityScreen(
 @Composable
 private fun LoginMethodsCard(
     methods: LoginMethods,
+    connectEnabled: Boolean,
+    connectingProvider: OAuthProvider?,
+    awaitingConnectRefresh: Boolean,
     onAddPassword: () -> Unit,
     onUnlink: (OAuthProvider) -> Unit,
+    onConnect: (OAuthProvider) -> Unit,
+    onRefresh: () -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -214,21 +248,32 @@ private fun LoginMethodsCard(
                 Text("Senha", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(if (methods.hasPassword) "Configurada" else "Não configurada", fontWeight = FontWeight.Bold)
             }
-            OAuthProvider.entries.forEach { provider ->
-                val linked = provider in methods.linkedProviders
+            providerLoginActions(methods).forEach { action ->
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(provider.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (linked && !methods.isLastMethod) {
-                        OutlinedButton(
-                            onClick = { onUnlink(provider) },
+                    Text(action.provider.label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    when {
+                        action.canUnlink -> OutlinedButton(
+                            onClick = { onUnlink(action.provider) },
                             modifier = Modifier.height(TouchTarget),
                         ) { Text("Desconectar") }
-                    } else {
-                        Text(if (linked) "Conectado" else "Não conectado", fontWeight = FontWeight.Bold)
+                        action.canConnect && connectEnabled -> OutlinedButton(
+                            onClick = { onConnect(action.provider) },
+                            enabled = connectingProvider == null,
+                            modifier = Modifier.height(TouchTarget),
+                        ) {
+                            Text(
+                                if (connectingProvider == action.provider) "Abrindo…"
+                                else "Conectar",
+                            )
+                        }
+                        else -> Text(
+                            if (action.linked) "Conectado" else "Não conectado",
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
             }
@@ -245,11 +290,29 @@ private fun LoginMethodsCard(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            Text(
-                "Conectar Google ou GitHub ainda é feito pela versão web.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
+            if (awaitingConnectRefresh) {
+                Text(
+                    "Se concluiu a conexão no navegador, toque em Atualizar para ver o vínculo aqui.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                OutlinedButton(
+                    onClick = onRefresh,
+                    modifier = Modifier.fillMaxWidth().height(TouchTarget),
+                ) { Text("Atualizar") }
+            } else if (!connectEnabled) {
+                Text(
+                    "Conectar Google ou GitHub neste dispositivo ainda não está disponível. Use a versão web em Conta → Segurança.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            } else {
+                Text(
+                    "Ao conectar, o navegador do sistema abre o provedor. Depois volte ao app e atualize se precisar.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }

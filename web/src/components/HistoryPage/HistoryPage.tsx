@@ -14,6 +14,7 @@ import {
   type HistoryItemDTO,
   type HistoryPageDTO,
   type HistorySummaryDTO,
+  type LedgerEntryRevisionDTO,
 } from "../../lib/api";
 import { currentMonthSaoPaulo, todaySaoPaulo } from "../../lib/dates";
 import { formatBRL, formatBRLInputMask, maskToPlain } from "../../lib/money";
@@ -54,6 +55,10 @@ export function HistoryPage({ email, onLogout }: Props) {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<HistoryItemDTO | null>(null);
+  const [revisionsTarget, setRevisionsTarget] = useState<HistoryItemDTO | null>(null);
+  const [revisions, setRevisions] = useState<LedgerEntryRevisionDTO[]>([]);
+  const [revisionsError, setRevisionsError] = useState<string | null>(null);
+  const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const hasDataRef = useRef(false);
 
@@ -289,20 +294,41 @@ export function HistoryPage({ email, onLogout }: Props) {
                                 </span>
                               </div>
                               <strong>{formatBRL(item.entry.amount.amount)}</strong>
-                              {item.role === "OWNER" && !item.entry.deletedAt && (
+                              {item.role === "OWNER" && (
                                 <span className={styles.actions}>
-                                  <button type="button" onClick={() => startEdit(item)}>
-                                    Editar
-                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => {
                                       setFeedback(null);
-                                      setPendingDelete(item);
+                                      setRevisionsTarget(item);
+                                      setRevisions([]);
+                                      setRevisionsError(null);
+                                      setRevisionsLoading(true);
+                                      void createApiClient(client)
+                                        .listEntryRevisions(item.entry.id)
+                                        .then((page) => setRevisions(page.items))
+                                        .catch(() => setRevisionsError("Não foi possível carregar as alterações."))
+                                        .finally(() => setRevisionsLoading(false));
                                     }}
                                   >
-                                    Excluir
+                                    Alterações
                                   </button>
+                                  {!item.entry.deletedAt && (
+                                    <>
+                                      <button type="button" onClick={() => startEdit(item)}>
+                                        Editar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setFeedback(null);
+                                          setPendingDelete(item);
+                                        }}
+                                      >
+                                        Excluir
+                                      </button>
+                                    </>
+                                  )}
                                 </span>
                               )}
                             </li>
@@ -362,6 +388,37 @@ export function HistoryPage({ email, onLogout }: Props) {
             </Button>
           </div>
         </form>
+      </Dialog>
+      <Dialog
+        open={!!revisionsTarget}
+        onClose={() => setRevisionsTarget(null)}
+        title={revisionsTarget ? `Alterações · ${revisionsTarget.envelopeName}` : "Alterações"}
+      >
+        {revisionsLoading && <p role="status">Carregando alterações…</p>}
+        {revisionsError && <Notice tone="danger">{revisionsError}</Notice>}
+        {!revisionsLoading && !revisionsError && revisions.length === 0 && (
+          <p role="status">Nenhuma edição ou exclusão registrada ainda.</p>
+        )}
+        {!revisionsLoading && revisions.length > 0 && (
+          <ul className={styles.group}>
+            {revisions.map((revision) => (
+              <li key={revision.id}>
+                <div>
+                  <strong>{revision.action === "DELETE" ? "Exclusão" : "Edição"}</strong>
+                  <span>
+                    {new Date(revision.changedAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
+                    {" · "}
+                    {formatBRL(revision.previousAmount.amount)}
+                    {revision.previousDescription ? ` · ${revision.previousDescription}` : ""}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <Button variant="secondary" type="button" onClick={() => setRevisionsTarget(null)}>
+          Fechar
+        </Button>
       </Dialog>
       <ConfirmDialog
         open={!!pendingDelete}

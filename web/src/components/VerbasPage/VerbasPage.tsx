@@ -23,6 +23,8 @@ import type { EnvelopeDTO } from "../../lib/api";
 import { createApiClient } from "../../lib/api";
 import { useAuth } from "../../auth/auth-context";
 import { AppShell } from "../AppShell/AppShell";
+import { PersistentAlerts } from "../PersistentAlerts/PersistentAlerts";
+import { ParticipantsPanel } from "../ParticipantsPanel/ParticipantsPanel";
 
 type PurposeFilter = "ALL" | "LIMIT" | "FIXED";
 type SortKey = "progress" | "saldo" | "nome";
@@ -59,8 +61,11 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   const [showNewEnvelope, setShowNewEnvelope] = useState<null | "LIMIT" | "FIXED">(null);
   const [showGlossary, setShowGlossary] = useState(false);
   const [expenseTarget, setExpenseTarget] = useState<EnvelopeDTO | null>(null);
+  const [participantsTarget, setParticipantsTarget] = useState<EnvelopeDTO | null>(null);
   const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [alertsRefreshKey, setAlertsRefreshKey] = useState(0);
+  const api = useMemo(() => createApiClient(client), [client]);
 
   const loading = envelopesLoading || summaryLoading;
   const busy = envelopesBusy || summaryBusy;
@@ -143,6 +148,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
     setFeedback(`Gasto registrado em "${name}"${overdraftNotice(result)}`);
     void refreshEnvelopes();
     void refreshSummary();
+    setAlertsRefreshKey((key) => key + 1);
   }
 
   return (
@@ -150,6 +156,8 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
         {feedback && (
           <Notice tone="success" onClose={() => setFeedback(null)}>{feedback}</Notice>
         )}
+
+        <PersistentAlerts client={api} refreshKey={alertsRefreshKey} />
 
         <PageHeader
           eyebrow={monthLabel}
@@ -234,6 +242,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
                   purpose={p}
                   envelopes={byPurpose[p]}
                   onRegisterExpense={(target) => { setFeedback(null); setExpenseTarget(target); }}
+                  onManageParticipants={(target) => { setFeedback(null); setParticipantsTarget(target); }}
                   onArchive={(target) => { setFeedback(null); setPendingArchive(target); }}
                   onCreate={(purpose) => { setFeedback(null); setShowNewEnvelope(purpose); }}
                 />
@@ -284,6 +293,21 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
 
         <Dialog open={!!expenseTarget} onClose={() => setExpenseTarget(null)} title={expenseTarget ? `Registrar gasto em ${expenseTarget.name}` : "Registrar gasto"}>
           {expenseTarget && <ExpenseForm envelope={expenseTarget} onSuccess={handleExpenseSuccess} onCancel={() => setExpenseTarget(null)} />}
+        </Dialog>
+
+        <Dialog
+          open={!!participantsTarget}
+          onClose={() => setParticipantsTarget(null)}
+          title={participantsTarget ? `Participantes de ${participantsTarget.name}` : "Participantes"}
+        >
+          {participantsTarget && (
+            <ParticipantsPanel
+              client={api}
+              envelopeId={participantsTarget.id}
+              envelopeName={participantsTarget.name}
+              onClose={() => setParticipantsTarget(null)}
+            />
+          )}
         </Dialog>
 
         <ConfirmDialog

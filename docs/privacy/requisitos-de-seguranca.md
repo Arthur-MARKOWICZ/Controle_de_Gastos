@@ -59,10 +59,12 @@
 
 ## Direitos do titular
 
-- Canal eletrônico de contato publicado.
+- Canal eletrônico de contato publicado (`/privacidade` e
+  [`atendimento-do-titular.md`](atendimento-do-titular.md)).
 - Exportação, correção e exclusão com autenticação reforçada.
 - Registro do atendimento e dos prazos aplicáveis.
-- Explicação acessível das finalidades e compartilhamentos.
+- Explicação acessível das finalidades e compartilhamentos (página pública
+  `/privacidade`, versão operacional até parecer jurídico).
 
 ## Operação
 

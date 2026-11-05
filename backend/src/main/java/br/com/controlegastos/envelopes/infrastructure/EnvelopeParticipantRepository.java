@@ -7,4 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface EnvelopeParticipantRepository extends JpaRepository<EnvelopeParticipant, EnvelopeParticipantId> {
     boolean existsByEnvelopeIdAndUserId(UUID envelopeId, UUID userId);
+
+    java.util.List<EnvelopeParticipant> findByEnvelopeIdOrderByAddedAtAsc(UUID envelopeId);
+
+    void deleteByEnvelopeIdAndUserId(UUID envelopeId, UUID userId);
 }

@@ -25,6 +25,15 @@ export function SettingsPage({ email, onLogout }: { email: string; onLogout(): v
             <span className={styles.chevron} aria-hidden="true">›</span>
           </Link>
         </li>
+        <li>
+          <Link className={styles.item} href="/privacidade">
+            <span className={styles.itemLabel}>
+              <strong>Política de privacidade</strong>
+              <span>Finalidades do tratamento e canal do titular.</span>
+            </span>
+            <span className={styles.chevron} aria-hidden="true">›</span>
+          </Link>
+        </li>
       </ul>
     </AppShell>
   );

@@ -59,4 +59,37 @@ describe("EnvelopeCard", () => {
     expect(screen.getByText(/10% concluído/)).toBeDefined();
     expect(screen.getByRole("progressbar", { name: "Progresso de Notebook" }).getAttribute("value")).toBe("10");
   });
+
+  it("mostra Participantes só para o owner e Registrar gasto para participante", () => {
+    const owner = {
+      id: "limit", ownerId: "owner", name: "Mercado", purpose: "LIMIT" as const,
+      baseAmount: { amount: "100.00", currency: "BRL" as const }, targetAmount: null, targetReachedAt: null,
+      available: { amount: "100.00", currency: "BRL" as const }, isNegative: false, role: "OWNER" as const,
+      createdAt: "2026-10-01T00:00:00Z", archivedAt: null, version: 0,
+    };
+    const { rerender, unmount } = render(
+      <ul>
+        <EnvelopeCard
+          envelope={owner}
+          onRegisterExpense={() => undefined}
+          onManageParticipants={() => undefined}
+        />
+      </ul>,
+    );
+    expect(screen.getByRole("button", { name: "Participantes de Mercado" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Registrar gasto em Mercado" })).toBeDefined();
+
+    rerender(
+      <ul>
+        <EnvelopeCard
+          envelope={{ ...owner, role: "PARTICIPANT" }}
+          onRegisterExpense={() => undefined}
+          onManageParticipants={() => undefined}
+        />
+      </ul>,
+    );
+    expect(screen.queryByRole("button", { name: "Participantes de Mercado" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Registrar gasto em Mercado" })).toBeDefined();
+    unmount();
+  });
 });

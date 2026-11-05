@@ -185,6 +185,7 @@ fun VerbasApp(
                 qrImageContent = qrImageContent,
                 onShareText = onShareText,
                 onOpenReport = onOpenReport,
+                onOpenInBrowser = onOpenInBrowser,
                 onSignOut = {
                     authState = AuthState.Anonymous
                     scope.launch { runCatching { authController.logout() } }
@@ -213,6 +214,7 @@ private fun SignedInApp(
     qrImageContent: @Composable (String) -> Unit,
     onShareText: (String) -> Unit,
     onOpenReport: (DownloadedReport) -> Unit,
+    onOpenInBrowser: ((String) -> Unit)?,
     onSignOut: () -> Unit,
     onSessionExpired: () -> Unit,
 ) {
@@ -222,7 +224,13 @@ private fun SignedInApp(
     val scope = rememberCoroutineScope()
 
     val financeController = remember(gateways, currentMonth) {
-        FinanceDashboardController(gateways.ledger, currentMonth, gateways.envelopes, gateways.income)
+        FinanceDashboardController(
+            gateways.ledger,
+            currentMonth,
+            gateways.envelopes,
+            gateways.income,
+            gateways.alerts,
+        )
     }
     val historyController = remember(gateways, currentMonth) { HistoryController(gateways.ledger, currentMonth) }
 
@@ -298,6 +306,7 @@ private fun SignedInApp(
                 Route.Overview, Route.Envelopes, Route.Goals, Route.AnnualExpenses -> MonthWorkspaceScreen(
                     route = current,
                     controller = financeController,
+                    sharing = gateways.sharing,
                     today = today,
                     onOpenEntries = { go(Route.EnvelopeEntries(it.id, it.name)) },
                     onNotify = ::notify,
@@ -328,6 +337,7 @@ private fun SignedInApp(
                     gateway = gateways.auth,
                     qrImageContent = qrImageContent,
                     onShareText = onShareText,
+                    onOpenInBrowser = onOpenInBrowser,
                     onLoggedOut = onSignOut,
                     onNotify = ::notify,
                 )
