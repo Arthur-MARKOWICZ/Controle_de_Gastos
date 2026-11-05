@@ -28,7 +28,7 @@ conformidade jurídica nem escolhe a hipótese legal pelo controlador.
 | Hipótese legal e aviso de privacidade | pendente | Controlador/jurídico deve associar finalidade e hipótese do art. 7º e publicar transparência adequada. |
 | Controlador, encarregado e canal do titular | pendente | Responsáveis e canal não foram informados. |
 | Operadores, região da VPS e backups | pendente | Contrato, país de armazenamento/acesso, criptografia e transferência internacional da Hostinger devem ser verificados. |
-| Exportação, correção e exclusão verificável | pendente | A cascata do banco existe, mas o fluxo completo de direitos ainda não foi entregue. |
+| Exportação, correção e exclusão verificável | parcial | `GET /api/v1/privacy/export` e `DELETE /api/v1/privacy/account` cobrem dados ativos (ADR-0023). Propagação a backups permanece pendente (DB-004). Correção pontual ainda não tem API dedicada. |
 
 ## Riscos e critérios antes de uso público
 

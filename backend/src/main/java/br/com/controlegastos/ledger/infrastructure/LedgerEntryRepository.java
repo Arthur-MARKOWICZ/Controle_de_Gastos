@@ -40,17 +40,38 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
 
     @Query("""
         SELECT e FROM LedgerEntry e WHERE e.envelopeId = :envelopeId
-          AND (:kind IS NULL OR e.kind = :kind)
-          AND (:monthStart IS NULL OR e.occurredAt >= :monthStart)
-          AND (:monthEnd IS NULL OR e.occurredAt <= :monthEnd)
+          AND e.deletedAt IS NULL
+          AND (:filterKind = false OR e.kind = :kind)
+          AND (:filterMonth = false OR e.occurredAt >= :monthStart)
+          AND (:filterMonth = false OR e.occurredAt <= :monthEnd)
         ORDER BY e.occurredAt DESC, e.createdAt DESC
         """)
     Page<LedgerEntry> findFiltered(
             @Param("envelopeId") UUID envelopeId,
+            @Param("filterKind") boolean filterKind,
             @Param("kind") LedgerKind kind,
+            @Param("filterMonth") boolean filterMonth,
             @Param("monthStart") LocalDate monthStart,
             @Param("monthEnd") LocalDate monthEnd,
             Pageable pageable);
+
+    default Page<LedgerEntry> findFiltered(
+            UUID envelopeId,
+            LedgerKind kind,
+            LocalDate monthStart,
+            LocalDate monthEnd,
+            Pageable pageable) {
+        boolean filterKind = kind != null;
+        boolean filterMonth = monthStart != null && monthEnd != null;
+        return findFiltered(
+                envelopeId,
+                filterKind,
+                filterKind ? kind : LedgerKind.EXPENSE,
+                filterMonth,
+                filterMonth ? monthStart : LocalDate.EPOCH,
+                filterMonth ? monthEnd : LocalDate.EPOCH,
+                pageable);
+    }
 
     @Query("""
         SELECT e FROM LedgerEntry e

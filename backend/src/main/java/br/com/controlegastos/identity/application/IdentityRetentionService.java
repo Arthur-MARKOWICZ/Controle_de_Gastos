@@ -1,9 +1,9 @@
 package br.com.controlegastos.identity.application;
 
-import br.com.controlegastos.identity.application.SessionRepository;
 import br.com.controlegastos.identity.infrastructure.AuthAttemptRepository;
 import br.com.controlegastos.identity.infrastructure.MfaLoginChallengeRepository;
 import br.com.controlegastos.identity.infrastructure.OAuthAuthorizationStateRepository;
+import br.com.controlegastos.identity.infrastructure.OAuthMobileHandoffRepository;
 import br.com.controlegastos.identity.infrastructure.PasswordResetTokenRepository;
 import br.com.controlegastos.identity.infrastructure.RecoveryCodeRepository;
 import br.com.controlegastos.identity.infrastructure.TotpCredentialRepository;
@@ -25,6 +25,7 @@ public class IdentityRetentionService {
     private final RecoveryCodeRepository recoveryCodes;
     private final TotpCredentialRepository totpCredentials;
     private final OAuthAuthorizationStateRepository oauthAuthorizationStates;
+    private final OAuthMobileHandoffRepository mobileHandoffs;
     private final Clock clock;
 
     public IdentityRetentionService(AuthAttemptRepository attempts, SessionRepository sessions,
@@ -33,6 +34,7 @@ public class IdentityRetentionService {
                                     RecoveryCodeRepository recoveryCodes,
                                     TotpCredentialRepository totpCredentials,
                                     OAuthAuthorizationStateRepository oauthAuthorizationStates,
+                                    OAuthMobileHandoffRepository mobileHandoffs,
                                     Clock clock) {
         this.attempts = attempts;
         this.sessions = sessions;
@@ -41,6 +43,7 @@ public class IdentityRetentionService {
         this.recoveryCodes = recoveryCodes;
         this.totpCredentials = totpCredentials;
         this.oauthAuthorizationStates = oauthAuthorizationStates;
+        this.mobileHandoffs = mobileHandoffs;
         this.clock = clock;
     }
 
@@ -55,5 +58,6 @@ public class IdentityRetentionService {
         recoveryCodes.deleteEndedBefore(now.minus(MFA_ARTIFACT_RETENTION));
         totpCredentials.discardAbandonedPending(now);
         oauthAuthorizationStates.deleteEndedBefore(now.minus(MFA_ARTIFACT_RETENTION));
+        mobileHandoffs.deleteEndedBefore(now.minus(MFA_ARTIFACT_RETENTION));
     }
 }

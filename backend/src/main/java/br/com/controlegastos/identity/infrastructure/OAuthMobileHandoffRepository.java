@@ -21,4 +21,8 @@ public interface OAuthMobileHandoffRepository extends JpaRepository<OAuthMobileH
     @Query("delete from OAuthMobileHandoff handoff where handoff.expiresAt < :cutoff "
             + "or (handoff.consumedAt is not null and handoff.consumedAt < :cutoff)")
     int deleteEndedBefore(@Param("cutoff") Instant cutoff);
+
+    @Modifying
+    @Query("delete from OAuthMobileHandoff handoff where handoff.userId = :userId")
+    int deleteByUserId(@Param("userId") UUID userId);
 }

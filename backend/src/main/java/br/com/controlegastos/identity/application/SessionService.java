@@ -101,6 +101,11 @@ public class SessionService {
         sessions.revokeActiveByUserId(userId, clock.instant(), "MFA_CHANGE");
     }
 
+    @Transactional
+    public void revokeAllForAccountClosure(UUID userId) {
+        sessions.revokeActiveByUserId(userId, clock.instant(), "ACCOUNT_CLOSED");
+    }
+
     @Transactional(readOnly = true)
     public boolean isActive(UUID sessionId, UUID userId) {
         return sessions.findById(sessionId)
