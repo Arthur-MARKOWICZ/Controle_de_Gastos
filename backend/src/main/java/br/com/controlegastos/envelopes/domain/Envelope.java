@@ -62,6 +62,9 @@ public class Envelope {
     @Column(name = "archived_at")
     private Instant archivedAt;
 
+    @Column(name = "wealth_allocation", nullable = false)
+    private boolean wealthAllocation;
+
     @Version
     @Column(nullable = false)
     private long version;
@@ -74,6 +77,7 @@ public class Envelope {
         this.ownerId = Objects.requireNonNull(ownerId);
         this.name = requireValidName(name);
         applyFinancialConfiguration(purpose, baseAmount, targetAmount);
+        this.wealthAllocation = false;
         this.createdAt = Objects.requireNonNull(createdAt);
     }
 
@@ -137,12 +141,20 @@ public class Envelope {
         return archivedAt;
     }
 
+    public boolean wealthAllocation() {
+        return wealthAllocation;
+    }
+
     public long version() {
         return version;
     }
 
     public boolean isArchived() {
         return archivedAt != null;
+    }
+
+    public void markWealthAllocation(boolean wealthAllocation) {
+        this.wealthAllocation = wealthAllocation;
     }
 
     public void rename(String newName) {

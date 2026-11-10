@@ -53,6 +53,7 @@ vi.mock("../../lib/api", async (importOriginal) => {
       getHistorySummary: vi.fn().mockResolvedValue({
         income: { amount: "5000.00", currency: "BRL" },
         expenses: { amount: "1200.00", currency: "BRL" },
+        applied: { amount: "0.00", currency: "BRL" },
         netBalance: { amount: "3800.00", currency: "BRL" },
         accumulatedBalance: { amount: "2400.00", currency: "BRL" },
         monthlyTotals: [],
@@ -67,6 +68,7 @@ vi.mock("../../lib/api", async (importOriginal) => {
           available: { amount: "240.00", currency: "BRL" },
           isNegative: false,
           role: "OWNER",
+          wealthAllocation: false,
           createdAt: new Date().toISOString(),
           archivedAt: null,
           version: 0,
@@ -90,7 +92,8 @@ describe("HistoryPage", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "Gastos" })).toBeDefined();
     expect(await screen.findByText("Renda do período")).toBeDefined();
-    expect(screen.getByText("Gastos do período")).toBeDefined();
+    expect(screen.getByText("Consumo do período")).toBeDefined();
+    expect(screen.getByText("Aplicado no período")).toBeDefined();
     expect(screen.getByText("Saldo líquido")).toBeDefined();
     expect(screen.getByText("Saldo acumulado")).toBeDefined();
     expect(screen.getByText("Combustível")).toBeDefined();

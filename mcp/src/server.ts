@@ -241,6 +241,9 @@ export function createMcpServer(client: ControleGastosApiClient): McpServer {
         dueMonth: z.number().int().min(1).max(12).optional(),
         dueDay: z.number().int().min(1).max(31).optional(),
         fundingMode: z.enum(["MONTHLY", "ONE_TIME"]).optional(),
+        wealthAllocation: z.boolean().optional().describe(
+          "Quando true, saídas contam como alocação de patrimônio no resumo",
+        ),
       },
     },
     async (input) => {
@@ -255,6 +258,7 @@ export function createMcpServer(client: ControleGastosApiClient): McpServer {
             dueMonth: input.dueMonth,
             dueDay: input.dueDay,
             fundingMode: input.fundingMode,
+            wealthAllocation: input.wealthAllocation,
           }),
         );
       } catch (error) {
@@ -280,6 +284,7 @@ export function createMcpServer(client: ControleGastosApiClient): McpServer {
         dueMonth: z.number().int().min(1).max(12).optional(),
         dueDay: z.number().int().min(1).max(31).optional(),
         fundingMode: z.enum(["MONTHLY", "ONE_TIME"]).optional(),
+        wealthAllocation: z.boolean().optional(),
       },
     },
     async (input) => {

@@ -52,7 +52,8 @@ public class EnvelopeService {
     }
 
     @Transactional
-    public Envelope create(String name, EnvelopePurpose purpose, Money baseAmount, Money targetAmount) {
+    public Envelope create(String name, EnvelopePurpose purpose, Money baseAmount, Money targetAmount,
+                           boolean wealthAllocation) {
         Objects.requireNonNull(name);
         Objects.requireNonNull(purpose);
         Objects.requireNonNull(baseAmount);
@@ -62,15 +63,18 @@ public class EnvelopeService {
         ensureFitsIncome(ownerId, month, null, MonthlyCommittedAllocation.amountFor(
                 Envelope.create(ownerId, name, purpose, baseAmount, targetAmount, now), month));
         Envelope envelope = Envelope.create(ownerId, name, purpose, baseAmount, targetAmount, now);
+        envelope.markWealthAllocation(wealthAllocation);
         return envelopes.save(envelope);
     }
 
     @Transactional
-    public Envelope createAnnualExpense(String name, Money annualAmount, MonthDay dueDate, AnnualExpenseFundingMode fundingMode) {
+    public Envelope createAnnualExpense(String name, Money annualAmount, MonthDay dueDate,
+                                        AnnualExpenseFundingMode fundingMode, boolean wealthAllocation) {
         UUID ownerId = authentication.currentUserId();
         Instant now = clock.instant();
         YearMonth month = YearMonth.now(clock.withZone(BUSINESS_ZONE));
         Envelope candidate = Envelope.createAnnualExpense(ownerId, name, annualAmount, dueDate, fundingMode, now);
+        candidate.markWealthAllocation(wealthAllocation);
         ensureFitsIncome(ownerId, month, null, MonthlyCommittedAllocation.amountFor(candidate, month));
         return envelopes.save(candidate);
     }
@@ -106,7 +110,7 @@ public class EnvelopeService {
 
     @Transactional
     public Envelope update(UUID envelopeId, long expectedVersion, String newName, EnvelopePurpose newPurpose,
-                           Money newBaseAmount, Money newTargetAmount) {
+                           Money newBaseAmount, Money newTargetAmount, Boolean wealthAllocation) {
         UUID userId = authentication.currentUserId();
         Envelope envelope = envelopes.findById(envelopeId)
                 .orElseThrow(() -> new EnvelopeNotFoundException(envelopeId));
@@ -127,6 +131,7 @@ public class EnvelopeService {
                             ? (newTargetAmount == null ? envelope.targetAmount() : newTargetAmount)
                             : null);
         }
+        if (wealthAllocation != null) envelope.markWealthAllocation(wealthAllocation);
         YearMonth month = YearMonth.now(clock.withZone(BUSINESS_ZONE));
         ensureFitsIncome(userId, month, envelope.id(), MonthlyCommittedAllocation.amountFor(envelope, month));
         return envelopes.save(envelope);
@@ -134,7 +139,8 @@ public class EnvelopeService {
 
     @Transactional
     public Envelope updateAnnualExpense(UUID envelopeId, long expectedVersion, String newName, Money annualAmount,
-                                        MonthDay dueDate, AnnualExpenseFundingMode fundingMode) {
+                                        MonthDay dueDate, AnnualExpenseFundingMode fundingMode,
+                                        Boolean wealthAllocation) {
         Envelope envelope = envelopes.findById(envelopeId).orElseThrow(() -> new EnvelopeNotFoundException(envelopeId));
         if (!envelope.isOwnedBy(authentication.currentUserId())) {
             throw new EnvelopeForbiddenException("Somente o proprietário pode editar a verba");
@@ -149,6 +155,7 @@ public class EnvelopeService {
                     dueDate == null ? envelope.annualDueDate() : dueDate,
                     fundingMode == null ? envelope.annualFundingMode() : fundingMode);
         }
+        if (wealthAllocation != null) envelope.markWealthAllocation(wealthAllocation);
         YearMonth month = YearMonth.now(clock.withZone(BUSINESS_ZONE));
         ensureFitsIncome(envelope.ownerId(), month, envelope.id(), MonthlyCommittedAllocation.amountFor(envelope, month));
         return envelopes.save(envelope);

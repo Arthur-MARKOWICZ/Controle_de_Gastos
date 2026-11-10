@@ -49,6 +49,7 @@ export function EnvelopeForm({
   const [dueMonth, setDueMonth] = useState("1");
   const [dueDay, setDueDay] = useState("10");
   const [fundingMode, setFundingMode] = useState<"MONTHLY" | "ONE_TIME">("MONTHLY");
+  const [wealthAllocation, setWealthAllocation] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,6 +70,7 @@ export function EnvelopeForm({
     setBusy(true);
     try {
       await api.createEnvelope({ name: name.trim(), purpose, baseAmount: { amount: plain, currency: "BRL" },
+        wealthAllocation,
         ...(purpose === "SAVINGS_TARGET" ? { targetAmount: { amount: targetPlain, currency: "BRL" } } : {}),
         ...(purpose === "ANNUAL_EXPENSE" ? { annualAmount: { amount: targetPlain, currency: "BRL" }, dueMonth: Number(dueMonth), dueDay: Number(dueDay), fundingMode } : {}) });
       onSuccess();
@@ -152,6 +154,17 @@ export function EnvelopeForm({
           />
         </Field>
       )}
+      <label className={styles.checkbox}>
+        <input
+          type="checkbox"
+          checked={wealthAllocation}
+          onChange={(event) => setWealthAllocation(event.target.checked)}
+        />{" "}
+        Alocação de patrimônio
+        <span className={styles.glossaryHint}>
+          Saídas desta verba contam como “apliquei”, não como consumo.
+        </span>
+      </label>
       <div className={styles.actions}>
         <Button variant="secondary" onClick={onCancel} disabled={busy}>Cancelar</Button>
         <Button type="submit" busy={busy}>{busy ? "Salvando…" : "Criar verba"}</Button>

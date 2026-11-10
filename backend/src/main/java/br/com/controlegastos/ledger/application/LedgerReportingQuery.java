@@ -18,7 +18,7 @@ public interface LedgerReportingQuery {
     Money availableAt(UUID envelopeId, LocalDate until);
 
     record ReportEnvelope(UUID id, String name, String purpose, Money baseAmount,
-                          Instant createdAt, Instant archivedAt) {
+                          Instant createdAt, Instant archivedAt, boolean wealthAllocation) {
     }
 
     record ReportEntry(UUID envelopeId, String kind, Money amount, LocalDate occurredAt) {

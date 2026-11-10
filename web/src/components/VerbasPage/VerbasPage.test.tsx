@@ -48,19 +48,19 @@ const ledgerHook = vi.hoisted(() => ({
 
 function listEnvelopes() {
   return [
-    { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "400.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "1500.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "2000.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "300.00", currency: "BRL" }, isNegative: true, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "400.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "1500.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "2000.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "300.00", currency: "BRL" }, isNegative: true, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
   ];
 }
 
 function summaryEnvelopes() {
   return [
-    { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "0.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "1200.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "-50.00", currency: "BRL" }, isNegative: true, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "0.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "1200.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "-50.00", currency: "BRL" }, isNegative: true, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
   ];
 }
 

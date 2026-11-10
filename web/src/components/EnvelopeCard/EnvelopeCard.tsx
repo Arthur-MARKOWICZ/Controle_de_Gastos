@@ -11,6 +11,7 @@ type Props = {
   onArchive?: (envelope: EnvelopeDTO) => void;
   onEditTarget?: (envelope: EnvelopeDTO) => void;
   onEditAnnual?: (envelope: EnvelopeDTO) => void;
+  onToggleWealthAllocation?: (envelope: EnvelopeDTO) => void;
   /** Mantido por compatibilidade; o estilo do card é único. */
   variant?: "dashboard" | "verbas";
 };
@@ -48,6 +49,7 @@ export function EnvelopeCard({
   onArchive,
   onEditTarget,
   onEditAnnual,
+  onToggleWealthAllocation,
 }: Props) {
   const goalProgress = envelope.purpose === "GOAL" ? envelope.goalProgress : null;
   const progressAmount = goalProgress?.plannedAmount ?? (envelope.purpose === "SAVINGS_TARGET" ? envelope.targetAmount ?? envelope.baseAmount
@@ -97,7 +99,11 @@ export function EnvelopeCard({
       <div className={styles.envelopeHeading}>
         <div>
           <h3>{envelope.name}</h3>
-          <span>{purposeLabel(envelope.purpose)}{envelope.role === "PARTICIPANT" ? " · Participante" : ""}</span>
+          <span>
+            {purposeLabel(envelope.purpose)}
+            {envelope.role === "PARTICIPANT" ? " · Participante" : ""}
+            {envelope.wealthAllocation ? " · Alocação de patrimônio" : ""}
+          </span>
           <span>{purposeRule(envelope.purpose)}</span>
         </div>
         <div className={styles.envelopeValue}>
@@ -166,6 +172,19 @@ export function EnvelopeCard({
             aria-label={`Editar gasto anual ${envelope.name}`}
           >
             Editar
+          </Button>
+        )}
+        {onToggleWealthAllocation && envelope.role === "OWNER" && (
+          <Button
+            variant="text"
+            onClick={() => onToggleWealthAllocation(envelope)}
+            aria-label={
+              envelope.wealthAllocation
+                ? `Tratar ${envelope.name} como consumo`
+                : `Marcar ${envelope.name} como alocação de patrimônio`
+            }
+          >
+            {envelope.wealthAllocation ? "Tratar como consumo" : "Marcar como patrimônio"}
           </Button>
         )}
       </div>

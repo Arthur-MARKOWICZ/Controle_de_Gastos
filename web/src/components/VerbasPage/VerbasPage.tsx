@@ -135,6 +135,24 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
     }
   }
 
+  async function toggleWealthAllocation(envelope: EnvelopeDTO) {
+    try {
+      await createApiClient(client).updateEnvelope(envelope.id, {
+        version: envelope.version,
+        wealthAllocation: !envelope.wealthAllocation,
+      });
+      setFeedback(
+        envelope.wealthAllocation
+          ? `"${envelope.name}" voltou a contar como consumo`
+          : `"${envelope.name}" marcada como alocação de patrimônio`,
+      );
+      void refreshEnvelopes();
+      void refreshSummary();
+    } catch {
+      setFeedback("Não foi possível atualizar a classificação da verba");
+    }
+  }
+
   function handleCreateSuccess() {
     setShowNewEnvelope(null);
     setFeedback("Verba criada com sucesso");
@@ -244,6 +262,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
                   onRegisterExpense={(target) => { setFeedback(null); setExpenseTarget(target); }}
                   onManageParticipants={(target) => { setFeedback(null); setParticipantsTarget(target); }}
                   onArchive={(target) => { setFeedback(null); setPendingArchive(target); }}
+                  onToggleWealthAllocation={(target) => { setFeedback(null); void toggleWealthAllocation(target); }}
                   onCreate={(purpose) => { setFeedback(null); setShowNewEnvelope(purpose); }}
                 />
               ))}

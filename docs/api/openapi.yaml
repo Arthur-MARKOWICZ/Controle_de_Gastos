@@ -1082,7 +1082,7 @@ components:
         currency: { type: string, const: BRL }
     Envelope:
       type: object
-      required: [id, ownerId, name, purpose, baseAmount, targetAmount, targetReachedAt, annualExpense, goalProgress, available, isNegative, role, createdAt, archivedAt, version]
+      required: [id, ownerId, name, purpose, baseAmount, targetAmount, targetReachedAt, annualExpense, goalProgress, available, isNegative, role, wealthAllocation, createdAt, archivedAt, version]
       properties:
         id: { type: string, format: uuid }
         ownerId: { type: string, format: uuid }
@@ -1102,6 +1102,11 @@ components:
           type: boolean
           description: Em GET /envelopes* é sempre false; saldo negativo autoritativo vem de /ledger/summary.
         role: { type: string, enum: [OWNER, PARTICIPANT] }
+        wealthAllocation:
+          type: boolean
+          description: >
+            Quando true, saídas EXPENSE desta verba contam como alocação de patrimônio
+            (`applied`) e não como consumo (`expenses`) no resumo do histórico (ADR-0028).
         createdAt: { type: string, format: date-time }
         archivedAt: { type: string, format: date-time, nullable: true }
         version: { type: integer, minimum: 0 }
@@ -1118,6 +1123,7 @@ components:
         dueMonth: { type: integer, minimum: 1, maximum: 12 }
         dueDay: { type: integer, minimum: 1, maximum: 31 }
         fundingMode: { type: string, enum: [MONTHLY, ONE_TIME] }
+        wealthAllocation: { type: boolean, default: false }
     UpdateEnvelope:
       type: object
       additionalProperties: false
@@ -1132,6 +1138,7 @@ components:
         dueMonth: { type: integer, minimum: 1, maximum: 12 }
         dueDay: { type: integer, minimum: 1, maximum: 31 }
         fundingMode: { type: string, enum: [MONTHLY, ONE_TIME] }
+        wealthAllocation: { type: boolean }
     AnnualExpense:
       type: object
       additionalProperties: false
@@ -1189,11 +1196,18 @@ components:
         hasNext: { type: boolean }
     HistorySummary:
       type: object
-      required: [income, expenses, netBalance, accumulatedBalance, monthlyTotals, purposeTotals]
+      required: [income, expenses, applied, netBalance, accumulatedBalance, monthlyTotals, purposeTotals]
       properties:
         income: { $ref: '#/components/schemas/Money' }
-        expenses: { $ref: '#/components/schemas/Money' }
-        netBalance: { $ref: '#/components/schemas/MoneyNegative' }
+        expenses:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+          description: Consumo do período — EXPENSE em verbas com wealthAllocation=false.
+        applied:
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+          description: Alocação de patrimônio — EXPENSE em verbas com wealthAllocation=true (ADR-0028).
+        netBalance:
+          allOf: [{ $ref: '#/components/schemas/MoneyNegative' }]
+          description: income − expenses − applied.
         accumulatedBalance: { $ref: '#/components/schemas/MoneyNegative' }
         monthlyTotals:
           type: array

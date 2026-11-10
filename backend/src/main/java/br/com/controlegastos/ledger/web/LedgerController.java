@@ -53,7 +53,7 @@ public class LedgerController {
                             e.annualDueDate().getMonthValue(), e.annualDueDate().getDayOfMonth(), e.annualFundingMode().name()),
                     goalProgress,
                     new MoneyDTO(available.toPlainString(), available.currency()),
-                    available.isNegative(), role, e.createdAt(), e.archivedAt(), e.version());
+                    available.isNegative(), role, e.wealthAllocation(), e.createdAt(), e.archivedAt(), e.version());
         }).toList();
 
         Money allocated = visible.stream()
@@ -104,6 +104,6 @@ public class LedgerController {
         }
     }
     record IncomeDTO(String amount, String currency, String effectiveFrom, Instant changedAt) {}
-    record SummaryEnvelope(UUID id, UUID ownerId, String name, String purpose, MoneyDTO baseAmount, MoneyDTO targetAmount, Instant targetReachedAt, AnnualExpenseDTO annualExpense, GoalProgressDTO goalProgress, MoneyDTO available, boolean isNegative, String role, Instant createdAt, Instant archivedAt, long version) {}
+    record SummaryEnvelope(UUID id, UUID ownerId, String name, String purpose, MoneyDTO baseAmount, MoneyDTO targetAmount, Instant targetReachedAt, AnnualExpenseDTO annualExpense, GoalProgressDTO goalProgress, MoneyDTO available, boolean isNegative, String role, boolean wealthAllocation, Instant createdAt, Instant archivedAt, long version) {}
     record SummaryResponse(IncomeDTO income, MoneyDTO allocated, MoneyDTO unallocated, BigDecimal usagePct, List<SummaryEnvelope> envelopes) {}
 }

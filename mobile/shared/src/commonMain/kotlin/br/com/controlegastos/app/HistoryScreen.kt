@@ -197,10 +197,13 @@ private fun PeriodSummaryCard(summary: HistorySummaryView) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Metric("Renda", summary.income.toBrl())
-                Metric("Gastos", summary.expenses.toBrl())
+                Metric("Consumo", summary.expenses.toBrl())
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Metric("Aplicado", summary.applied.toBrl())
                 Metric("Saldo do período", summary.netBalance.toBrl(), summary.netBalance.isNegative)
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Metric("Saldo acumulado", summary.accumulatedBalance.toBrl(), summary.accumulatedBalance.isNegative)
             }
         }

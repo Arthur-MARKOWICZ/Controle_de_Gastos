@@ -40,6 +40,17 @@
   font-size: var(--text-sm);
 }
 
+.checkbox {
+  display: grid;
+  gap: 0.25rem;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.checkbox input {
+  margin-right: 0.35rem;
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;

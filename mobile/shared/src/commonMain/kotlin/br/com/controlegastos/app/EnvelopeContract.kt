@@ -75,6 +75,7 @@ data class EnvelopeView(
     val annualExpense: AnnualExpenseView? = null,
     val goalProgress: GoalProgressView? = null,
     val role: EnvelopeRole = EnvelopeRole.OWNER,
+    val wealthAllocation: Boolean = false,
     val archivedAt: String? = null,
     val version: Long = 0,
 ) {
@@ -95,6 +96,7 @@ data class NewEnvelope(
     val dueMonth: Int? = null,
     val dueDay: Int? = null,
     val fundingMode: FundingMode? = null,
+    val wealthAllocation: Boolean = false,
 )
 
 /** Alteração parcial de verba: só os campos de negócio não nulos são enviados; version é obrigatória. */
@@ -107,10 +109,12 @@ data class EnvelopeEdit(
     val dueMonth: Int? = null,
     val dueDay: Int? = null,
     val fundingMode: FundingMode? = null,
+    val wealthAllocation: Boolean? = null,
 ) {
     val isEmpty: Boolean
         get() = name == null && baseAmount == null && targetAmount == null &&
-            annualAmount == null && dueMonth == null && dueDay == null && fundingMode == null
+            annualAmount == null && dueMonth == null && dueDay == null && fundingMode == null &&
+            wealthAllocation == null
 }
 
 interface EnvelopeGateway {

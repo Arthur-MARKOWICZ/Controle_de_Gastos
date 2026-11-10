@@ -57,6 +57,7 @@ data class MonthlyTotalView(val month: String, val amount: Money)
 data class HistorySummaryView(
     val income: Money,
     val expenses: Money,
+    val applied: Money,
     val netBalance: Money,
     val accumulatedBalance: Money,
     val monthlyTotals: List<MonthlyTotalView>,

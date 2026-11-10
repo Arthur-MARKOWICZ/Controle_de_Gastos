@@ -45,6 +45,23 @@ export function AnnualExpensesPage({ email, onLogout }: { email: string; onLogou
     void refresh();
   }
 
+  async function toggleWealthAllocation(envelope: EnvelopeDTO) {
+    try {
+      await createApiClient(client).updateEnvelope(envelope.id, {
+        version: envelope.version,
+        wealthAllocation: !envelope.wealthAllocation,
+      });
+      setFeedback(
+        envelope.wealthAllocation
+          ? `"${envelope.name}" voltou a contar como consumo`
+          : `"${envelope.name}" marcada como alocação de patrimônio`,
+      );
+      void refresh();
+    } catch {
+      setFeedback("Não foi possível atualizar a classificação do gasto anual");
+    }
+  }
+
   return (
     <AppShell current="annual" email={email} onLogout={onLogout}>
       {feedback && (
@@ -111,6 +128,10 @@ export function AnnualExpensesPage({ email, onLogout }: { email: string; onLogou
                   onArchive={(target) => {
                     setFeedback(null);
                     setPendingArchive(target);
+                  }}
+                  onToggleWealthAllocation={(target) => {
+                    setFeedback(null);
+                    void toggleWealthAllocation(target);
                   }}
                   onEditAnnual={setEditing}
                   variant="verbas"

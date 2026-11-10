@@ -219,7 +219,7 @@ private class FakeLedgerGateway(private var dashboard: FinancialDashboard) : Led
     override suspend fun loadHistory(from: String, to: String, page: Int, includeDeleted: Boolean) =
         HistoryPageView(emptyList(), 0, false)
     override suspend fun loadHistorySummary(from: String, to: String) = HistorySummaryView(
-        Money(0), Money(0), Money(0), Money(0), emptyList(), emptyList(),
+        Money(0), Money(0), Money(0), Money(0), Money(0), emptyList(), emptyList(),
     )
     override suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView = error("não usado")
     override suspend fun deleteEntry(id: String) = error("não usado")

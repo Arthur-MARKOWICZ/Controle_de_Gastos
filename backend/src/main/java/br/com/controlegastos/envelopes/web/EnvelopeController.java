@@ -57,9 +57,11 @@ public class EnvelopeController {
         EnvelopePurpose purpose = purposeField(body, "purpose");
         Money baseAmount = purpose == EnvelopePurpose.ANNUAL_EXPENSE ? Money.zero() : moneyField(body, "baseAmount");
         Money targetAmount = body.has("targetAmount") ? moneyField(body, "targetAmount") : null;
+        boolean wealthAllocation = optionalBooleanField(body, "wealthAllocation", false);
         Envelope created = purpose == EnvelopePurpose.ANNUAL_EXPENSE
-                ? envelopes.createAnnualExpense(name, moneyField(body, "annualAmount"), dueDateField(body), fundingModeField(body))
-                : envelopes.create(name, purpose, baseAmount, targetAmount);
+                ? envelopes.createAnnualExpense(name, moneyField(body, "annualAmount"), dueDateField(body),
+                        fundingModeField(body), wealthAllocation)
+                : envelopes.create(name, purpose, baseAmount, targetAmount, wealthAllocation);
         YearMonth current = YearMonth.now(EnvelopeService.BUSINESS_ZONE);
         return toResponse(created, current);
     }
@@ -77,17 +79,19 @@ public class EnvelopeController {
         Money annualAmount = body.has("annualAmount") ? moneyField(body, "annualAmount") : null;
         MonthDay dueDate = body.has("dueMonth") || body.has("dueDay") ? dueDateField(body) : null;
         AnnualExpenseFundingMode fundingMode = body.has("fundingMode") ? fundingModeField(body) : null;
+        Boolean wealthAllocation = body.has("wealthAllocation") ? booleanField(body, "wealthAllocation") : null;
         // Validate no extra fields
         var fieldIt = body.properties().iterator();
         while (fieldIt.hasNext()) {
             String f = fieldIt.next().getKey();
-            if (!List.of("name", "purpose", "baseAmount", "targetAmount", "annualAmount", "dueMonth", "dueDay", "fundingMode", "version").contains(f)) {
+            if (!List.of("name", "purpose", "baseAmount", "targetAmount", "annualAmount", "dueMonth", "dueDay",
+                    "fundingMode", "wealthAllocation", "version").contains(f)) {
                 throw new IllegalArgumentException("Campo não permitido: " + f);
             }
         }
         Envelope updated = annualAmount != null || dueDate != null || fundingMode != null
-                ? envelopes.updateAnnualExpense(id, version, name, annualAmount, dueDate, fundingMode)
-                : envelopes.update(id, version, name, purpose, baseAmount, targetAmount);
+                ? envelopes.updateAnnualExpense(id, version, name, annualAmount, dueDate, fundingMode, wealthAllocation)
+                : envelopes.update(id, version, name, purpose, baseAmount, targetAmount, wealthAllocation);
         YearMonth current = YearMonth.now(EnvelopeService.BUSINESS_ZONE);
         return toResponse(updated, current);
     }
@@ -178,6 +182,18 @@ public class EnvelopeController {
         return version;
     }
 
+    private boolean optionalBooleanField(JsonNode body, String field, boolean defaultValue) {
+        if (!body.has(field) || body.get(field).isNull()) return defaultValue;
+        return booleanField(body, field);
+    }
+
+    private boolean booleanField(JsonNode body, String field) {
+        if (!body.has(field) || !body.get(field).isBoolean()) {
+            throw new IllegalArgumentException("O campo " + field + " deve ser booleano");
+        }
+        return body.get(field).asBoolean();
+    }
+
     private EnvelopeResponse toResponse(Envelope e, YearMonth month) {
         // Contrato documentado: em GET /envelopes*, available/isNegative/goalProgress NÃO são saldo
         // autoritativo (available espelha baseAmount; isNegative sempre false; goalProgress nulo).
@@ -195,7 +211,7 @@ public class EnvelopeController {
                         e.annualDueDate().getMonthValue(), e.annualDueDate().getDayOfMonth(), e.annualFundingMode().name()),
                 null,
                 new MoneyDTO(available.toPlainString(), available.currency()),
-                isNegative, role,
+                isNegative, role, e.wealthAllocation(),
                 e.createdAt(), e.archivedAt(), e.version()
         );
     }
@@ -206,6 +222,6 @@ public class EnvelopeController {
 
     record EnvelopeResponse(UUID id, UUID ownerId, String name, String purpose,
                             MoneyDTO baseAmount, MoneyDTO targetAmount, Instant targetReachedAt, AnnualExpenseDTO annualExpense, GoalProgressDTO goalProgress, MoneyDTO available,
-                            boolean isNegative, String role,
+                            boolean isNegative, String role, boolean wealthAllocation,
                             Instant createdAt, Instant archivedAt, long version) {}
 }

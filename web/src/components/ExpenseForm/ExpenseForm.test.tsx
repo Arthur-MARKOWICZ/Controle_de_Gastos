@@ -12,7 +12,7 @@ vi.mock("../../auth/auth-context", () => ({
 const envelope: EnvelopeDTO = {
   id: "env-1", ownerId: "owner", name: "Combustível", purpose: "LIMIT",
   baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" },
-  isNegative: false, role: "OWNER", createdAt: "2026-10-01T00:00:00Z", archivedAt: null, version: 0,
+  isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: "2026-10-01T00:00:00Z", archivedAt: null, version: 0,
 } as EnvelopeDTO;
 
 function typeAmount(digits: string) {

@@ -28,7 +28,7 @@ describe("EnvelopeCard", () => {
     render(<ul><EnvelopeCard envelope={{
       id: "limit", ownerId: "owner", name: "Mercado", purpose: "LIMIT",
       baseAmount: { amount: "500.00", currency: "BRL" }, targetAmount: null, targetReachedAt: null,
-      available: { amount: "-35.10", currency: "BRL" }, isNegative: true, role: "OWNER", createdAt: "2026-09-01T00:00:00Z", archivedAt: null, version: 0,
+      available: { amount: "-35.10", currency: "BRL" }, isNegative: true, role: "OWNER", wealthAllocation: false, createdAt: "2026-09-01T00:00:00Z", archivedAt: null, version: 0,
     }} /></ul>);
 
     expect(screen.getByRole("alert").textContent).toMatch(/Saldo negativo -R\$\s*35,10/);
@@ -40,7 +40,7 @@ describe("EnvelopeCard", () => {
       id: "limit", ownerId: "owner", name: "Mercado", purpose: "LIMIT",
       baseAmount: { amount: "100.00", currency: "BRL" }, targetAmount: null, targetReachedAt: null,
       available: { amount: "100.00", currency: "BRL" }, isNegative: false, role: "OWNER",
-      createdAt: "2026-10-01T00:00:00Z", archivedAt: null, version: 0,
+      wealthAllocation: false, createdAt: "2026-10-01T00:00:00Z", archivedAt: null, version: 0,
     }} /></ul>);
 
     expect(screen.getByText("Limite de gasto")).toBeDefined();
@@ -51,7 +51,7 @@ describe("EnvelopeCard", () => {
     render(<ul><EnvelopeCard variant="verbas" envelope={{
       id: "target", ownerId: "owner", name: "Notebook", purpose: "SAVINGS_TARGET",
       baseAmount: { amount: "0.00", currency: "BRL" }, targetAmount: { amount: "1000.00", currency: "BRL" }, targetReachedAt: null,
-      available: { amount: "100.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: "2026-09-01T00:00:00Z", archivedAt: null, version: 0,
+      available: { amount: "100.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: "2026-09-01T00:00:00Z", archivedAt: null, version: 0,
     }} /></ul>);
 
     expect(screen.getByText("Meta de acumulação")).toBeDefined();

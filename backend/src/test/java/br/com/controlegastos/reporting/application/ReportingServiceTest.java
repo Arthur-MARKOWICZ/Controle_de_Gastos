@@ -49,8 +49,8 @@ class ReportingServiceTest {
         public List<ReportEnvelope> visibleEnvelopes() {
             Instant createdAt = Instant.parse("2026-01-02T12:00:00Z");
             return List.of(
-                    new ReportEnvelope(LIMIT, "=Mercado", "LIMIT", Money.brl("100.00"), createdAt, null),
-                    new ReportEnvelope(GOAL, "Viagem", "GOAL", Money.brl("80.00"), createdAt, null));
+                    new ReportEnvelope(LIMIT, "=Mercado", "LIMIT", Money.brl("100.00"), createdAt, null, false),
+                    new ReportEnvelope(GOAL, "Viagem", "GOAL", Money.brl("80.00"), createdAt, null, false));
         }
 
         @Override

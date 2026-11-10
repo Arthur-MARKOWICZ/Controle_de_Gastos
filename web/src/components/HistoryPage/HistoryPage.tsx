@@ -236,7 +236,8 @@ export function HistoryPage({ email, onLogout }: Props) {
           <div aria-busy={busy || undefined}>
             <dl className={styles.metrics}>
               {card("Renda do período", summary.income.amount)}
-              {card("Gastos do período", summary.expenses.amount)}
+              {card("Consumo do período", summary.expenses.amount)}
+              {card("Aplicado no período", summary.applied.amount)}
               {card("Saldo líquido", summary.netBalance.amount)}
               {card("Saldo acumulado", summary.accumulatedBalance.amount)}
             </dl>

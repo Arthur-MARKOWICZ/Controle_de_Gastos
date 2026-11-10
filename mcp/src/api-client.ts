@@ -24,6 +24,7 @@ export type CreateEnvelopeInput = {
   dueMonth?: number;
   dueDay?: number;
   fundingMode?: FundingMode;
+  wealthAllocation?: boolean;
 };
 
 export type UpdateEnvelopeInput = {
@@ -36,6 +37,7 @@ export type UpdateEnvelopeInput = {
   dueMonth?: number;
   dueDay?: number;
   fundingMode?: FundingMode;
+  wealthAllocation?: boolean;
 };
 
 export type RegisterExpenseInput = {

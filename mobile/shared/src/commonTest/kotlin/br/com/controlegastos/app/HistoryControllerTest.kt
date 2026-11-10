@@ -79,7 +79,7 @@ private class FakeHistoryGateway(private val hasNext: Boolean = false) : LedgerG
 
     override suspend fun loadHistorySummary(from: String, to: String): HistorySummaryView {
         failure?.let { throw it }
-        return HistorySummaryView(Money(0), Money(0), Money(0), Money(0), emptyList(), emptyList())
+        return HistorySummaryView(Money(0), Money(0), Money(0), Money(0), Money(0), emptyList(), emptyList())
     }
 
     override suspend fun deleteEntry(id: String) {
