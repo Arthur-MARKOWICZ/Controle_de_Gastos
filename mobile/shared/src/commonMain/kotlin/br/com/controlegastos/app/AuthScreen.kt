@@ -23,13 +23,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.contentType
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+
+/** Tom da mensagem nas telas de acesso: recusa e confirmação não se parecem. */
+internal enum class NoticeTone { ERROR, SUCCESS }
+
+internal data class AuthNotice(val text: String, val tone: NoticeTone)
+
+internal val expiredSessionNotice = AuthNotice("Sua sessão expirou. Entre novamente.", NoticeTone.ERROR)
+
+/**
+ * Mensagem a exibir depois de uma tentativa de entrar ou de se cadastrar.
+ *
+ * Entrar com sucesso não diz nada: a tela some e o aplicativo abre.
+ */
+internal fun authNotice(error: String?, registerMode: Boolean): AuthNotice? = when {
+    error != null -> AuthNotice(error, NoticeTone.ERROR)
+    registerMode -> AuthNotice("Cadastro recebido. Agora você pode entrar.", NoticeTone.SUCCESS)
+    else -> null
+}
 
 @Composable
 fun AuthScreen(
@@ -47,7 +68,8 @@ fun AuthScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf(if (expired) "Sua sessão expirou. Entre novamente." else null) }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var notice by remember { mutableStateOf(if (expired) expiredSessionNotice else null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
@@ -78,11 +100,11 @@ fun AuthScreen(
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(
-                            onClick = { registerMode = false; message = null; email = ""; password = "" },
+                            onClick = { registerMode = false; notice = null; email = ""; password = "" },
                             modifier = Modifier.weight(1f).semantics { selected = !registerMode },
                         ) { Text("Entrar") }
                         TextButton(
-                            onClick = { registerMode = true; message = null; email = ""; password = "" },
+                            onClick = { registerMode = true; notice = null; email = ""; password = "" },
                             modifier = Modifier.weight(1f).semantics { selected = registerMode },
                         ) { Text("Criar conta") }
                     }
@@ -92,29 +114,40 @@ fun AuthScreen(
                         label = { Text("E-mail") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            contentType = ContentType.EmailAddress
+                        },
                     )
                     Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(
+                    PasswordField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Senha") },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                        label = "Senha",
+                        newPassword = registerMode,
                     )
                     if (registerMode) Text("Use de 12 a 128 caracteres; espaços e Unicode são aceitos.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
-                    message?.let { Text(it, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 12.dp).semantics { contentDescription = it }) }
+                    notice?.let { current ->
+                        Text(
+                            current.text,
+                            color = if (current.tone == NoticeTone.ERROR) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.tertiary,
+                            modifier = Modifier.padding(top = 12.dp).semantics {
+                                liveRegion = if (current.tone == NoticeTone.ERROR) LiveRegionMode.Assertive
+                                else LiveRegionMode.Polite
+                                contentDescription = current.text
+                            },
+                        )
+                    }
                     Button(
                         enabled = !busy && email.isNotBlank() &&
                             (if (registerMode) password.length in 12..128 else password.isNotEmpty()),
                         onClick = {
-                            busy = true; message = null
+                            busy = true; notice = null
+                            val wasRegistering = registerMode
                             val result: (String?) -> Unit = { error ->
                                 busy = false
-                                message = error ?: if (registerMode) "Cadastro recebido. Agora você pode entrar." else null
-                                if (registerMode && error == null) { registerMode = false; password = "" }
+                                notice = authNotice(error, wasRegistering)
+                                if (wasRegistering && error == null) { registerMode = false; password = "" }
                             }
                             if (registerMode) onRegister(email, password, result) else onLogin(email, password, result)
                         },
@@ -122,7 +155,7 @@ fun AuthScreen(
                     ) { Text(if (busy) "Aguarde…" else if (registerMode) "Concluir cadastro" else "Entrar com segurança") }
                     if (!registerMode) {
                         TextButton(
-                            onClick = { recovering = true; message = null },
+                            onClick = { recovering = true; notice = null },
                             enabled = !busy,
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                         ) { Text("Esqueci minha senha") }

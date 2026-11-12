@@ -1,0 +1,30 @@
+.selector {
+  display: flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+
+.step {
+  display: grid;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+}
+
+.step:hover {
+  border-color: var(--accent);
+}
+
+.label {
+  min-width: 10rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  text-transform: capitalize;
+}

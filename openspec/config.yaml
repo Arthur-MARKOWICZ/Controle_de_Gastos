@@ -1,0 +1,54 @@
+schema: spec-driven
+
+context: |
+  Language: Portuguese
+  All artifacts must be written in Portuguese.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+
+  Fonte de verdade: docs/ideas/fundacao-tecnica.md, docs/decisions/,
+  docs/privacy/ e AGENTS.md. Specs descrevem comportamento; ADRs descrevem o
+  porquê. Não contradiga esses documentos sem propor a atualização no mesmo
+  change.
+
+  Restrições que o código sozinho não deixa óbvias:
+  - Backend em monólito modular Spring. Sem microserviços, filas ou qualquer
+    cache (Redis, Caffeine, Spring Cache, etc.) sem ADR aceito.
+  - Dinheiro em BRL: BigDecimal, duas casas, sem arredondamento nas fronteiras;
+    JSON como string decimal. Não use long, int, double ou float para dinheiro.
+  - Autorização por recurso: proprietário e participantes da verba.
+  - Não registre tokens, senhas, dados financeiros detalhados ou PII em logs.
+  - Android é o alvo móvel validável. Preserve iOS no KMP, mas não declare que
+    foi testado sem macOS/Xcode.
+  - TDD para toda regra de negócio.
+  - Agentes não fazem commit, push, pull, merge, rebase, checkout ou PR.
+  - Canais: API (fonte das regras), web (Next.js), Android (KMP), MCP (stdio) e
+    desktop (Tauri 2 + Vite/React; HTTP no processo Rust, refresh no cofre do SO,
+    Linux como alvo validável).
+
+rules:
+  proposal:
+    - Sempre declare o que fica fora do escopo.
+    - Cite os ADRs que restringem a mudança ou que precisariam ser atualizados.
+    - Não proponha cache, filas ou microserviços sem um ADR no mesmo change.
+  specs:
+    - Organize capacidades pelos módulos de negócio (identity, income, envelopes, ledger, sharing, notifications, audit, privacy, reporting) ou pelos prefixos ui-web / ui-mobile / ui-desktop / mcp para comportamento só de cliente.
+    - Inclua cenários de autorização (proprietário, participante, terceiro).
+    - Valores monetários nos cenários são strings decimais com duas casas.
+  design:
+    - Mantenha o backend como monólito modular; módulo novo ou contrato público novo exige ADR.
+    - Cubra os canais afetados (API, web, Android, MCP, desktop) ou nomeie os que ficam fora.
+  tasks:
+    - "Tarefas de regra de negócio seguem TDD: teste falhando, implementação mínima, refatoração."
+    - Não inclua passos de git commit, push ou PR.
+
+operations:
+  apply:
+    guidance:
+      - Use TDD para regra de negócio.
+      - Rode as verificações do README.md antes de encerrar.
+      - Não faça commit nem push.
+      - Não introduza cache.
+  archive:
+    guidance:
+      - Se a mudança contradisser um ADR ou a fundação técnica, interrompa e proponha a atualização do documento primeiro.
+      - Resuma quais specs passaram para openspec/specs/.

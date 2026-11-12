@@ -40,26 +40,48 @@ private sealed interface HistoryDialog {
     data class Revisions(val item: HistoryItemView) : HistoryDialog
 }
 
+/**
+ * Histórico do período, com o lançamento rápido do mês que está na lista.
+ *
+ * A aba pode estar num mês diferente do painel, então a folha aberta daqui
+ * usa [HistoryController.month] e avisa o mês escolhido em [onMonthChanged]
+ * para a casca decidir se ainda oferece o atalho de novo gasto.
+ */
 @Composable
 internal fun HistoryScreen(
     controller: HistoryController,
     envelopeGateway: EnvelopeGateway,
+    today: String,
     onSessionExpired: () -> Unit = {},
+    onMonthChanged: (YearMonth) -> Unit = {},
+    onNotify: (String) -> Unit = {},
+    quickExpenseRequested: Boolean = false,
+    onQuickExpenseHandled: () -> Unit = {},
+    onRegisterEntry: suspend (envelopeId: String, name: String, entry: NewLedgerEntry) -> String =
+        { _, _, _ -> "" },
 ) {
     // A tela carrega as próprias verbas em vez de receber as do painel: o
     // histórico pode ser a primeira aba aberta, e aí o painel nunca carregou.
     var envelopes by remember(envelopeGateway) { mutableStateOf<List<EnvelopeView>>(emptyList()) }
     var state by remember(controller) { mutableStateOf(controller.state) }
     var dialog by remember { mutableStateOf<HistoryDialog?>(null) }
+    var entrySheetOpen by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     fun reloading(action: suspend () -> Unit) = scope.launch {
         action()
         state = controller.state
+        onMonthChanged(controller.month)
         if (controller.lastFailure?.isSessionExpired() == true) onSessionExpired()
     }
 
     LaunchedEffect(controller) { reloading { controller.refresh() } }
+    LaunchedEffect(quickExpenseRequested) {
+        if (quickExpenseRequested) {
+            entrySheetOpen = true
+            onQuickExpenseHandled()
+        }
+    }
     LaunchedEffect(envelopeGateway, controller.month) {
         envelopes = runCatching { envelopeGateway.listEnvelopes(controller.month) }.getOrDefault(envelopes)
     }
@@ -157,6 +179,30 @@ internal fun HistoryScreen(
         }
     }
 
+    if (entrySheetOpen) {
+        val target = envelopes.expenseEnvelopes()
+        EntrySheet(
+            envelopes = target,
+            initialEnvelopeId = null,
+            kind = LedgerKind.EXPENSE,
+            month = controller.month,
+            today = today,
+            onSubmit = { envelopeId, entry, result ->
+                val name = target.firstOrNull { it.id == envelopeId }?.name ?: "verba"
+                scope.launch {
+                    runCatching { onRegisterEntry(envelopeId, name, entry) }
+                        .onSuccess { notice ->
+                            result(null)
+                            notice.takeIf(String::isNotBlank)?.let(onNotify)
+                            reloading { controller.refresh() }
+                        }
+                        .onFailure { result(describeFailure(it, "Não foi possível registrar o gasto.")) }
+                }
+            },
+            onDismiss = { entrySheetOpen = false },
+        )
+    }
+
     when (val open = dialog) {
         null -> Unit
         is HistoryDialog.Edit -> EntryEditDialog(
@@ -177,6 +223,7 @@ internal fun HistoryScreen(
             message = "O valor volta para o saldo de ${open.item.envelopeName}. O registro continua visível ao " +
                 "marcar \"mostrar lançamentos excluídos\".",
             confirmLabel = "Excluir",
+            destructive = true,
             onConfirm = {
                 dialog = null
                 reloading { controller.deleteEntry(open.item.entry.id) }
@@ -254,7 +301,7 @@ private fun HistoryRow(
                 Column(Modifier.weight(1f)) {
                     Text(item.envelopeName, fontWeight = FontWeight.Bold)
                     Text(
-                        "${item.entry.kind.label} · ${item.entry.occurredAt}" +
+                        "${item.entry.kind.label} · ${formatIsoDateBr(item.entry.occurredAt)}" +
                             if (item.isOwner) "" else " · Participante",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,

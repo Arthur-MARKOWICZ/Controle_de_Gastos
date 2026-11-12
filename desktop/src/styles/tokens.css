@@ -1,0 +1,190 @@
+/*
+ * Tokens visuais copiados de `web/src/app/globals.css`.
+ *
+ * Origem da cópia: commit 2232b01, em 2026-11-12.
+ *
+ * Por que uma cópia e não um pacote compartilhado: ADR-0029 adia a extração de
+ * `packages/ui` para quando as duas UIs existirem. Enquanto isso, qualquer
+ * mudança de token na web precisa ser trazida para cá à mão.
+ *
+ * Diferença deliberada em relação à web: a web carrega Inter por `next/font`
+ * (arquivo auto-hospedado, resolvido na variável `--font-inter`). O desktop não
+ * tem esse mecanismo e não pede fonte à rede em tempo de execução — nem a
+ * Google Fonts, nem a ninguém; a CSP do Tauri restringe `font-src` a `self`.
+ * Aqui `--font-sans` começa por Inter instalada no sistema e cai para a pilha
+ * do sistema operacional. O change `melhorar-ui-web-hierarquia` altera o
+ * carregamento da fonte na web, então esta não é uma afirmação de paridade
+ * visual com "a web hoje".
+ */
+
+:root,
+:root[data-theme="light"] {
+  --background: #f4f7f6;
+  --surface: #ffffff;
+  --surface-raised: #f8fbfa;
+  --surface-muted: #e9f0ee;
+  --surface-inverse: #10201f;
+  --foreground: #10201f;
+  --foreground-muted: #536664;
+  --text-primary: #10201f;
+  --text-muted: #536664;
+  --text-subtle: #667a77;
+  --text-inverse: #f2f7f6;
+  --border: #ccd8d6;
+  --border-strong: #9fb1ae;
+  /* 5.03:1 sobre --surface (#fff); WCAG 1.4.11 ≥3:1 */
+  --border-control: #5f7370;
+  --accent: #0b6b69;
+  --accent-strong: #075653;
+  --accent-soft: #d9efec;
+  --on-accent: #ffffff;
+  --coral: #c9472d;
+  --coral-soft: #fbe7e2;
+  --focus: #1769c2;
+  --success: #146c43;
+  --success-soft: #e3f3e9;
+  --warning: #8a5712;
+  --warning-soft: #fbefd9;
+  --danger: #a52f25;
+  --danger-soft: #fbe7e5;
+  --purpose-limit: #0b6b69;
+  --purpose-goal: #315fa8;
+  --purpose-fixed: #a84d21;
+  /* 6.49:1 / 5.43:1 sobre --surface-muted */
+  --purpose-savings: #5c4d7a;
+  --purpose-annual: #7a5b1e;
+  --overlay: rgba(9, 22, 23, 0.58);
+  --brand-panel: #0d1b1d;
+  --brand-panel-grid: rgba(84, 198, 192, 0.055);
+  --brand-panel-text: #f2f7f6;
+  --brand-panel-text-soft: #dce5e3;
+  --brand-panel-text-muted: #bac9c7;
+  --brand-panel-highlight: #ff8a6f;
+  --brand-mark: #54c6c0;
+  --on-brand-mark: #062826;
+  --sidebar-bg: #0d1b1d;
+  --sidebar-grid: rgba(84, 198, 192, 0.045);
+  --sidebar-border: #263b3e;
+  --sidebar-text: #f2f7f6;
+  --sidebar-text-muted: #b8c7c5;
+  --sidebar-text-subtle: #9eb2af;
+  --sidebar-text-soft: #a9bcba;
+  --sidebar-nav-icon: #6f8c89;
+  --sidebar-hover: #15282b;
+  --sidebar-active: #193236;
+  --sidebar-active-border: #31565a;
+  --sidebar-divider: #294044;
+  --sidebar-surface: #172b2e;
+  /* QR precisa de fundo claro nos dois temas para o contraste do código */
+  --qr-canvas: #ffffff;
+  --shadow-sm: 0 0.5rem 1.5rem rgba(16, 32, 31, 0.08);
+  --shadow-lg: 0 1.5rem 4rem rgba(16, 32, 31, 0.18);
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.125rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  /* Sem `var(--font-inter)`: o desktop não usa next/font e não busca fonte na rede. */
+  --font-sans: Inter, "Inter Variable", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Cantarell, "Noto Sans", sans-serif;
+}
+
+:root[data-theme="dark"] {
+  --background: #0b1416;
+  --surface: #111d20;
+  --surface-raised: #17262a;
+  --surface-muted: #1c2d31;
+  --surface-inverse: #f2f7f6;
+  --foreground: #f2f7f6;
+  --foreground-muted: #aabbb8;
+  --text-primary: #f2f7f6;
+  --text-muted: #aabbb8;
+  --text-subtle: #93a6a3;
+  --text-inverse: #10201f;
+  --border: #2b3d41;
+  --border-strong: #52676b;
+  /* 4.12:1 sobre --surface (#111d20); WCAG 1.4.11 ≥3:1 */
+  --border-control: #6a8084;
+  --accent: #54c6c0;
+  --accent-strong: #78d7d2;
+  --accent-soft: #153b3d;
+  --on-accent: #062826;
+  --coral: #ff8a6f;
+  --coral-soft: #432923;
+  --focus: #83bfff;
+  --success: #65d6a3;
+  --success-soft: #183c2e;
+  --warning: #f3c969;
+  --warning-soft: #3e341e;
+  --danger: #ff8a80;
+  --danger-soft: #432526;
+  --purpose-limit: #54c6c0;
+  --purpose-goal: #82adff;
+  --purpose-fixed: #ffac73;
+  /* 5.96:1 / 7.33:1 sobre --surface-muted */
+  --purpose-savings: #b39ddb;
+  --purpose-annual: #e0b35a;
+  --qr-canvas: #ffffff;
+  --overlay: rgba(2, 8, 9, 0.76);
+  --shadow-sm: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
+  --shadow-lg: 0 1.5rem 4rem rgba(0, 0, 0, 0.42);
+}
+
+html { min-height: 100%; background: var(--background); }
+html, body { width: 100%; height: 100%; overflow: hidden; }
+body {
+  min-height: 100%;
+  color: var(--text-primary);
+  background: var(--background);
+  font-family: var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* { box-sizing: border-box; padding: 0; margin: 0; }
+a { color: inherit; text-decoration: none; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button, input, select, textarea { font: inherit; }
+button { color: inherit; }
+input, select, textarea { color: var(--text-primary); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+::selection { color: var(--on-accent); background: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* --- Específico do desktop (não vem da web) --- */
+
+/* O chrome da janela não é texto selecionável nem alvo de arraste de imagem. */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: default;
+}
+
+/* Conteúdo de leitura e campos voltam a ser selecionáveis. */
+input,
+textarea,
+[data-selectable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Valores monetários: largura estável na lista densa de verbas. */
+.money {
+  font-variant-numeric: tabular-nums;
+}

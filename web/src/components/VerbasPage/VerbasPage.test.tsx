@@ -140,7 +140,19 @@ describe("VerbasPage", () => {
   it("expõe barra de progresso acessível para cada verba", () => {
     render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
     expect(screen.getAllByRole("progressbar")).toHaveLength(3);
-    expect(screen.getByRole("progressbar", { name: "Progresso de Combustível" }).getAttribute("value")).toBe("60");
+    // LIMIT enche conforme o mês é gasto: 60% disponível = 40% usado
+    expect(screen.getByRole("progressbar", { name: "Progresso de Combustível" }).getAttribute("value")).toBe("40");
+  });
+
+  it("usa o verbo Encerrar no card e na confirmação, e diz que o histórico fica", () => {
+    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Encerrar Combustível" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Encerrar Combustível?" });
+    expect(within(dialog).getByRole("button", { name: "Encerrar" })).toBeDefined();
+    expect(within(dialog).getByText(/continuam no histórico/)).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Arquivar/ })).toBeNull();
   });
 
   it("mostra alerta para verbas negativas e faixa não alocado", () => {

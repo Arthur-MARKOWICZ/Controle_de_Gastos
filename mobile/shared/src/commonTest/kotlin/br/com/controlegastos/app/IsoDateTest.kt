@@ -11,6 +11,14 @@ class IsoDateTest {
     }
 
     @Test
+    fun `leaves a value that is not an iso date untouched`() {
+        // A lista mostra o que vier: formatar não pode quebrar a tela se a
+        // data chegar fora do contrato.
+        assertEquals("", formatIsoDateBr(""))
+        assertEquals("ontem", formatIsoDateBr("ontem"))
+    }
+
+    @Test
     fun `returns the previous calendar day`() {
         assertEquals("2026-10-30", previousIsoDay("2026-10-31"))
         assertEquals("2026-09-30", previousIsoDay("2026-10-01"))

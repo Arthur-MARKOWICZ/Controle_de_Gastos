@@ -3,7 +3,7 @@ export const PAGE_TITLES = {
   home: "Visão geral",
   verbas: "Verbas",
   metas: "Metas",
-  gastos: "Gastos",
+  gastos: "Histórico",
   gastosAnuais: "Gastos anuais",
   relatorios: "Relatórios",
   configuracoes: "Configurações",

@@ -29,4 +29,16 @@ describe("IncomeForm", () => {
     // after mask, input value becomes 5.000,00
     expect(input.value).toBe("5.000,00");
   });
+
+  it("liga o erro ao campo de renda e move o foco para ele", async () => {
+    render(<IncomeForm onSuccess={vi.fn()} onCancel={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Salvar renda" }));
+
+    const amount = screen.getByLabelText(/Valor da renda/);
+    const alert = await screen.findByRole("alert");
+    expect(amount.getAttribute("aria-invalid")).toBe("true");
+    expect(amount.getAttribute("aria-describedby")?.split(" ")).toContain(alert.id);
+    expect(document.activeElement).toBe(amount);
+  });
 });

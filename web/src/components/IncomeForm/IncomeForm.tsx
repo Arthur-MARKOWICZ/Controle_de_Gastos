@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAuth } from "../../auth/auth-context";
 import { ApiError, createApiClient } from "../../lib/api";
 import { formatBRL, formatBRLInputMask, maskToPlain } from "../../lib/money";
+import { focusField } from "../../lib/form-errors";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import styles from "./IncomeForm.module.css";
@@ -21,12 +22,18 @@ export function IncomeForm({ initialAmount, onSuccess, onCancel }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** O erro já vive no `Field`; só falta levar o foco ao campo a corrigir. */
+  function failAmount(message: string) {
+    setError(message);
+    focusField("income-amount");
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     const plain = maskToPlain(amountMask);
     if (!plain || !/^\d{1,17}\.\d{2}$/.test(plain)) {
-      setError("Valor deve ter duas casas decimais, ex: 5.000,00");
+      failAmount("Valor deve ter duas casas decimais, ex: 5.000,00");
       return;
     }
     setBusy(true);
@@ -39,12 +46,12 @@ export function IncomeForm({ initialAmount, onSuccess, onCancel }: Props) {
           const required = err.requiredMinimum ? formatBRL(err.requiredMinimum) : "";
           const shortfall = err.shortfall ? formatBRL(err.shortfall) : "";
           if (required && shortfall) {
-            setError(`Renda menor que verbas-base. Mínimo ${required} (faltam ${shortfall}). Reduza verbas ou aumente a renda.`);
+            failAmount(`Renda menor que verbas-base. Mínimo ${required} (faltam ${shortfall}). Reduza verbas ou aumente a renda.`);
           } else {
-            setError(err.detail || "Renda menor que a soma das verbas-base");
+            failAmount(err.detail || "Renda menor que a soma das verbas-base");
           }
         } else if (err.status === 400) {
-          setError("Valor inválido. Use o formato 5.000,00 com exatamente duas casas decimais.");
+          failAmount("Valor inválido. Use o formato 5.000,00 com exatamente duas casas decimais.");
         } else {
           setError(err.detail || "Não foi possível salvar a renda");
         }

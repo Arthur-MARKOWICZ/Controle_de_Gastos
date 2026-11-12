@@ -4,6 +4,10 @@ import { Dashboard } from "./Dashboard";
 
 const request = vi.hoisted(() => vi.fn());
 
+const alertsState = vi.hoisted(() => ({
+  items: [] as Array<{ id: string; envelopeId: string; envelopeName: string; referenceMonth: string }>,
+}));
+
 const envelopesHook = vi.hoisted(() => ({
   envelopes: [] as Array<{
     id: string;
@@ -82,6 +86,7 @@ function resetHooks() {
   ledgerHook.error = null;
   ledgerHook.refresh = vi.fn();
   ledgerHook.setSummary = vi.fn();
+  alertsState.items = [];
 }
 
 beforeAll(() => {
@@ -97,6 +102,22 @@ vi.mock("next/navigation", () => ({
 vi.mock("../../auth/auth-context", () => ({
   useAuth: () => ({ client: { request }, state: "anonymous" }),
 }));
+
+vi.mock("../../lib/api", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../lib/api")>();
+  return {
+    ...original,
+    // mantém o cliente real (createEntry etc.) e só encena os alertas persistentes
+    createApiClient: (client: Parameters<typeof original.createApiClient>[0]) => ({
+      ...original.createApiClient(client),
+      listAlerts: () => Promise.resolve({ items: alertsState.items }),
+      dismissAlert: (id: string) => {
+        alertsState.items = alertsState.items.filter((alert) => alert.id !== id);
+        return Promise.resolve();
+      },
+    }),
+  };
+});
 
 vi.mock("../../hooks/useEnvelopes", () => ({
   useEnvelopes: () => envelopesHook,
@@ -188,14 +209,15 @@ describe("Dashboard", () => {
     render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
 
     expect(screen.getAllByRole("progressbar")).toHaveLength(3);
+    // LIMIT enche conforme o mês é gasto: 60% disponível = 40% usado
     expect(screen.getByRole("progressbar", { name: "Progresso de Combustível" })
-      .getAttribute("value")).toBe("60");
+      .getAttribute("value")).toBe("40");
   });
 
   it("abre o glossário de verbas explicando os tipos de verba", () => {
     render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Glossário de verbas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ver glossário de verbas" }));
 
     const dialog = screen.getByRole("dialog", { name: "Glossário de verbas" });
     expect(within(dialog).getByText("Limite de gasto")).toBeDefined();
@@ -223,5 +245,71 @@ describe("Dashboard", () => {
 
     expect(within(dialog).getByText(/Saldo após o gasto:\s*R\$\s*190,00/)).toBeDefined();
     expect(within(dialog).queryByText(/Saldo após o gasto:\s*R\$\s*350,00/)).toBeNull();
+  });
+
+  it("mostra a renda uma única vez, com reservado, não alocado e uso", () => {
+    render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    const summary = screen.getByRole("region", { name: /Resumo do mês/i });
+    expect(within(summary).getAllByText(/R\$\s*5\.000,00/)).toHaveLength(1);
+    expect(within(summary).getByText(/R\$\s*4\.250,00/)).toBeDefined();
+    expect(within(summary).getByText(/R\$\s*750,00/)).toBeDefined();
+    expect(within(summary).getByText("85%")).toBeDefined();
+    expect(within(summary).getByRole("button", { name: /renda/i })).toBeDefined();
+
+    // a renda não aparece como figura principal de um segundo card
+    expect(document.querySelectorAll("section[data-summary]")).toHaveLength(1);
+    expect(screen.queryByRole("heading", { name: "Renda do mês" })).toBeNull();
+  });
+
+  it("não repete Nova verba no rodapé nem traz Glossário como ação de header", () => {
+    render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    expect(screen.getAllByRole("button", { name: "Nova verba" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Glossário de verbas" })).toBeNull();
+    expect(screen.getByRole("button", { name: /glossário/i })).toBeDefined();
+  });
+
+  it("limita a prévia a quatro verbas e mantém o link para ver todas", () => {
+    ledgerHook.summary = {
+      ...happyLedgerSummary(),
+      envelopes: [
+        ...summaryEnvelopes(),
+        { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "200.00", currency: "BRL" }, available: { amount: "100.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+        { id: "5", name: "Farmácia", purpose: "LIMIT", baseAmount: { amount: "150.00", currency: "BRL" }, available: { amount: "150.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+      ],
+    };
+
+    render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    const preview = screen.getByRole("region", { name: "Suas verbas" });
+    expect(within(preview).getAllByRole("progressbar")).toHaveLength(4);
+    expect(within(preview).queryByRole("heading", { name: "Farmácia" })).toBeNull();
+    expect(within(preview).getByRole("link", { name: /Ver todas/ })).toBeDefined();
+  });
+
+  it("oferece criar a primeira verba quando o mês está vazio", () => {
+    ledgerHook.summary = { ...happyLedgerSummary(), envelopes: [] };
+
+    render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    expect(screen.getByText(/Nenhuma verba neste mês/)).toBeDefined();
+    expect(screen.getByRole("button", { name: "Criar primeira verba" })).toBeDefined();
+  });
+
+  it("mostra e dispensa alertas persistentes de saldo negativo", async () => {
+    alertsState.items = [{ id: "a1", envelopeId: "1", envelopeName: "Combustível", referenceMonth: "2026-08" }];
+
+    render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    const alerts = await screen.findByRole("region", { name: "Alertas persistentes de saldo negativo" });
+    expect(within(alerts).getByText("Combustível")).toBeDefined();
+    expect(within(alerts).getByText(/2026-08/)).toBeDefined();
+
+    fireEvent.click(within(alerts).getByRole("button", { name: /dispensar|fechar/i }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "Alertas persistentes de saldo negativo" })).toBeNull(),
+    );
   });
 });

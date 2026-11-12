@@ -5,6 +5,8 @@ import { useAuth } from "../../auth/auth-context";
 import { createApiClient, type ReportFormat, type ReportId } from "../../lib/api";
 import { currentMonthSaoPaulo } from "../../lib/dates";
 import { AppShell } from "../AppShell/AppShell";
+import { Button } from "../ui/Button";
+import { PageHeader } from "../ui/PageHeader";
 import styles from "./ReportsPage.module.css";
 
 type Props = { email: string; onLogout(): void };
@@ -63,11 +65,11 @@ export function ReportsPage({ email, onLogout }: Props) {
 
   return <AppShell current="reports" email={email} onLogout={onLogout}>
     <div className={styles.page}>
-      <header className={styles.header}>
-        <p className={styles.eyebrow}>Exportação financeira</p>
-        <h1>Relatórios</h1>
-        <p>Escolha um período e baixe um arquivo CSV ou XLSX com as verbas que você pode visualizar.</p>
-      </header>
+      <PageHeader
+        eyebrow="Exportação financeira"
+        title="Relatórios"
+        description="Escolha um período e baixe um arquivo CSV ou XLSX com as verbas que você pode visualizar."
+      />
       <form className={styles.form} onSubmit={submit}>
         <fieldset><legend>Tipo de relatório</legend>
           <label htmlFor="report-type">Tipo de relatório</label>
@@ -83,7 +85,7 @@ export function ReportsPage({ email, onLogout }: Props) {
         <label htmlFor="report-format">Formato<select id="report-format" value={format} onChange={(event) => setFormat(event.target.value as ReportFormat)}><option value="xlsx">XLSX</option><option value="csv">CSV</option></select></label>
         {invalidRange && <p className={styles.error} role="alert">A data inicial deve ser anterior ou igual à data final.</p>}
         {partialMonth && <p className={styles.error} role="alert">Relatórios mensais exigem início no primeiro dia e término no último dia do mês.</p>}
-        <button type="submit" disabled={!canSubmit}>{downloading ? "Gerando relatório…" : "Gerar relatório"}</button>
+        <Button type="submit" disabled={!canSubmit} busy={downloading}>{downloading ? "Gerando relatório…" : "Gerar relatório"}</Button>
         {feedback && <p className={styles.feedback} role="status">{feedback}</p>}
       </form>
     </div>

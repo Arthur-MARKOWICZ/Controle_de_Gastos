@@ -1,0 +1,24 @@
+[workspace]
+
+[package]
+name = "verbas-desktop"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Cliente desktop do controle de gastos (ADR-0029)."
+
+[lib]
+name = "verbas_desktop_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# A sessão e o HTTP autenticado vivem num crate sem Tauri, para `cargo test`
+# rodar sem o toolchain de GUI (WebKitGTK no Linux).
+verbas-session = { path = "../session" }
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "sync"] }

@@ -2,7 +2,10 @@ package br.com.controlegastos.app
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.backhandler.BackHandler
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -110,7 +113,8 @@ fun VerbasApp(
             AuthState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.semantics { contentDescription = "Restaurando sua sessão" })
             }
-            AuthState.Anonymous, AuthState.Expired -> AuthScreen(
+            AuthState.Anonymous, AuthState.Expired -> AnonymousSurface {
+                AuthScreen(
                 expired = current == AuthState.Expired,
                 themeMode = themeMode,
                 onThemeSelected = ::selectTheme,
@@ -139,8 +143,10 @@ fun VerbasApp(
                 onSocialLogin = { provider ->
                     onOpenInBrowser?.invoke(gateways.auth.oauthStartUrl(provider))
                 },
-            )
-            is AuthState.MfaRequired -> MfaLoginScreen(
+                )
+            }
+            is AuthState.MfaRequired -> AnonymousSurface {
+                MfaLoginScreen(
                 onVerify = { code, onResult ->
                     scope.launch {
                         runCatching { authController.verifyMfa(code) }
@@ -155,8 +161,12 @@ fun VerbasApp(
                             .onFailure { onResult(GENERIC_MFA_ERROR) }
                     }
                 },
-            )
-            is AuthState.MfaRecoverySetup -> MfaSettingsScreen(
+                // O desafio expira sozinho; voltar não deixa a sessão autenticada.
+                onCancel = { authState = AuthState.Anonymous },
+                )
+            }
+            is AuthState.MfaRecoverySetup -> AnonymousSurface {
+                MfaSettingsScreen(
                 onStartEnrollment = { password, onResult ->
                     scope.launch {
                         runCatching { gateways.auth.startMfaEnrollment(password, current.restrictedToken) }
@@ -174,7 +184,8 @@ fun VerbasApp(
                 onComplete = { authState = authController.finishMfaRecoverySetup() },
                 qrImageContent = qrImageContent,
                 onShareText = onShareText,
-            )
+                )
+            }
             is AuthState.Authenticated -> SignedInApp(
                 user = current.user,
                 gateways = gateways,
@@ -196,6 +207,17 @@ fun VerbasApp(
             )
         }
     }
+}
+
+/**
+ * Telas sem sessão.
+ *
+ * Elas não passam pelo `Scaffold` autenticado, então a área segura é aplicada
+ * aqui: no Android edge-to-edge o título e os campos ficariam sob a status bar.
+ */
+@Composable
+private fun AnonymousSurface(content: @Composable () -> Unit) {
+    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) { content() }
 }
 
 /**
@@ -234,6 +256,11 @@ private fun SignedInApp(
     }
     val historyController = remember(gateways, currentMonth) { HistoryController(gateways.ledger, currentMonth) }
 
+    // O mês vive dentro de cada controlador, que não é observável: a casca
+    // guarda o mês de cada tela para decidir se ainda oferece "Novo gasto".
+    var panelMonth by remember(financeController) { mutableStateOf(financeController.month) }
+    var historyMonth by remember(historyController) { mutableStateOf(historyController.month) }
+
     fun go(next: Route) {
         backStack = backStack.push(next)
     }
@@ -252,7 +279,9 @@ private fun SignedInApp(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbar) },
         floatingActionButton = {
-            if (backStack.current in QUICK_EXPENSE_ROUTES) {
+            // Mês futuro não tem data de lançamento válida: sem atalho nele.
+            val monthInView = if (backStack.current == Route.History) historyMonth else panelMonth
+            if (backStack.current in QUICK_EXPENSE_ROUTES && canRegisterIn(monthInView, today)) {
                 ExtendedFloatingActionButton(onClick = { quickExpenseRequested = true }) { Text("Novo gasto") }
             }
         },
@@ -268,18 +297,9 @@ private fun SignedInApp(
                         }
                     }
                 },
-                title = {
-                    androidx.compose.foundation.layout.Column {
-                        Text(backStack.current.title, fontWeight = FontWeight.Black)
-                        Text(
-                            user.email,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.labelSmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                },
+                // O e-mail não é o assunto de nenhuma tela: ele fica em Mais,
+                // e a barra superior diz só onde a pessoa está.
+                title = { Text(backStack.current.title, fontWeight = FontWeight.Black) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
@@ -311,13 +331,24 @@ private fun SignedInApp(
                     onOpenEntries = { go(Route.EnvelopeEntries(it.id, it.name)) },
                     onNotify = ::notify,
                     onSessionExpired = onSessionExpired,
+                    onMonthChanged = { panelMonth = it },
                     quickExpenseRequested = quickExpenseRequested,
                     onQuickExpenseHandled = { quickExpenseRequested = false },
                 )
                 Route.History -> HistoryScreen(
                     controller = historyController,
                     envelopeGateway = gateways.envelopes,
+                    today = today,
                     onSessionExpired = onSessionExpired,
+                    onMonthChanged = { historyMonth = it },
+                    onNotify = ::notify,
+                    quickExpenseRequested = quickExpenseRequested,
+                    onQuickExpenseHandled = { quickExpenseRequested = false },
+                    // O lançamento feito na aba Gastos recarrega também o painel,
+                    // que é quem guarda saldo e alertas do mês.
+                    onRegisterEntry = { envelopeId, name, entry ->
+                        financeController.registerEntry(envelopeId, entry, name)
+                    },
                 )
                 Route.More -> MoreScreen(
                     email = user.email,
@@ -354,7 +385,8 @@ private fun SignedInApp(
 }
 
 /** Telas de mês em que o gasto é o lançamento comum; em Metas o card já oferece o aporte. */
-private val QUICK_EXPENSE_ROUTES = setOf<Route>(Route.Overview, Route.Envelopes, Route.AnnualExpenses)
+private val QUICK_EXPENSE_ROUTES =
+    setOf<Route>(Route.Overview, Route.Envelopes, Route.AnnualExpenses, Route.History)
 
 private fun iconOf(route: Route.TopLevel): ImageVector = when (route) {
     Route.Overview -> Icons.Outlined.Home

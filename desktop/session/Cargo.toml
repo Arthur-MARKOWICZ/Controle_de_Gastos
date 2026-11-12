@@ -1,0 +1,43 @@
+[workspace]
+
+[package]
+name = "verbas-session"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Sessão e cliente HTTP do canal desktop (ADR-0029). Sem dependência de Tauri, para rodar `cargo test` sem o toolchain de GUI."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[dependencies.reqwest]
+version = "0.12"
+default-features = false
+features = ["rustls-tls", "charset", "http2"]
+
+[dependencies.tokio]
+version = "1"
+default-features = false
+features = ["rt", "sync", "time"]
+
+# Cofre do sistema operacional. No Linux usa o secret-service por zbus (Rust
+# puro), sem depender de libdbus instalada na máquina de build.
+[target.'cfg(target_os = "linux")'.dependencies.keyring]
+version = "3"
+default-features = false
+features = ["async-secret-service", "crypto-rust", "tokio"]
+
+[target.'cfg(target_os = "macos")'.dependencies.keyring]
+version = "3"
+default-features = false
+features = ["apple-native"]
+
+[target.'cfg(target_os = "windows")'.dependencies.keyring]
+version = "3"
+default-features = false
+features = ["windows-native"]
+
+[dev-dependencies]
+tokio = { version = "1", default-features = false, features = ["rt", "macros", "sync", "time"] }

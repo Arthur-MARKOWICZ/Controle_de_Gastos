@@ -1,0 +1,3 @@
+# Isola o pacote desktop do package.json da raiz (lefthook), como web/ e mcp/.
+allowBuilds:
+  esbuild: true

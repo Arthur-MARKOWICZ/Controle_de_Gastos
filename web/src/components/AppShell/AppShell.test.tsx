@@ -21,4 +21,23 @@ describe("AppShell", () => {
     expect(screen.getByText("pessoa@example.com")).toBeDefined();
     expect(screen.getByRole("main").querySelector("h1")?.textContent).toBe("Verbas");
   });
+
+  it("distingue Histórico de Gastos anuais e marca a página atual", () => {
+    render(
+      <ThemeProvider>
+        <AppShell current="expenses" email="pessoa@example.com" onLogout={vi.fn()}>
+          <h1>Histórico</h1>
+        </AppShell>
+      </ThemeProvider>,
+    );
+
+    const historico = screen.getByRole("link", { name: /Histórico/ });
+    const anuais = screen.getByRole("link", { name: /Gastos anuais/ });
+
+    expect(historico.getAttribute("href")).toBe("/gastos");
+    expect(anuais.getAttribute("href")).toBe("/gastos-anuais");
+    expect(historico).not.toBe(anuais);
+    expect(historico.getAttribute("aria-current")).toBe("page");
+    expect(anuais.getAttribute("aria-current")).toBeNull();
+  });
 });

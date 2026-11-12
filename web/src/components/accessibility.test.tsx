@@ -175,9 +175,9 @@ describe.each<ThemePreference>(["light", "dark"])("acessibilidade no tema %s", (
     await expectNoAxeViolations();
   });
 
-  it("não introduz violações estruturais no Histórico/Gastos", async () => {
+  it("não introduz violações estruturais no Histórico", async () => {
     renderInTheme(<HistoryPage email="ana@example.com" onLogout={vi.fn()} />, theme);
-    await waitFor(() => expect(document.querySelector("h1")?.textContent).toContain("Gastos"));
+    await waitFor(() => expect(document.querySelector("h1")?.textContent).toContain("Histórico"));
     await expectNoAxeViolations();
   });
 

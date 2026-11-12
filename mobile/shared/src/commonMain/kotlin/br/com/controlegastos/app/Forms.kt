@@ -4,216 +4,26 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
-private const val MAX_DESCRIPTION = 140
 private const val MAX_NAME = 80
 private const val MILLIS_PER_DAY = 86_400_000L
 
 /** Resultado de uma submissão: `null` quando deu certo, senão a mensagem de erro. */
 internal typealias FormResult = (String?) -> Unit
-
-/**
- * Registro de gasto ou aporte.
- *
- * A data já vem preenchida com hoje, porque o caso comum é lançar o que acabou
- * de acontecer; ela permanece editável para registros atrasados.
- */
-@Composable
-internal fun EntryFormDialog(
-    envelope: EnvelopeView,
-    kind: LedgerKind,
-    today: String,
-    onSubmit: (NewLedgerEntry, FormResult) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var digits by remember { mutableStateOf("") }
-    var occurredAt by remember { mutableStateOf(today) }
-    var description by remember { mutableStateOf("") }
-    var busy by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
-
-    val dateValid = isIsoDate(occurredAt) && occurredAt <= today
-
-    FormDialog(
-        title = if (kind == LedgerKind.CONTRIBUTION) "Aportar em ${envelope.name}" else "Gasto em ${envelope.name}",
-        confirmLabel = "Registrar",
-        confirmEnabled = digits.isNotEmpty() && AmountInput.toMoney(digits).cents > 0 && dateValid,
-        busy = busy,
-        message = message,
-        onConfirm = {
-            busy = true
-            message = null
-            onSubmit(
-                NewLedgerEntry(
-                    kind = kind,
-                    amount = AmountInput.toMoney(digits),
-                    occurredAt = occurredAt,
-                    description = description.trim().takeIf(String::isNotBlank),
-                ),
-            ) { error ->
-                busy = false
-                message = error
-                if (error == null) onDismiss()
-            }
-        },
-        onDismiss = onDismiss,
-    ) {
-        AmountField(digits, { digits = it }, "Valor")
-        EntryDateField(
-            value = occurredAt,
-            today = today,
-            onChange = { occurredAt = it },
-        )
-        OutlinedTextField(
-            value = description,
-            onValueChange = { description = it.take(MAX_DESCRIPTION) },
-            label = { Text("Descrição (opcional)") },
-            supportingText = { Text("${description.length}/$MAX_DESCRIPTION") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (envelope.isNegative) {
-            Text(
-                "Esta verba já está negativa. O lançamento é registrado mesmo assim.",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun EntryDateField(
-    value: String,
-    today: String,
-    onChange: (String) -> Unit,
-) {
-    var showPicker by remember { mutableStateOf(false) }
-    val dateValid = isIsoDate(value) && value <= today
-    val yesterday = previousIsoDay(today)
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Text("Data", style = MaterialTheme.typography.labelLarge)
-        OutlinedButton(
-            onClick = { showPicker = true },
-            modifier = Modifier.fillMaxWidth().height(TouchTarget),
-        ) {
-            Text(if (isIsoDate(value)) formatIsoDateBr(value) else "Escolher data")
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { onChange(today) }, modifier = Modifier.height(TouchTarget)) {
-                Text("Hoje")
-            }
-            TextButton(onClick = { onChange(yesterday) }, modifier = Modifier.height(TouchTarget)) {
-                Text("Ontem")
-            }
-        }
-        if (!dateValid) {
-            Text(
-                "Escolha uma data que já aconteceu.",
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
-    }
-
-    if (showPicker) {
-        val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = isoDateToUtcMillis(value.ifBlank { today }),
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
-                    utcMillisToIsoDate(utcTimeMillis) <= today
-            },
-        )
-        DatePickerDialog(
-            onDismissRequest = { showPicker = false },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pickerState.selectedDateMillis?.let { onChange(utcMillisToIsoDate(it)) }
-                        showPicker = false
-                    },
-                    modifier = Modifier.height(TouchTarget),
-                ) { Text("OK") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPicker = false }, modifier = Modifier.height(TouchTarget)) {
-                    Text("Cancelar")
-                }
-            },
-        ) {
-            DatePicker(state = pickerState)
-        }
-    }
-}
-
-/** Escolha da verba no lançamento rápido de gasto, aberto pelo botão global. */
-@Composable
-internal fun ExpenseEnvelopePicker(
-    envelopes: List<EnvelopeView>,
-    onSelect: (EnvelopeView) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Gasto em qual verba?", fontWeight = FontWeight.Bold) },
-        text = {
-            if (envelopes.isEmpty()) {
-                Text("Nenhuma verba de limite, compromisso fixo ou gasto anual neste mês. Crie uma para lançar gastos.")
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    items(envelopes, key = EnvelopeView::id) { envelope ->
-                        TextButton(
-                            onClick = { onSelect(envelope) },
-                            modifier = Modifier.fillMaxWidth().heightIn(min = TouchTarget),
-                        ) {
-                            Column(Modifier.fillMaxWidth()) {
-                                Text(envelope.name, fontWeight = FontWeight.Bold)
-                                Text(
-                                    "Disponível ${envelope.available.toBrl()}",
-                                    color = if (envelope.isNegative) MaterialTheme.colorScheme.error
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.height(TouchTarget)) { Text("Cancelar") }
-        },
-    )
-}
 
 /** Criação de verba, com os campos que cada natureza exige. */
 @Composable
@@ -466,8 +276,10 @@ internal fun isIsoDate(value: String): Boolean =
         value.substring(5, 7).toInt() in 1..12 &&
         value.substring(8, 10).toInt() in 1..31
 
+/** Data de leitura em pt-BR; o que não for `YYYY-MM-DD` volta como veio. */
 internal fun formatIsoDateBr(iso: String): String =
-    "${iso.substring(8, 10)}/${iso.substring(5, 7)}/${iso.substring(0, 4)}"
+    if (!isIsoDate(iso)) iso
+    else "${iso.substring(8, 10)}/${iso.substring(5, 7)}/${iso.substring(0, 4)}"
 
 internal fun previousIsoDay(iso: String): String {
     val year = iso.substring(0, 4).toInt()

@@ -29,6 +29,15 @@ describe("ReportsPage", () => {
     await waitFor(() => expect(downloadReport).toHaveBeenCalledWith("expenses-by-purpose", "2026-01-10", "2026-01-20", "csv"));
   });
 
+  it("usa o cabeçalho compartilhado e o botão compartilhado", () => {
+    render(<ReportsPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    const h1 = screen.getAllByRole("heading", { level: 1 });
+    expect(h1).toHaveLength(1);
+    expect(h1[0].textContent).toBe("Relatórios");
+    expect(screen.getByRole("button", { name: "Gerar relatório" })).toBeDefined();
+  });
+
   it("blocks monthly reports with a partial month", () => {
     render(<ReportsPage email="pessoa@example.com" onLogout={vi.fn()} />);
 

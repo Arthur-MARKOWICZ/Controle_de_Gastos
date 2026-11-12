@@ -21,6 +21,20 @@ function fakeClient(
   } as unknown as AuthClient;
 }
 
+describe("SecuritySettings - cabeçalho da página", () => {
+  it("tem um único h1 e usa h2 nas seções internas", async () => {
+    const client = fakeClient({ hasPassword: true, linkedProviders: [] });
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
+
+    await screen.findByRole("button", { name: "Conectar Google" });
+
+    const h1 = screen.getAllByRole("heading", { level: 1 });
+    expect(h1).toHaveLength(1);
+    expect(h1[0].textContent).toBe("Segurança");
+    expect(screen.getByRole("heading", { level: 2, name: "Contas conectadas" })).toBeDefined();
+  });
+});
+
 describe("SecuritySettings - contas conectadas", () => {
   it("mostra os dois provedores e permite conectar um que ainda não está vinculado", async () => {
     const client = fakeClient({ hasPassword: true, linkedProviders: [] });
