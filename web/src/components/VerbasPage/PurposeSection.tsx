@@ -18,6 +18,7 @@ type Props = {
   envelopes: EnvelopeDTO[];
   onRegisterExpense: (e: EnvelopeDTO) => void;
   onManageParticipants: (e: EnvelopeDTO) => void;
+  onManageRecurring?: (e: EnvelopeDTO) => void;
   onArchive: (e: EnvelopeDTO) => void;
   onToggleWealthAllocation: (e: EnvelopeDTO) => void;
   onCreate: (purpose: Purpose) => void;
@@ -28,6 +29,7 @@ export function PurposeSection({
   envelopes,
   onRegisterExpense,
   onManageParticipants,
+  onManageRecurring,
   onArchive,
   onToggleWealthAllocation,
   onCreate,
@@ -72,6 +74,7 @@ export function PurposeSection({
               envelope={env}
               onRegisterExpense={onRegisterExpense}
               onManageParticipants={onManageParticipants}
+              onManageRecurring={onManageRecurring}
               onArchive={onArchive}
               onToggleWealthAllocation={onToggleWealthAllocation}
             />

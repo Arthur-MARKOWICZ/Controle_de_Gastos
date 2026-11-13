@@ -24,6 +24,8 @@ import java.util.Objects;
 import java.util.UUID;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.modulith.NamedInterface;
+import br.com.controlegastos.envelopes.EnvelopeArchivedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,13 +40,16 @@ public class EnvelopeService {
     private final AuthenticationService authentication;
     private final IncomeQuery incomes;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     public EnvelopeService(EnvelopeRepository envelopes,
                            EnvelopeParticipantRepository participants,
                            AuthenticationService authentication,
                            IncomeQuery incomes,
-                           Clock clock) {
+                           Clock clock,
+                           ApplicationEventPublisher events) {
         this.envelopes = envelopes;
+        this.events = events;
         this.participants = participants;
         this.authentication = authentication;
         this.incomes = incomes;
@@ -172,6 +177,7 @@ public class EnvelopeService {
         if (envelope.isArchived()) return;
         envelope.archive(clock.instant());
         envelopes.save(envelope);
+        events.publishEvent(new EnvelopeArchivedEvent(envelope.id()));
     }
 
     /** Garante que o usuário corrente é o proprietário da verba ativa. */

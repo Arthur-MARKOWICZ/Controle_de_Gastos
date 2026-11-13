@@ -42,6 +42,9 @@ private sealed interface MonthDialog {
     data class Edit(val envelope: EnvelopeView) : MonthDialog
     data class Archive(val envelope: EnvelopeView) : MonthDialog
     data class Participants(val envelope: EnvelopeView) : MonthDialog
+    data class Recurring(val envelope: EnvelopeView) : MonthDialog
+    data class AdjustOccurrence(val item: PendingOccurrenceView) : MonthDialog
+    data class DiscardOccurrence(val item: PendingOccurrenceView) : MonthDialog
     data class Create(val purpose: EnvelopePurpose, val allowed: List<EnvelopePurpose>) : MonthDialog
     data object Income : MonthDialog
     data object Glossary : MonthDialog
@@ -66,6 +69,7 @@ internal fun MonthWorkspaceScreen(
     controller: FinanceDashboardController,
     sharing: SharingGateway,
     today: String,
+    recurring: RecurringGateway = UnavailableGateway,
     onOpenEntries: (EnvelopeView) -> Unit,
     onNotify: (String) -> Unit,
     onSessionExpired: () -> Unit = {},
@@ -77,6 +81,10 @@ internal fun MonthWorkspaceScreen(
     var alerts by remember(controller) { mutableStateOf(controller.activeAlerts) }
     var dialog by remember { mutableStateOf<MonthDialog?>(null) }
     val scope = rememberCoroutineScope()
+    val pendingController = remember(recurring) { PendingOccurrencesController(recurring) }
+    var pending by remember(recurring) { mutableStateOf(pendingController.pending) }
+    var pendingError by remember(recurring) { mutableStateOf<String?>(null) }
+    var pendingBusyId by remember(recurring) { mutableStateOf<String?>(null) }
 
     androidx.compose.runtime.LaunchedEffect(quickExpenseRequested) {
         if (quickExpenseRequested) {
@@ -93,6 +101,10 @@ internal fun MonthWorkspaceScreen(
         controller.refresh()
         state = controller.state
         alerts = controller.activeAlerts
+        if (recurring !== UnavailableGateway) {
+            pendingController.refresh()
+            pending = pendingController.pending
+        }
         if (controller.lastFailure?.isSessionExpired() == true) onSessionExpired()
     }
 
@@ -108,6 +120,24 @@ internal fun MonthWorkspaceScreen(
             runCatching { controller.dismissAlert(id) }
                 .onSuccess { alerts = controller.activeAlerts }
                 .onFailure { onNotify(describeFailure(it, "Não foi possível dispensar o alerta.")) }
+        }
+    }
+
+    /** Confirma ou descarta a pendência; o saldo vem do servidor, então o mês é recarregado. */
+    fun resolvePending(item: PendingOccurrenceView, action: suspend () -> Boolean, success: String) {
+        if (pendingBusyId != null) return
+        pendingBusyId = item.id
+        scope.launch {
+            val ok = action()
+            pending = pendingController.pending
+            pendingError = pendingController.error
+            pendingBusyId = null
+            if (ok) {
+                onNotify(success)
+                controller.refresh()
+                state = controller.state
+                alerts = controller.activeAlerts
+            }
         }
     }
 
@@ -166,6 +196,7 @@ internal fun MonthWorkspaceScreen(
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
                     onParticipants = { dialog = MonthDialog.Participants(it) },
+                    onRecurring = { dialog = MonthDialog.Recurring(it) },
                 )
                 envelopeSection(
                     title = "Compromissos fixos",
@@ -176,6 +207,7 @@ internal fun MonthWorkspaceScreen(
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
                     onParticipants = { dialog = MonthDialog.Participants(it) },
+                    onRecurring = { dialog = MonthDialog.Recurring(it) },
                 )
                 item {
                     NewEnvelopeButton("Nova verba") {
@@ -195,6 +227,7 @@ internal fun MonthWorkspaceScreen(
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
                     onParticipants = { dialog = MonthDialog.Participants(it) },
+                    onRecurring = { dialog = MonthDialog.Recurring(it) },
                 )
                 envelopeSection(
                     title = "Metas de acumulação",
@@ -205,6 +238,7 @@ internal fun MonthWorkspaceScreen(
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
                     onParticipants = { dialog = MonthDialog.Participants(it) },
+                    onRecurring = { dialog = MonthDialog.Recurring(it) },
                 )
                 item {
                     NewEnvelopeButton("Nova meta") {
@@ -230,6 +264,7 @@ internal fun MonthWorkspaceScreen(
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
                     onParticipants = { dialog = MonthDialog.Participants(it) },
+                    onRecurring = { dialog = MonthDialog.Recurring(it) },
                 )
                 item {
                     NewEnvelopeButton("Novo gasto anual") {
@@ -254,6 +289,19 @@ internal fun MonthWorkspaceScreen(
                 // O estouro precisa aparecer onde a pessoa começa o dia, não só
                 // na aba Verbas; dispensar aqui dispensa nas duas telas.
                 item { PersistentNegativeAlerts(alerts, ::dismissAlert) }
+                // Confirmar o aluguel deve custar um toque, logo na abertura do app.
+                item {
+                    PendingOccurrencesSection(
+                        pending = pending,
+                        error = pendingError,
+                        busyId = pendingBusyId,
+                        onConfirm = { item ->
+                            resolvePending(item, { pendingController.confirm(item.id) }, "${item.label} confirmado.")
+                        },
+                        onAdjust = { dialog = MonthDialog.AdjustOccurrence(it) },
+                        onDiscard = { dialog = MonthDialog.DiscardOccurrence(it) },
+                    )
+                }
                 envelopeSection(
                     title = "Suas verbas",
                     envelopes = dashboard.envelopes,
@@ -263,6 +311,7 @@ internal fun MonthWorkspaceScreen(
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
                     onParticipants = { dialog = MonthDialog.Participants(it) },
+                    onRecurring = { dialog = MonthDialog.Recurring(it) },
                 )
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -317,6 +366,36 @@ internal fun MonthWorkspaceScreen(
             envelope = open.envelope,
             sharing = sharing,
             onNotify = onNotify,
+            onDismiss = { dialog = null },
+        )
+        is MonthDialog.Recurring -> RecurringEntriesDialog(
+            envelope = open.envelope,
+            gateway = recurring,
+            onNotify = onNotify,
+            onDismiss = {
+                dialog = null
+                reload()
+            },
+        )
+        is MonthDialog.AdjustOccurrence -> AdjustOccurrenceDialog(
+            item = open.item,
+            today = today,
+            onSubmit = { amount, date ->
+                dialog = null
+                resolvePending(open.item, { pendingController.confirm(open.item.id, amount, date) },
+                    "${open.item.label} confirmado com ${amount.toBrl()}.")
+            },
+            onDismiss = { dialog = null },
+        )
+        is MonthDialog.DiscardOccurrence -> ConfirmDialog(
+            title = "Descartar ${open.item.label}?",
+            message = "Nenhum lançamento será criado para este mês. A recorrência continua nos próximos meses.",
+            confirmLabel = "Descartar",
+            destructive = true,
+            onConfirm = {
+                dialog = null
+                resolvePending(open.item, { pendingController.discard(open.item.id) }, "${open.item.label} descartado.")
+            },
             onDismiss = { dialog = null },
         )
         is MonthDialog.Create -> EnvelopeFormDialog(

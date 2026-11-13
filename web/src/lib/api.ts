@@ -138,6 +138,45 @@ export type IncomeHistoryPageDTO = { items: IncomeHistoryItemDTO[]; page: number
 export type ReportId = "expenses-by-purpose" | "limit-exceeded-months" | "goals-below-target";
 export type ReportFormat = "csv" | "xlsx";
 
+export type LedgerKind = "EXPENSE" | "CONTRIBUTION";
+
+export type RecurringEntryDTO = {
+  id: string;
+  envelopeId: string;
+  kind: LedgerKind;
+  amount: MoneyDTO;
+  dayOfMonth: number;
+  description: string | null;
+  active: boolean;
+  firstCompetence: string;
+  version: number;
+};
+
+export type RecurringEntryRequest = {
+  kind: LedgerKind;
+  amount: MoneyDTO;
+  dayOfMonth: number;
+  description: string | null;
+};
+
+export type PendingOccurrenceDTO = {
+  id: string;
+  recurringEntryId: string;
+  envelopeId: string;
+  envelopeName: string;
+  kind: LedgerKind;
+  description: string | null;
+  suggestedAmount: MoneyDTO;
+  dueDate: string;
+  competence: string;
+};
+
+export type PendingOccurrencesDTO = { current: PendingOccurrenceDTO[]; overdue: PendingOccurrenceDTO[] };
+
+export type ConfirmOccurrenceRequest = { amount?: MoneyDTO; occurredAt?: string };
+
+export type OccurrenceConfirmationDTO = { id: string; status: "CONFIRMED"; ledgerEntryId: string };
+
 export class ApiError extends Error {
   public readonly requiredMinimum?: string;
   public readonly shortfall?: string;
@@ -321,6 +360,57 @@ export function createApiClient(authClient: AuthClient) {
           `/api/v1/envelopes/${encodeURIComponent(envelopeId)}/participants/${encodeURIComponent(userId)}`,
           { method: "DELETE" },
         )
+        .then(handleResponse<void>);
+    },
+    listRecurringEntries(envelopeId: string): Promise<RecurringEntryDTO[]> {
+      return authClient
+        .request(`/api/v1/envelopes/${encodeURIComponent(envelopeId)}/recurring-entries`)
+        .then(handleResponse<RecurringEntryDTO[]>);
+    },
+    createRecurringEntry(envelopeId: string, body: RecurringEntryRequest): Promise<RecurringEntryDTO> {
+      return authClient
+        .request(`/api/v1/envelopes/${encodeURIComponent(envelopeId)}/recurring-entries`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        .then(handleResponse<RecurringEntryDTO>);
+    },
+    updateRecurringEntry(
+      envelopeId: string,
+      recurringId: string,
+      body: RecurringEntryRequest & { active: boolean },
+    ): Promise<RecurringEntryDTO> {
+      return authClient
+        .request(
+          `/api/v1/envelopes/${encodeURIComponent(envelopeId)}/recurring-entries/${encodeURIComponent(recurringId)}`,
+          { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) },
+        )
+        .then(handleResponse<RecurringEntryDTO>);
+    },
+    deleteRecurringEntry(envelopeId: string, recurringId: string): Promise<void> {
+      return authClient
+        .request(
+          `/api/v1/envelopes/${encodeURIComponent(envelopeId)}/recurring-entries/${encodeURIComponent(recurringId)}`,
+          { method: "DELETE" },
+        )
+        .then(handleResponse<void>);
+    },
+    listPendingOccurrences(): Promise<PendingOccurrencesDTO> {
+      return authClient.request("/api/v1/recurring-occurrences/pending").then(handleResponse<PendingOccurrencesDTO>);
+    },
+    confirmOccurrence(occurrenceId: string, body?: ConfirmOccurrenceRequest): Promise<OccurrenceConfirmationDTO> {
+      return authClient
+        .request(`/api/v1/recurring-occurrences/${encodeURIComponent(occurrenceId)}/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body ?? {}),
+        })
+        .then(handleResponse<OccurrenceConfirmationDTO>);
+    },
+    discardOccurrence(occurrenceId: string): Promise<void> {
+      return authClient
+        .request(`/api/v1/recurring-occurrences/${encodeURIComponent(occurrenceId)}/discard`, { method: "POST" })
         .then(handleResponse<void>);
     },
   };

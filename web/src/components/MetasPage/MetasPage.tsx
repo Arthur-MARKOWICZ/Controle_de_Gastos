@@ -15,6 +15,7 @@ import { ExpenseForm, type ExpenseResult } from "../ExpenseForm/ExpenseForm";
 import { EnvelopeCard } from "../EnvelopeCard/EnvelopeCard";
 import { AppShell } from "../AppShell/AppShell";
 import { ParticipantsPanel } from "../ParticipantsPanel/ParticipantsPanel";
+import { RecurringEntriesPanel } from "../RecurringEntriesPanel/RecurringEntriesPanel";
 import styles from "../VerbasPage/Verbas.module.css";
 
 const ARCHIVE_MESSAGE =
@@ -27,6 +28,7 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
   const [newGoal, setNewGoal] = useState(false);
   const [contribution, setContribution] = useState<EnvelopeDTO | null>(null);
   const [participantsTarget, setParticipantsTarget] = useState<EnvelopeDTO | null>(null);
+  const [recurringTarget, setRecurringTarget] = useState<EnvelopeDTO | null>(null);
   const [editingTarget, setEditingTarget] = useState<EnvelopeDTO | null>(null);
   const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -134,6 +136,10 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
               setFeedback(null);
               setParticipantsTarget(envelope);
             }}
+            onManageRecurring={(envelope) => {
+              setFeedback(null);
+              setRecurringTarget(envelope);
+            }}
             onArchive={(envelope) => {
               setFeedback(null);
               setPendingArchive(envelope);
@@ -154,6 +160,10 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
             onManageParticipants={(envelope) => {
               setFeedback(null);
               setParticipantsTarget(envelope);
+            }}
+            onManageRecurring={(envelope) => {
+              setFeedback(null);
+              setRecurringTarget(envelope);
             }}
             onArchive={(envelope) => {
               setFeedback(null);
@@ -194,6 +204,15 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
             onCancel={() => setContribution(null)}
             onSuccess={contributionSaved}
           />
+        )}
+      </Dialog>
+      <Dialog
+        open={!!recurringTarget}
+        onClose={() => setRecurringTarget(null)}
+        title={recurringTarget ? `Recorrências de ${recurringTarget.name}` : "Recorrências"}
+      >
+        {recurringTarget && (
+          <RecurringEntriesPanel client={api} envelope={recurringTarget} onClose={() => setRecurringTarget(null)} />
         )}
       </Dialog>
       <Dialog
@@ -245,6 +264,7 @@ function GoalSection({
   envelopes,
   onContribute,
   onManageParticipants,
+  onManageRecurring,
   onArchive,
   onToggleWealthAllocation,
   onEditTarget,
@@ -254,6 +274,7 @@ function GoalSection({
   envelopes: EnvelopeDTO[];
   onContribute(envelope: EnvelopeDTO): void;
   onManageParticipants(envelope: EnvelopeDTO): void;
+  onManageRecurring(envelope: EnvelopeDTO): void;
   onArchive(envelope: EnvelopeDTO): void;
   onToggleWealthAllocation(envelope: EnvelopeDTO): void;
   onEditTarget?: (envelope: EnvelopeDTO) => void;
@@ -276,6 +297,7 @@ function GoalSection({
               envelope={envelope}
               onRegisterExpense={onContribute}
               onManageParticipants={onManageParticipants}
+              onManageRecurring={onManageRecurring}
               onArchive={onArchive}
               onToggleWealthAllocation={onToggleWealthAllocation}
               onEditTarget={onEditTarget}

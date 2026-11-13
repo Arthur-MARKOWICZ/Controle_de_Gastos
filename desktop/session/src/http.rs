@@ -10,6 +10,8 @@ pub enum Method {
     Get,
     Post,
     Patch,
+    Put,
+    Delete,
 }
 
 impl Method {
@@ -18,6 +20,20 @@ impl Method {
             Method::Get => "GET",
             Method::Post => "POST",
             Method::Patch => "PATCH",
+            Method::Put => "PUT",
+            Method::Delete => "DELETE",
+        }
+    }
+
+    /// Lista fechada de métodos que o webview pode pedir; o resto é recusado.
+    pub fn parse(raw: &str) -> Option<Method> {
+        match raw.to_ascii_uppercase().as_str() {
+            "GET" => Some(Method::Get),
+            "POST" => Some(Method::Post),
+            "PATCH" => Some(Method::Patch),
+            "PUT" => Some(Method::Put),
+            "DELETE" => Some(Method::Delete),
+            _ => None,
         }
     }
 }
@@ -134,6 +150,8 @@ impl HttpTransport for ReqwestTransport {
             Method::Get => reqwest::Method::GET,
             Method::Post => reqwest::Method::POST,
             Method::Patch => reqwest::Method::PATCH,
+            Method::Put => reqwest::Method::PUT,
+            Method::Delete => reqwest::Method::DELETE,
         };
         let mut builder = self.client.request(method, url);
         for (name, value) in &request.headers {
@@ -158,6 +176,34 @@ impl HttpTransport for ReqwestTransport {
                 set_cookie,
                 body,
             })
+        }
+    }
+}
+
+#[cfg(test)]
+mod method_tests {
+    use super::Method;
+
+    #[test]
+    fn parse_accepts_the_methods_the_api_uses_case_insensitively() {
+        assert_eq!(Method::parse("get"), Some(Method::Get));
+        assert_eq!(Method::parse("POST"), Some(Method::Post));
+        assert_eq!(Method::parse("Patch"), Some(Method::Patch));
+        assert_eq!(Method::parse("put"), Some(Method::Put));
+        assert_eq!(Method::parse("DELETE"), Some(Method::Delete));
+    }
+
+    #[test]
+    fn parse_rejects_methods_outside_the_allowlist() {
+        for other in ["HEAD", "OPTIONS", "TRACE", "CONNECT", "", "GETX"] {
+            assert_eq!(Method::parse(other), None, "{other} não deveria ser aceito");
+        }
+    }
+
+    #[test]
+    fn as_str_round_trips_with_parse() {
+        for method in [Method::Get, Method::Post, Method::Patch, Method::Put, Method::Delete] {
+            assert_eq!(Method::parse(method.as_str()), Some(method));
         }
     }
 }

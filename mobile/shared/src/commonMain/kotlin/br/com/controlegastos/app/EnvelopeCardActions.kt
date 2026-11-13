@@ -6,6 +6,7 @@ internal enum class EnvelopeAction(val label: String) {
     CONTRIBUTE("Aportar"),
     ENTRIES("Lançamentos"),
     PARTICIPANTS("Participantes"),
+    RECURRING("Recorrências"),
     EDIT("Editar"),
     ARCHIVE("Encerrar"),
 }
@@ -39,6 +40,7 @@ internal fun envelopeCardActions(envelope: EnvelopeView): EnvelopeCardActions {
         listOf(
             EnvelopeAction.ENTRIES,
             EnvelopeAction.PARTICIPANTS,
+            EnvelopeAction.RECURRING,
             EnvelopeAction.EDIT,
             EnvelopeAction.ARCHIVE,
         )
