@@ -1,5 +1,6 @@
 package br.com.controlegastos.ledger;
 
+import org.junit.jupiter.api.DisplayName;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -71,4 +72,70 @@ class AnnualExpenseApiIntegrationTest {
     }
 
     private Map<String, String> money(String amount) { return Map.of("amount", amount, "currency", "BRL"); }
+
+    private org.springframework.test.web.servlet.ResultActions createAnnual(String token, Map<String, Object> body) throws Exception {
+        return mockMvc.perform(post("/api/v1/envelopes").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(body)));
+    }
+
+    @Test
+    @DisplayName("gasto anual pago de uma vez não provisiona parcela mensal")
+    void pagoDeUmaVezSemParcela() throws Exception {
+        String token = tokenFor("anual-onetime@example.com");
+        createAnnual(token, Map.of("name", "Seguro", "purpose", "ANNUAL_EXPENSE", "annualAmount", money("700.00"),
+                "dueMonth", 11, "dueDay", 20, "fundingMode", "ONE_TIME"))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/ledger/summary?month=2026-09").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.envelopes[0].baseAmount.amount").value("0.00"));
+    }
+
+    @Test
+    @DisplayName("valor anual zero é recusado com 400")
+    void valorAnualZeroRecusado() throws Exception {
+        String token = tokenFor("anual-zero@example.com");
+
+        createAnnual(token, Map.of("name", "IPVA", "purpose", "ANNUAL_EXPENSE", "annualAmount", money("0.00"),
+                "dueMonth", 1, "dueDay", 10, "fundingMode", "MONTHLY"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("modo de provisão desconhecido é recusado com 400")
+    void modoDesconhecidoRecusado() throws Exception {
+        String token = tokenFor("anual-mode@example.com");
+
+        createAnnual(token, Map.of("name", "IPVA", "purpose", "ANNUAL_EXPENSE", "annualAmount", money("100.00"),
+                "dueMonth", 1, "dueDay", 10, "fundingMode", "SEMANAL"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("gasto anual sem vencimento é recusado com 400")
+    void semVencimentoRecusado() throws Exception {
+        String token = tokenFor("anual-nodue@example.com");
+
+        createAnnual(token, Map.of("name", "IPVA", "purpose", "ANNUAL_EXPENSE", "annualAmount", money("100.00"),
+                "fundingMode", "MONTHLY"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("gasto anual de outro titular não aparece no meu resumo")
+    void isoladoPorTitular() throws Exception {
+        String owner = tokenFor("anual-owner@example.com");
+        String other = tokenFor("anual-other@example.com");
+        createAnnual(owner, Map.of("name", "IPVA", "purpose", "ANNUAL_EXPENSE", "annualAmount", money("100.00"),
+                "dueMonth", 1, "dueDay", 10, "fundingMode", "MONTHLY")).andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/ledger/summary?month=2026-09").header("Authorization", "Bearer " + other))
+                .andExpect(jsonPath("$.envelopes.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("criar gasto anual sem sessão responde 401")
+    void criarSemSessao() throws Exception {
+        mockMvc.perform(post("/api/v1/envelopes").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
+    }
 }

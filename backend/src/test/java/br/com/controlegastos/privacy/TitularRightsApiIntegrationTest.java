@@ -1,5 +1,6 @@
 package br.com.controlegastos.privacy;
 
+import org.junit.jupiter.api.DisplayName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -149,5 +150,81 @@ class TitularRightsApiIntegrationTest {
 
     private Map<String, String> money(String amount) {
         return Map.of("amount", amount, "currency", "BRL");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions erase(String token, Object body) throws Exception {
+        var request = delete("/api/v1/privacy/account").contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body));
+        if (token != null) request.header("Authorization", "Bearer " + token);
+        return mockMvc.perform(request);
+    }
+
+    @Test
+    @DisplayName("senha errada na eliminação responde 401 e preserva verbas e renda")
+    void senhaErradaPreservaDados() throws Exception {
+        String token = tokenFor("titular-senha-errada@example.com");
+        putIncome(token, "1000.00");
+        String envelopeId = createEnvelope(token, "Mercado", "LIMIT", "200.00");
+
+        erase(token, Map.of("password", "senha errada de teste")).andExpect(status().isUnauthorized());
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM envelope WHERE id = ?", Integer.class, UUID.fromString(envelopeId)))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM monthly_income WHERE owner_id = ?", Integer.class,
+                userId("titular-senha-errada@example.com"))).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("eliminação sem senha responde 4xx e não apaga nada")
+    void eliminacaoSemSenha() throws Exception {
+        String token = tokenFor("titular-sem-senha@example.com");
+        String envelopeId = createEnvelope(token, "Mercado", "LIMIT", "200.00");
+
+        int status = erase(token, Map.of()).andReturn().getResponse().getStatus();
+
+        assertThat(status).isIn(400, 401);
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM envelope WHERE id = ?", Integer.class, UUID.fromString(envelopeId)))
+                .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("exportação não traz verbas de outro titular")
+    void exportacaoIsolada() throws Exception {
+        String me = tokenFor("titular-export-me@example.com");
+        String other = tokenFor("titular-export-other@example.com");
+        createEnvelope(other, "Segredo", "LIMIT", "100.00");
+
+        mockMvc.perform(get("/api/v1/privacy/export").header("Authorization", "Bearer " + me))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.envelopes.length()").value(0))
+                .andExpect(jsonPath("$.identity.email").value("titular-export-me@example.com"));
+    }
+
+    @Test
+    @DisplayName("exportação traz valores monetários como string com duas casas")
+    void exportacaoComValoresDecimais() throws Exception {
+        String token = tokenFor("titular-export-money@example.com");
+        putIncome(token, "1000.00");
+
+        mockMvc.perform(get("/api/v1/privacy/export").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.income[0].amount").value("1000.00"))
+                .andExpect(jsonPath("$.identity.passwordHash").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("token de conta já eliminada não exporta mais nada")
+    void contaEliminadaNaoExporta() throws Exception {
+        String token = tokenFor("titular-eliminado@example.com");
+        erase(token, Map.of("password", PASSWORD)).andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/v1/privacy/export").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("exportar e eliminar sem sessão respondem 401")
+    void semSessao() throws Exception {
+        mockMvc.perform(get("/api/v1/privacy/export")).andExpect(status().isUnauthorized());
+        erase(null, Map.of("password", PASSWORD)).andExpect(status().isUnauthorized());
     }
 }

@@ -1,5 +1,6 @@
 package br.com.controlegastos.ledger;
 
+import org.junit.jupiter.api.DisplayName;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -164,4 +165,65 @@ class WealthAllocationHistorySummaryApiIntegrationTest {
     }
 
     private record Credentials(String email, String password) {}
+
+    @Test
+    @DisplayName("resumo do histórico com início depois do fim responde 400")
+    void intervaloInvertidoResponde400() throws Exception {
+        String token = tokenFor("wealth-range@example.com");
+
+        mockMvc.perform(get("/api/v1/history/summary?from=2026-09-30&to=2026-09-01").header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("resumo do histórico com data malformada responde 400")
+    void dataMalformadaResponde400() throws Exception {
+        String token = tokenFor("wealth-bad-date@example.com");
+
+        mockMvc.perform(get("/api/v1/history/summary?from=2026-09-xx&to=2026-09-30").header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("resumo do histórico sem parâmetros responde 400")
+    void semParametrosResponde400() throws Exception {
+        String token = tokenFor("wealth-no-params@example.com");
+
+        mockMvc.perform(get("/api/v1/history/summary").header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("gastos de outro titular não entram no meu resumo")
+    void gastosDeOutroNaoEntram() throws Exception {
+        String me = tokenFor("wealth-me@example.com");
+        String other = tokenFor("wealth-other@example.com");
+        String envelopeId = createEnvelope(other, "Mercado", "LIMIT", "100.00", false);
+        createExpense(other, envelopeId, "40.00");
+
+        mockMvc.perform(get("/api/v1/history/summary?from=2026-09-01&to=2026-09-30").header("Authorization", "Bearer " + me))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.expenses.amount").value("0.00"));
+    }
+
+    @Test
+    @DisplayName("participante não altera a classificação de patrimônio da verba do proprietário")
+    void participanteNaoAlteraClassificacao() throws Exception {
+        String owner = tokenFor("wealth-owner@example.com");
+        String stranger = tokenFor("wealth-stranger@example.com");
+        String envelopeId = createEnvelope(owner, "Tesouro", "GOAL", "100.00", false);
+
+        int status = mockMvc.perform(patch("/api/v1/envelopes/{id}", envelopeId).header("Authorization", "Bearer " + stranger)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("wealthAllocation", true, "version", 0))))
+                .andReturn().getResponse().getStatus();
+
+        org.assertj.core.api.Assertions.assertThat(status).isIn(403, 404);
+    }
+
+    @Test
+    @DisplayName("resumo do histórico sem sessão responde 401")
+    void resumoSemSessao() throws Exception {
+        mockMvc.perform(get("/api/v1/history/summary?from=2026-09-01&to=2026-09-30")).andExpect(status().isUnauthorized());
+    }
 }

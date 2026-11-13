@@ -71,7 +71,7 @@ public class LedgerService implements LedgerReportingQuery {
 
         if (amount == null) throw new IllegalArgumentException("O valor é obrigatório");
         if (occurredAt == null) throw new IllegalArgumentException("A data é obrigatória");
-        LocalDate today = LocalDate.now(BUSINESS_ZONE);
+        LocalDate today = LocalDate.now(clock.withZone(BUSINESS_ZONE));
         if (occurredAt.isAfter(today.plusDays(1))) {
             throw new IllegalArgumentException("A data não pode ser no futuro");
         }
@@ -294,7 +294,9 @@ public class LedgerService implements LedgerReportingQuery {
 
     @Transactional
     public LedgerEntry editExpense(UUID entryId, UUID destinationEnvelopeId, Money amount, String description) {
-        LedgerEntry entry = entries.findById(entryId).orElseThrow(() -> new LedgerEntryNotFoundException(entryId));
+        // Gasto excluído logicamente não existe para edição (sem isso, o domínio lançaria erro interno).
+        LedgerEntry entry = entries.findById(entryId).filter(candidate -> !candidate.isDeleted())
+                .orElseThrow(() -> new LedgerEntryNotFoundException(entryId));
         UUID userId = authentication.currentUserId();
         requireAuthorOrOwner(entry, userId, "Somente o autor ou o proprietário da verba pode editar o gasto");
         Envelope destination = envelopes.getVisible(destinationEnvelopeId);
