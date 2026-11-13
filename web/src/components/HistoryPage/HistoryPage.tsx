@@ -16,10 +16,13 @@ import {
   type HistorySummaryDTO,
   type LedgerEntryRevisionDTO,
 } from "../../lib/api";
-import { currentMonthSaoPaulo, todaySaoPaulo } from "../../lib/dates";
+import { currentMonthSaoPaulo, formatDateLabel, todaySaoPaulo } from "../../lib/dates";
 import { formatBRL, formatBRLInputMask, maskToPlain } from "../../lib/money";
 import styles from "./HistoryPage.module.css";
 import { AppShell } from "../AppShell/AppShell";
+import { PageHeader } from "../ui/PageHeader";
+import { ExpenseForm, overdraftNotice, type ExpenseResult } from "../ExpenseForm/ExpenseForm";
+import { isContributionPurpose } from "../EnvelopeCard/EnvelopeCard";
 
 type Props = { email: string; onLogout(): void };
 const purposes = {
@@ -60,6 +63,8 @@ export function HistoryPage({ email, onLogout }: Props) {
   const [revisionsError, setRevisionsError] = useState<string | null>(null);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [showEnvelopePicker, setShowEnvelopePicker] = useState(false);
+  const [expenseTarget, setExpenseTarget] = useState<EnvelopeDTO | null>(null);
   const hasDataRef = useRef(false);
 
   const load = useCallback(async () => {
@@ -170,6 +175,28 @@ export function HistoryPage({ email, onLogout }: Props) {
     }
   }
 
+  /** Verbas em que esta sessão pode lançar: dono ou participante. */
+  const spendableEnvelopes = envelopes.filter((envelope) => !envelope.archivedAt);
+  const canRegister = spendableEnvelopes.length > 0;
+  const expenseKind = expenseTarget
+    && expenseTarget.role === "OWNER"
+    && isContributionPurpose(expenseTarget.purpose)
+    ? "CONTRIBUTION"
+    : "EXPENSE";
+
+  /** Primeiro a verba, depois o formulário: o lançamento sempre nomeia onde cai. */
+  function startRegister() {
+    setFeedback(null);
+    setShowEnvelopePicker(true);
+  }
+
+  function handleExpenseSuccess(result: ExpenseResult) {
+    const name = expenseTarget?.name ?? "verba";
+    setExpenseTarget(null);
+    setFeedback(`${expenseKind === "CONTRIBUTION" ? "Aporte" : "Gasto"} registrado em "${name}"${overdraftNotice(result)}`);
+    void load();
+  }
+
   const card = (label: string, value?: string) => (
     <div className={styles.metric}>
       <dt>{label}</dt>
@@ -177,18 +204,22 @@ export function HistoryPage({ email, onLogout }: Props) {
     </div>
   );
   const chartMax = Math.max(...(summary?.monthlyTotals.map((total) => Number(total.amount.amount)) ?? [0]), 1);
+  const purposeMax = Math.max(...(summary?.purposeTotals.map((total) => Number(total.amount.amount)) ?? [0]), 1);
   const ownerEnvelopes = envelopes.filter((envelope) => envelope.role === "OWNER");
 
   return (
     <AppShell current="expenses" email={email} onLogout={onLogout}>
       <div className={styles.page}>
-        <header className={styles.header}>
-          <div>
-            <p className={styles.eyebrow}>Registro financeiro</p>
-            <h1>Gastos</h1>
-            <p>Registre, edite e consulte gastos das verbas que você pode visualizar.</p>
-          </div>
-        </header>
+        <PageHeader
+          eyebrow="Registro financeiro"
+          title="Histórico"
+          description={
+            canRegister
+              ? "Consulte, corrija e registre gastos das verbas que você pode visualizar."
+              : "Consulte os gastos das verbas que você pode visualizar."
+          }
+          actions={canRegister ? <Button onClick={startRegister}>Registrar gasto</Button> : undefined}
+        />
         <form
           className={styles.filters}
           onSubmit={(event) => {
@@ -236,7 +267,8 @@ export function HistoryPage({ email, onLogout }: Props) {
           <div aria-busy={busy || undefined}>
             <dl className={styles.metrics}>
               {card("Renda do período", summary.income.amount)}
-              {card("Gastos do período", summary.expenses.amount)}
+              {card("Consumo do período", summary.expenses.amount)}
+              {card("Aplicado no período", summary.applied.amount)}
               {card("Saldo líquido", summary.netBalance.amount)}
               {card("Saldo acumulado", summary.accumulatedBalance.amount)}
             </dl>
@@ -257,18 +289,28 @@ export function HistoryPage({ email, onLogout }: Props) {
                   </ul>
                 )}
               </div>
-              <div className={styles.chart}>
+              <section className={styles.chart} aria-label="Gastos por tipo">
                 <h2>Gastos por tipo</h2>
-                <ul className={styles.legend}>
-                  {summary.purposeTotals.map((total) => (
-                    <li key={total.purpose}>
-                      <span className={styles.dot} data-purpose={total.purpose} />
-                      {purposes[total.purpose]}
-                      <strong>{formatBRL(total.amount.amount)}</strong>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                {summary.purposeTotals.length === 0 ? (
+                  <p>Sem gastos no período.</p>
+                ) : (
+                  <ul>
+                    {summary.purposeTotals.map((total) => (
+                      <li key={total.purpose}>
+                        <span>
+                          <span className={styles.dot} data-purpose={total.purpose} />
+                          {purposes[total.purpose]}
+                        </span>
+                        <i
+                          data-purpose={total.purpose}
+                          style={{ width: `${(Number(total.amount.amount) / purposeMax) * 100}%` }}
+                        />
+                        <strong>{formatBRL(total.amount.amount)}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             </section>
             <section className={styles.entries} aria-labelledby="gastos-titulo">
               <header>
@@ -276,7 +318,10 @@ export function HistoryPage({ email, onLogout }: Props) {
                 <span>Página {(data?.page ?? 0) + 1}</span>
               </header>
               {(data?.items.length ?? 0) === 0 ? (
-                <p className={styles.empty}>Nenhum gasto no período selecionado.</p>
+                <div className={styles.empty}>
+                  <p>Nenhum gasto no período selecionado.</p>
+                  {canRegister && <Button onClick={startRegister}>Registrar gasto</Button>}
+                </div>
               ) : (
                 (Object.keys(purposes) as (keyof typeof purposes)[]).map(
                   (purpose) =>
@@ -289,7 +334,7 @@ export function HistoryPage({ email, onLogout }: Props) {
                               <div>
                                 <strong>{item.envelopeName}</strong>
                                 <span>
-                                  {item.entry.occurredAt}
+                                  {formatDateLabel(item.entry.occurredAt)}
                                   {item.entry.description ? ` · ${item.entry.description}` : ""}
                                 </span>
                               </div>
@@ -350,6 +395,40 @@ export function HistoryPage({ email, onLogout }: Props) {
           </div>
         )}
       </div>
+      <Dialog open={showEnvelopePicker} onClose={() => setShowEnvelopePicker(false)} title="Registrar gasto">
+        <p>Em qual verba?</p>
+        <ul className={styles.envelopePicker}>
+          {spendableEnvelopes.map((envelope) => (
+            <li key={envelope.id}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowEnvelopePicker(false);
+                  setExpenseTarget(envelope);
+                }}
+              >
+                {envelope.name}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </Dialog>
+
+      <Dialog
+        open={!!expenseTarget}
+        onClose={() => setExpenseTarget(null)}
+        title={expenseTarget ? `${expenseKind === "CONTRIBUTION" ? "Aportar" : "Registrar gasto"} em ${expenseTarget.name}` : "Registrar gasto"}
+      >
+        {expenseTarget && (
+          <ExpenseForm
+            envelope={expenseTarget}
+            kind={expenseKind}
+            onSuccess={handleExpenseSuccess}
+            onCancel={() => setExpenseTarget(null)}
+          />
+        )}
+      </Dialog>
+
       <Dialog open={!!editing} onClose={() => setEditing(null)} title="Editar gasto">
         <form className={styles.editForm} onSubmit={submitEdit}>
           <Field id="history-amount" label="Valor (BRL)" error={formError ?? undefined}>

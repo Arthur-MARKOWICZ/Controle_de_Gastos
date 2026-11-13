@@ -118,9 +118,12 @@ export function MfaSettings({ client, restrictedToken, onComplete, embedded = fa
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
 
+  /** Embutido em Segurança, é uma seção da página: o `h1` daquela página é "Segurança". */
+  const Heading = embedded ? "h2" : "h1";
+
   const content = (
       <section className={embedded ? styles.embeddedCard : styles.card} aria-labelledby="mfa-settings-title">
-        <h1 id="mfa-settings-title">Configurar autenticação em duas etapas</h1>
+        <Heading id="mfa-settings-title">Configurar autenticação em duas etapas</Heading>
 
         {step === "password" && (
           <>

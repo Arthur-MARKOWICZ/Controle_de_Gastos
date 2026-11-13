@@ -43,6 +43,23 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
     void refresh();
   }
 
+  async function toggleWealthAllocation(envelope: EnvelopeDTO) {
+    try {
+      await createApiClient(client).updateEnvelope(envelope.id, {
+        version: envelope.version,
+        wealthAllocation: !envelope.wealthAllocation,
+      });
+      setFeedback(
+        envelope.wealthAllocation
+          ? `"${envelope.name}" voltou a contar como consumo`
+          : `"${envelope.name}" marcada como alocação de patrimônio`,
+      );
+      void refresh();
+    } catch {
+      setFeedback("Não foi possível atualizar a classificação da meta");
+    }
+  }
+
   function contributionSaved({ targetJustReached }: ExpenseResult) {
     setContribution(null);
     setFeedback(
@@ -109,6 +126,10 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
               setFeedback(null);
               setPendingArchive(envelope);
             }}
+            onToggleWealthAllocation={(envelope) => {
+              setFeedback(null);
+              void toggleWealthAllocation(envelope);
+            }}
           />
           <GoalSection
             title="Metas de acumulação"
@@ -125,6 +146,10 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
             onArchive={(envelope) => {
               setFeedback(null);
               setPendingArchive(envelope);
+            }}
+            onToggleWealthAllocation={(envelope) => {
+              setFeedback(null);
+              void toggleWealthAllocation(envelope);
             }}
             onEditTarget={setEditingTarget}
           />
@@ -209,6 +234,7 @@ function GoalSection({
   onContribute,
   onManageParticipants,
   onArchive,
+  onToggleWealthAllocation,
   onEditTarget,
 }: {
   title: string;
@@ -217,6 +243,7 @@ function GoalSection({
   onContribute(envelope: EnvelopeDTO): void;
   onManageParticipants(envelope: EnvelopeDTO): void;
   onArchive(envelope: EnvelopeDTO): void;
+  onToggleWealthAllocation(envelope: EnvelopeDTO): void;
   onEditTarget?: (envelope: EnvelopeDTO) => void;
 }) {
   return (
@@ -238,6 +265,7 @@ function GoalSection({
               onRegisterExpense={onContribute}
               onManageParticipants={onManageParticipants}
               onArchive={onArchive}
+              onToggleWealthAllocation={onToggleWealthAllocation}
               onEditTarget={onEditTarget}
               variant="verbas"
             />

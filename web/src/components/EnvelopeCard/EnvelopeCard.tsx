@@ -11,6 +11,7 @@ type Props = {
   onArchive?: (envelope: EnvelopeDTO) => void;
   onEditTarget?: (envelope: EnvelopeDTO) => void;
   onEditAnnual?: (envelope: EnvelopeDTO) => void;
+  onToggleWealthAllocation?: (envelope: EnvelopeDTO) => void;
   /** Mantido por compatibilidade; o estilo do card é único. */
   variant?: "dashboard" | "verbas";
 };
@@ -48,6 +49,7 @@ export function EnvelopeCard({
   onArchive,
   onEditTarget,
   onEditAnnual,
+  onToggleWealthAllocation,
 }: Props) {
   const goalProgress = envelope.purpose === "GOAL" ? envelope.goalProgress : null;
   const progressAmount = goalProgress?.plannedAmount ?? (envelope.purpose === "SAVINGS_TARGET" ? envelope.targetAmount ?? envelope.baseAmount
@@ -59,7 +61,10 @@ export function EnvelopeCard({
   const availNum = Number(goalProgress?.remainingAmount.amount ?? envelope.available.amount);
   const rawPct = baseNum > 0 ? (availNum / baseNum) * 100 : 0;
   const pct = goalProgress?.percent ?? (baseNum > 0 ? Math.max(0, Math.min(100, Math.round(rawPct))) : 0);
-  const spent = baseNum > 0 ? Math.max(0, Math.round(((baseNum - availNum) / baseNum) * 100)) : 0;
+  const spent = baseNum > 0 ? Math.max(0, Math.min(100, Math.round(((baseNum - availNum) / baseNum) * 100))) : 0;
+  /** LIMIT e FIXED enchem conforme o mês é consumido; as demais naturezas, conforme o alvo avança. */
+  const consumesPeriod = envelope.purpose === "LIMIT" || envelope.purpose === "FIXED";
+  const progressValue = consumesPeriod ? spent : pct;
 
   let status: string;
   if (envelope.isNegative) {
@@ -72,7 +77,7 @@ export function EnvelopeCard({
       ? `Faltam ${available} · ${pct}% concluído${contributed ? ` · ${contributed} aportados` : ""}`
       : `${pct}% · Meta atingida`;
   } else if (envelope.purpose === "FIXED") {
-    status = envelope.isNegative ? `Descoberto ${available}` : `${available} reservados · ${pct}%`;
+    status = envelope.isNegative ? `Descoberto ${available}` : `${available} a pagar · ${spent}% pago`;
     if (envelope.role === "PARTICIPANT") status = `Compartilhada · ${status}`;
   } else if (envelope.purpose === "SAVINGS_TARGET") {
     const remaining = Math.max(0, baseNum - availNum);
@@ -92,12 +97,61 @@ export function EnvelopeCard({
   const registerActionLabel =
     envelope.role === "OWNER" && isContributionPurpose(envelope.purpose) ? "Aportar" : "Registrar gasto";
 
+  const isOwner = envelope.role === "OWNER";
+  const secondaryActions: Array<{ key: string; label: string; ariaLabel: string; onClick(): void }> = [];
+  if (onManageParticipants && isOwner) {
+    secondaryActions.push({
+      key: "participants",
+      label: "Participantes",
+      ariaLabel: `Participantes de ${envelope.name}`,
+      onClick: () => onManageParticipants(envelope),
+    });
+  }
+  if (onEditTarget && envelope.purpose === "SAVINGS_TARGET" && isOwner) {
+    secondaryActions.push({
+      key: "target",
+      label: "Editar alvo",
+      ariaLabel: `Editar alvo de ${envelope.name}`,
+      onClick: () => onEditTarget(envelope),
+    });
+  }
+  if (onEditAnnual && envelope.purpose === "ANNUAL_EXPENSE" && isOwner) {
+    secondaryActions.push({
+      key: "annual",
+      label: "Editar",
+      ariaLabel: `Editar gasto anual ${envelope.name}`,
+      onClick: () => onEditAnnual(envelope),
+    });
+  }
+  if (onToggleWealthAllocation && isOwner) {
+    secondaryActions.push({
+      key: "wealth",
+      label: envelope.wealthAllocation ? "Tratar como consumo" : "Marcar como patrimônio",
+      ariaLabel: envelope.wealthAllocation
+        ? `Tratar ${envelope.name} como consumo`
+        : `Marcar ${envelope.name} como alocação de patrimônio`,
+      onClick: () => onToggleWealthAllocation(envelope),
+    });
+  }
+  if (onArchive && isOwner) {
+    secondaryActions.push({
+      key: "archive",
+      label: "Encerrar",
+      ariaLabel: `Encerrar ${envelope.name}`,
+      onClick: () => onArchive(envelope),
+    });
+  }
+
   return (
-    <li>
+    <li className={styles.card}>
       <div className={styles.envelopeHeading}>
         <div>
           <h3>{envelope.name}</h3>
-          <span>{purposeLabel(envelope.purpose)}{envelope.role === "PARTICIPANT" ? " · Participante" : ""}</span>
+          <span>
+            {purposeLabel(envelope.purpose)}
+            {envelope.role === "PARTICIPANT" ? " · Participante" : ""}
+            {envelope.wealthAllocation ? " · Alocação de patrimônio" : ""}
+          </span>
           <span>{purposeRule(envelope.purpose)}</span>
         </div>
         <div className={styles.envelopeValue}>
@@ -107,7 +161,7 @@ export function EnvelopeCard({
       </div>
       <ProgressBar
         label={`Progresso de ${envelope.name}`}
-        value={pct}
+        value={progressValue}
         purpose={envelope.purpose}
         negative={envelope.isNegative}
         valueText={envelope.isNegative ? status : undefined}
@@ -125,48 +179,28 @@ export function EnvelopeCard({
         )}
         {onRegisterExpense && (
           <Button
-            variant="text"
             onClick={() => onRegisterExpense(envelope)}
             aria-label={`${registerActionLabel} em ${envelope.name}`}
           >
             {registerActionLabel}
           </Button>
         )}
-        {onManageParticipants && envelope.role === "OWNER" && (
-          <Button
-            variant="text"
-            onClick={() => onManageParticipants(envelope)}
-            aria-label={`Participantes de ${envelope.name}`}
-          >
-            Participantes
-          </Button>
-        )}
-        {onArchive && envelope.role === "OWNER" && (
-          <Button
-            variant="text"
-            onClick={() => onArchive(envelope)}
-            aria-label={`Arquivar ${envelope.name}`}
-          >
-            Arquivar
-          </Button>
-        )}
-        {onEditTarget && envelope.purpose === "SAVINGS_TARGET" && envelope.role === "OWNER" && (
-          <Button
-            variant="text"
-            onClick={() => onEditTarget(envelope)}
-            aria-label={`Editar alvo de ${envelope.name}`}
-          >
-            Editar alvo
-          </Button>
-        )}
-        {onEditAnnual && envelope.purpose === "ANNUAL_EXPENSE" && envelope.role === "OWNER" && (
-          <Button
-            variant="text"
-            onClick={() => onEditAnnual(envelope)}
-            aria-label={`Editar gasto anual ${envelope.name}`}
-          >
-            Editar
-          </Button>
+        {secondaryActions.length > 0 && (
+          <details className={styles.more}>
+            <summary>Mais</summary>
+            <div className={styles.moreActions}>
+              {secondaryActions.map((action) => (
+                <Button
+                  key={action.key}
+                  variant="text"
+                  onClick={action.onClick}
+                  aria-label={action.ariaLabel}
+                >
+                  {action.label}
+                </Button>
+              ))}
+            </div>
+          </details>
         )}
       </div>
     </li>

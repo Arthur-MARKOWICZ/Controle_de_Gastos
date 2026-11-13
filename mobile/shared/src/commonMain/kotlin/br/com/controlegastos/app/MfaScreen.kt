@@ -1,5 +1,7 @@
 package br.com.controlegastos.app
 
+import androidx.compose.ui.backhandler.BackHandler
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -28,18 +30,28 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 
+/**
+ * Segundo fator do login.
+ *
+ * [onCancel] devolve a pessoa à tela de entrar: sem ele, quem está sem o
+ * autenticador em mãos fica preso nesta tela. O desafio no servidor expira
+ * sozinho, então cancelar aqui não precisa de chamada.
+ */
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun MfaLoginScreen(
     onVerify: (code: String, onResult: (String?) -> Unit) -> Unit,
     onUseRecoveryCode: (code: String, onResult: (String?) -> Unit) -> Unit,
+    onCancel: () -> Unit = {},
 ) {
     var recoveryMode by remember { mutableStateOf(false) }
     var code by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+
+    BackHandler(enabled = !busy) { onCancel() }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
@@ -87,6 +99,11 @@ fun MfaLoginScreen(
                         },
                         modifier = Modifier.fillMaxWidth().padding(top = 20.dp).height(52.dp),
                     ) { Text(if (busy) "Verificando…" else "Confirmar") }
+                    TextButton(
+                        onClick = onCancel,
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth().height(TouchTarget),
+                    ) { Text("Usar outra conta") }
                 }
             }
         }
@@ -152,14 +169,10 @@ fun MfaAccountPanel(
                         }
 
                         else -> Column {
-                            OutlinedTextField(
+                            PasswordField(
                                 value = password,
                                 onValueChange = { password = it },
-                                label = { Text("Senha atual") },
-                                visualTransformation = PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
+                                label = "Senha atual",
                             )
                             message?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp)) }
                             Button(
@@ -312,14 +325,10 @@ fun MfaSettingsScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(bottom = 12.dp),
                             )
-                            OutlinedTextField(
+                            PasswordField(
                                 value = password,
                                 onValueChange = { password = it },
-                                label = { Text("Senha atual") },
-                                visualTransformation = PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth(),
+                                label = "Senha atual",
                             )
                             message?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp)) }
                             Button(

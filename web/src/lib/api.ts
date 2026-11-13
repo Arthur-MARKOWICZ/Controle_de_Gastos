@@ -18,6 +18,7 @@ export type EnvelopeDTO = {
   available: MoneyDTO;
   isNegative: boolean;
   role: "OWNER" | "PARTICIPANT";
+  wealthAllocation: boolean;
   createdAt: string;
   archivedAt: string | null;
   version: number;
@@ -32,6 +33,7 @@ export type CreateEnvelopeRequest = {
   dueMonth?: number;
   dueDay?: number;
   fundingMode?: "MONTHLY" | "ONE_TIME";
+  wealthAllocation?: boolean;
 };
 
 export type UpdateEnvelopeRequest = {
@@ -44,6 +46,7 @@ export type UpdateEnvelopeRequest = {
   dueMonth?: number;
   dueDay?: number;
   fundingMode?: "MONTHLY" | "ONE_TIME";
+  wealthAllocation?: boolean;
 };
 
 export type LedgerEntryDTO = {
@@ -101,6 +104,7 @@ export type LedgerEntryRevisionPageDTO = {
 export type HistorySummaryDTO = {
   income: MoneyDTO;
   expenses: MoneyDTO;
+  applied: MoneyDTO;
   netBalance: MoneyDTO;
   accumulatedBalance: MoneyDTO;
   monthlyTotals: { month: string; amount: MoneyDTO }[];

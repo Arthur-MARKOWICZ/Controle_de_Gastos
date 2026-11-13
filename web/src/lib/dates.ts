@@ -32,3 +32,10 @@ export function addDays(dateStr: string, days: number): string {
   d.setDate(d.getDate() + days);
   return d.toLocaleDateString("en-CA");
 }
+
+/** Data ISO (`YYYY-MM-DD`) em formato visível pt-BR. Inputs `type="date"` seguem ISO. */
+export function formatDateLabel(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  if (!year || !month || !day) return isoDate;
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("pt-BR", { timeZone: "UTC" });
+}

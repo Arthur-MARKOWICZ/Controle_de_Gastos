@@ -106,7 +106,8 @@
 
 .distribution {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  /* auto-fit: com dois grupos não sobra uma terceira coluna vazia */
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   margin-bottom: 1.25rem;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -178,7 +179,8 @@
 
 .purposeGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* auto-fit: com dois grupos não sobra uma terceira coluna vazia */
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
   gap: 1rem;
   align-items: start;
 }

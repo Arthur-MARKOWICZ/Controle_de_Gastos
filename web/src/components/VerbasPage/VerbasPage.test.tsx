@@ -48,19 +48,19 @@ const ledgerHook = vi.hoisted(() => ({
 
 function listEnvelopes() {
   return [
-    { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "400.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "1500.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "2000.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "300.00", currency: "BRL" }, isNegative: true, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "400.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "1500.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "2000.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "300.00", currency: "BRL" }, isNegative: true, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
   ];
 }
 
 function summaryEnvelopes() {
   return [
-    { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "0.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "1200.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-    { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "-50.00", currency: "BRL" }, isNegative: true, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "2", name: "Aluguel", purpose: "FIXED", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "0.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "3", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "2000.00", currency: "BRL" }, available: { amount: "1200.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+    { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "-50.00", currency: "BRL" }, isNegative: true, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
   ];
 }
 
@@ -140,7 +140,19 @@ describe("VerbasPage", () => {
   it("expõe barra de progresso acessível para cada verba", () => {
     render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
     expect(screen.getAllByRole("progressbar")).toHaveLength(3);
-    expect(screen.getByRole("progressbar", { name: "Progresso de Combustível" }).getAttribute("value")).toBe("60");
+    // LIMIT enche conforme o mês é gasto: 60% disponível = 40% usado
+    expect(screen.getByRole("progressbar", { name: "Progresso de Combustível" }).getAttribute("value")).toBe("40");
+  });
+
+  it("usa o verbo Encerrar no card e na confirmação, e diz que o histórico fica", () => {
+    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Encerrar Combustível" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Encerrar Combustível?" });
+    expect(within(dialog).getByRole("button", { name: "Encerrar" })).toBeDefined();
+    expect(within(dialog).getByText(/continuam no histórico/)).toBeDefined();
+    expect(screen.queryByRole("button", { name: /Arquivar/ })).toBeNull();
   });
 
   it("mostra alerta para verbas negativas e faixa não alocado", () => {

@@ -13,7 +13,8 @@ sealed interface Route {
     }
 
     data object Overview : TopLevel {
-        override val label = "Visão geral"
+        /** Rótulo da barra inferior: "Visão geral" não cabe em 360 dp sem cortar. */
+        override val label = "Início"
     }
 
     data object Envelopes : TopLevel {
@@ -42,6 +43,8 @@ sealed interface Route {
 /** Título exibido na TopAppBar para a rota atual, inclusive telas empilhadas. */
 val Route.title: String
     get() = when (this) {
+        // O título da tela pode ser mais longo que o rótulo da barra.
+        Route.Overview -> "Visão geral"
         is Route.TopLevel -> label
         Route.AnnualExpenses -> "Gastos anuais"
         Route.Reports -> "Relatórios"

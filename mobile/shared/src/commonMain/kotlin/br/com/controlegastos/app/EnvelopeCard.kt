@@ -1,19 +1,35 @@
 package br.com.controlegastos.app
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
@@ -42,6 +58,8 @@ internal fun purposeColor(purpose: String): Color = purposeTone(purpose)
 /**
  * Card de verba com as ações que a pessoa pode executar sobre ela.
  *
+ * Uma ação primária fica visível e as demais vão para "Mais": cinco botões
+ * numa linha não cabem em 360 dp e deixariam Encerrar encostado em Registrar.
  * Participantes só registram lançamentos: abastecer, editar e encerrar são do
  * dono, e o backend recusa o resto com 403.
  */
@@ -85,30 +103,68 @@ internal fun EnvelopeCard(
                 trackColor = MaterialTheme.colorScheme.surfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
-            Text(
-                statusLine(envelope),
-                color = if (envelope.isNegative) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
+            EnvelopeStatus(envelope)
+            EnvelopeCardActionBar(
+                envelope = envelope,
+                onRegister = onRegister,
+                onEdit = onEdit,
+                onArchive = onArchive,
+                onOpenEntries = onOpenEntries,
+                onParticipants = onParticipants,
             )
-            if (onRegister != null || onEdit != null || onArchive != null || onOpenEntries != null || onParticipants != null) {
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    onRegister?.let {
-                        TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) {
-                            Text(if (isGoal(envelope) && envelope.isOwner) "Aportar" else "Registrar")
-                        }
-                    }
-                    onOpenEntries?.let {
-                        TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) { Text("Lançamentos") }
-                    }
-                    onParticipants?.let {
-                        TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) { Text("Participantes") }
-                    }
-                    onEdit?.let {
-                        TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) { Text("Editar") }
-                    }
-                    onArchive?.let {
-                        TextButton(onClick = it, modifier = Modifier.height(TouchTarget)) { Text("Encerrar") }
+        }
+    }
+}
+
+@Composable
+private fun EnvelopeCardActionBar(
+    envelope: EnvelopeView,
+    onRegister: (() -> Unit)?,
+    onEdit: (() -> Unit)?,
+    onArchive: (() -> Unit)?,
+    onOpenEntries: (() -> Unit)?,
+    onParticipants: (() -> Unit)?,
+) {
+    val actions = envelopeCardActions(envelope)
+    val handlers = mapOf(
+        EnvelopeAction.ENTRIES to onOpenEntries,
+        EnvelopeAction.PARTICIPANTS to onParticipants,
+        EnvelopeAction.EDIT to onEdit,
+        EnvelopeAction.ARCHIVE to onArchive,
+    )
+    val menu = actions.menu.mapNotNull { action -> handlers[action]?.let { action to it } }
+    if (onRegister == null && menu.isEmpty()) return
+
+    Row(
+        Modifier.fillMaxWidth().padding(top = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        onRegister?.let {
+            FilledTonalButton(onClick = it, modifier = Modifier.heightIn(min = TouchTarget)) {
+                Text(actions.primaryLabel)
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        if (menu.isNotEmpty()) {
+            var expanded by remember { mutableStateOf(false) }
+            Box {
+                IconButton(
+                    onClick = { expanded = true },
+                    modifier = Modifier.size(TouchTarget),
+                ) {
+                    Icon(Icons.Outlined.MoreVert, contentDescription = "Mais ações em ${envelope.name}")
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    menu.forEach { (action, handler) ->
+                        DropdownMenuItem(
+                            text = { Text(action.label) },
+                            onClick = {
+                                expanded = false
+                                handler()
+                            },
+                            modifier = Modifier.heightIn(min = TouchTarget),
+                        )
                     }
                 }
             }
@@ -116,32 +172,45 @@ internal fun EnvelopeCard(
     }
 }
 
-private fun isGoal(envelope: EnvelopeView): Boolean =
-    envelope.purpose == EnvelopePurpose.GOAL.api || envelope.purpose == EnvelopePurpose.SAVINGS_TARGET.api
-
-private fun headlineAmount(envelope: EnvelopeView): String {
-    val goal = envelope.goalProgress
-    if (goal != null && envelope.purpose == EnvelopePurpose.GOAL.api) {
-        return "Faltam ${goal.remainingAmount.toBrl()}"
+/**
+ * Estado da verba em texto, com ícone só de reforço.
+ *
+ * O texto é quem comunica: o ícone tem `contentDescription` nulo para o
+ * leitor de tela não repetir o que a frase já diz.
+ */
+@Composable
+private fun EnvelopeStatus(envelope: EnvelopeView) {
+    val negative = envelope.isNegative
+    val reached = !negative && envelope.targetReachedAt != null
+    val color = when {
+        negative -> MaterialTheme.colorScheme.error
+        reached -> MaterialTheme.colorScheme.tertiary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
-    return envelope.available.toBrl()
-}
-
-private fun statusLine(envelope: EnvelopeView): String {
-    val goal = envelope.goalProgress
-    return when {
-        envelope.isNegative -> "⚠ Saldo negativo. O gasto foi registrado mesmo assim."
-        envelope.targetReachedAt != null -> "✓ Meta alcançada"
-        goal != null && envelope.purpose == EnvelopePurpose.GOAL.api ->
-            "Meta ${goal.plannedAmount.toBrl()} · ${goal.percent}% concluído"
-        envelope.targetAmount != null -> "Alvo ${envelope.targetAmount.toBrl()}"
-        envelope.annualExpense != null -> annualLine(envelope.annualExpense)
-        else -> "Saldo disponível"
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        when {
+            negative -> Icon(
+                Icons.Outlined.WarningAmber,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(16.dp),
+            )
+            reached -> Icon(
+                Icons.Outlined.CheckCircle,
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        Text(
+            statusLine(envelope),
+            color = color,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(1f),
+        )
     }
-}
-
-private fun annualLine(annual: AnnualExpenseView): String {
-    val day = annual.dueDay.toString().padStart(2, '0')
-    val month = annual.dueMonth.toString().padStart(2, '0')
-    return "${annual.annualAmount.toBrl()} por ano · vence em $day/$month · ${annual.fundingMode.label.lowercase()}"
 }

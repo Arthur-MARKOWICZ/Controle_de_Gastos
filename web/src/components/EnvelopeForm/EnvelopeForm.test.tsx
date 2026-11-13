@@ -80,4 +80,56 @@ describe("EnvelopeForm", () => {
     expect(alert.textContent).toMatch(/10,00/);
     expect(onSuccess).not.toHaveBeenCalled();
   });
+
+  it("liga o nome vazio ao campo de nome e foca nele", () => {
+    const onSuccess = vi.fn();
+    render(<EnvelopeForm onSuccess={onSuccess} onCancel={vi.fn()} />);
+
+    // só espaços passa pelo `required` nativo e chega à nossa validação
+    fireEvent.change(screen.getByLabelText("Nome da verba"), { target: { value: "   " } });
+    fireEvent.change(screen.getByLabelText("Valor-base (BRL)"), { target: { value: "40000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar verba" }));
+
+    const name = screen.getByLabelText("Nome da verba");
+    expect(name.getAttribute("aria-invalid")).toBe("true");
+    expect(name.getAttribute("aria-describedby")).toBeTruthy();
+    expect(document.activeElement).toBe(name);
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("liga allocation.exceeds_income ao campo de valor, não só ao topo", async () => {
+    request.mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        type: "about:blank", title: "Alocação excede a renda", status: 400,
+        detail: "A soma das verbas-base excede a renda mensal",
+        code: "allocation.exceeds_income", excess: "10.00", currency: "BRL",
+      }),
+    });
+    render(<EnvelopeForm onSuccess={vi.fn()} onCancel={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Nome da verba"), { target: { value: "Lazer" } });
+    fireEvent.change(screen.getByLabelText("Valor-base (BRL)"), { target: { value: "1000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar verba" }));
+
+    const alert = await screen.findByRole("alert");
+    const amount = screen.getByLabelText("Valor-base (BRL)");
+    expect(amount.getAttribute("aria-invalid")).toBe("true");
+    expect(amount.getAttribute("aria-describedby")?.split(" ")).toContain(alert.id);
+    expect(alert.textContent).toMatch(/10,00/);
+  });
+
+  it("deixa o Notice do topo para erro inesperado", async () => {
+    request.mockRejectedValue(new Error("boom"));
+    render(<EnvelopeForm onSuccess={vi.fn()} onCancel={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Nome da verba"), { target: { value: "Lazer" } });
+    fireEvent.change(screen.getByLabelText("Valor-base (BRL)"), { target: { value: "1000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar verba" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/inesperado/i);
+    expect(screen.getByLabelText("Valor-base (BRL)").getAttribute("aria-invalid")).toBeNull();
+  });
 });

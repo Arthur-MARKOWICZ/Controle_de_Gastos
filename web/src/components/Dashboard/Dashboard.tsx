@@ -8,8 +8,7 @@ import { useEnvelopes } from "../../hooks/useEnvelopes";
 import { useLedgerSummary } from "../../hooks/useLedgerSummary";
 import { useIncome, useIncomeHistory } from "../../hooks/useIncome";
 import { currentMonthSaoPaulo, formatMonthLabel, parseMonthParam } from "../../lib/dates";
-import { BalanceSummary } from "../BalanceSummary/BalanceSummary";
-import { IncomeCard } from "../IncomeCard/IncomeCard";
+import { MonthSummary } from "../MonthSummary/MonthSummary";
 import { IncomeForm } from "../IncomeForm/IncomeForm";
 import { IncomeHistory } from "../IncomeHistory/IncomeHistory";
 import { EnvelopeCard, isContributionPurpose } from "../EnvelopeCard/EnvelopeCard";
@@ -26,6 +25,7 @@ import { createApiClient } from "../../lib/api";
 import { useAuth } from "../../auth/auth-context";
 import { AppShell } from "../AppShell/AppShell";
 import { ParticipantsPanel } from "../ParticipantsPanel/ParticipantsPanel";
+import { PersistentAlerts } from "../PersistentAlerts/PersistentAlerts";
 
 const ARCHIVE_MESSAGE =
   "A verba deixa de aparecer nos próximos meses. Os lançamentos já registrados continuam no histórico.";
@@ -75,6 +75,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
   const [showGlossary, setShowGlossary] = useState(false);
   const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [alertsRefreshKey, setAlertsRefreshKey] = useState(0);
   const api = useMemo(() => createApiClient(client), [client]);
 
   const loading = envelopesLoading || summaryLoading || incomeLoading;
@@ -123,6 +124,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
     const name = expenseTarget?.name ?? "verba";
     setExpenseTarget(null);
     setFeedback(`${expenseKind === "CONTRIBUTION" ? "Aporte" : "Gasto"} registrado em "${name}"${overdraftNotice(result)}`);
+    setAlertsRefreshKey((key) => key + 1);
     void refreshEnvelopes();
     void refreshSummary();
   }
@@ -143,14 +145,15 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
         <PageHeader
           eyebrow={monthLabel}
           title="Visão geral"
-          description="Veja o que já está reservado antes de decidir o próximo gasto."
-          actions={
+          description={
             <>
-              <Button onClick={() => { clearFeedback(); setShowNewEnvelope(true); }}>Nova verba</Button>
-              <Button variant="secondary" onClick={() => { clearFeedback(); setShowIncomeForm(true); }} aria-label="Configurar renda">Configurar renda</Button>
-              <Button variant="secondary" onClick={() => { clearFeedback(); setShowGlossary(true); }}>Glossário de verbas</Button>
+              Veja o que já está reservado antes de decidir o próximo gasto.{" "}
+              <Button variant="text" onClick={() => { clearFeedback(); setShowGlossary(true); }}>
+                Ver glossário de verbas
+              </Button>
             </>
           }
+          actions={<Button onClick={() => { clearFeedback(); setShowNewEnvelope(true); }}>Nova verba</Button>}
         >
           <div className={styles.monthControl}>
             <label htmlFor="month-picker">Mês</label>
@@ -175,18 +178,26 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
 
         {!loading && (
           <div aria-busy={busy || undefined}>
-            <IncomeCard income={income} month={month} loading={incomeLoading} error={incomeError} onEdit={() => { clearFeedback(); setShowIncomeForm(true); }} />
+            <PersistentAlerts client={api} refreshKey={alertsRefreshKey} />
+            <MonthSummary
+              summary={summary}
+              income={income}
+              month={month}
+              monthLabel={monthLabel}
+              loading={incomeLoading}
+              error={incomeError}
+              onConfigureIncome={() => { clearFeedback(); setShowIncomeForm(true); }}
+            />
             {notConfigured && !incomeLoading && (
               <Notice tone="info">
-                Nenhuma renda configurada para {monthLabel}. Clique em <strong>Configurar renda</strong> para definir a renda deste mês.
+                Nenhuma renda configurada para {monthLabel}. Use <strong>Configurar renda</strong> no resumo para definir a renda deste mês.
               </Notice>
             )}
-            <BalanceSummary summary={summary} monthLabel={monthLabel} />
           </div>
         )}
 
         <div className={styles.contentGrid} aria-busy={busy || undefined}>
-          <section id="verbas" className={styles.panel} aria-labelledby="verbas-titulo">
+          <section id="verbas" className={styles.panel} aria-label="Suas verbas" aria-labelledby="verbas-titulo">
             <div className={styles.panelHeader}><div><h2 id="verbas-titulo">Suas verbas</h2><p>Valores disponíveis neste mês</p></div><Link href="/verbas">Ver todas →</Link></div>
             {loading ? (
               <div role="status" aria-busy="true" className={styles.loadingState}>
@@ -225,7 +236,6 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
               onRetry={() => void refreshHistory()}
             />
             <div className={styles.panelFooter}>
-              <Button variant="secondary" onClick={() => { clearFeedback(); setShowNewEnvelope(true); }}>Nova verba</Button>
               <p>
                 {summary?.income ? "Registre gastos nas verbas ao lado. Saldo negativo gera alerta, não bloqueio." : "Configure sua renda para habilitar o cálculo de não alocado."}
               </p>

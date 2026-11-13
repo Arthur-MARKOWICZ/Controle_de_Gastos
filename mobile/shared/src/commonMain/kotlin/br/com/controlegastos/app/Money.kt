@@ -14,6 +14,14 @@ private const val REAL = "R$"
 value class Money(val cents: Long) {
     val isNegative: Boolean get() = cents < 0
 
+    /**
+     * Diferença entre dois valores, em centavos inteiros.
+     *
+     * Serve para apresentação no cliente; o saldo que vale continua sendo o
+     * que a API devolve depois do lançamento.
+     */
+    operator fun minus(other: Money): Money = Money(cents - other.cents)
+
     /** Formato aceito pela API: `^-?\d+\.\d{2}$`. */
     fun toApiAmount(): String = render(unitSeparator = "", decimalSeparator = ".", prefix = "")
 
@@ -59,3 +67,12 @@ object AmountInput {
 
     fun display(sanitized: String): String = toMoney(sanitized).toBrl()
 }
+
+/**
+ * Saldo previsto da verba se o gasto informado for registrado.
+ *
+ * A prévia nunca trava o registro: estourar o limite é permitido e vira
+ * alerta, então o valor negativo é exibido como está. Aporte não usa esta
+ * conta, porque não consome saldo.
+ */
+internal fun balanceAfterExpense(available: Money, expense: Money): Money = available - expense

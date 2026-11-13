@@ -1,8 +1,11 @@
-.PHONY: test check hooks pre-commit backend-test backend-unit-test web-test web-check mcp-test mcp-check deploy-check mobile-check mobile-unit-test infra-up infra-down
+.PHONY: test check hooks pre-commit backend-test backend-unit-test web-test web-check mcp-test mcp-check deploy-check mobile-check mobile-unit-test desktop-test desktop-check desktop-skip infra-up infra-down
 
 test: backend-test web-test mcp-test
 
-check: backend-test web-check mcp-check deploy-check
+# O desktop entra no check só quando há toolchain Rust (ADR-0029).
+HAS_CARGO := $(shell command -v cargo 2>/dev/null)
+
+check: backend-test web-check mcp-check deploy-check $(if $(HAS_CARGO),desktop-check,desktop-skip)
 
 backend-test:
 	cd backend && ./gradlew test
@@ -25,6 +28,19 @@ mcp-test:
 mcp-check:
 	cd mcp && pnpm test
 	cd mcp && pnpm build
+
+# `cargo test` roda só no crate de sessão, que não depende do WebKitGTK; o
+# shell em src-tauri/ exige as bibliotecas de GUI e fica fora da verificação.
+desktop-test:
+	cd desktop && pnpm test
+	cd desktop/session && cargo test
+
+# O build de verificação fixa a API local; o .env do desenvolvedor não entra.
+desktop-check: desktop-test
+	cd desktop && API_ENV=local API_BASE_URL_LOCAL=http://localhost:8080 pnpm build
+
+desktop-skip:
+	@echo "desktop: cargo não está no PATH; desktop-check omitido do make check."
 
 deploy-check:
 	sh infra/test-production-config.sh

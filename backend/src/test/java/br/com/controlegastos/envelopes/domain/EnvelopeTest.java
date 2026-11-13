@@ -61,4 +61,24 @@ class EnvelopeTest {
         assertThat(envelope.targetAmount()).isEqualTo(Money.brl("2000.00"));
         assertThat(envelope.targetReachedAt()).isEqualTo(firstCrossing);
     }
+
+    @Test
+    void createsEnvelopeWithoutWealthAllocationByDefault() {
+        Envelope envelope = Envelope.create(
+                UUID.randomUUID(), "Mercado", EnvelopePurpose.LIMIT, Money.brl("400.00"), NOW);
+
+        assertThat(envelope.wealthAllocation()).isFalse();
+    }
+
+    @Test
+    void marksAndUnmarksWealthAllocationOnTheWholeEnvelope() {
+        Envelope envelope = Envelope.create(
+                UUID.randomUUID(), "Investimentos", EnvelopePurpose.LIMIT, Money.brl("500.00"), NOW);
+
+        envelope.markWealthAllocation(true);
+        assertThat(envelope.wealthAllocation()).isTrue();
+
+        envelope.markWealthAllocation(false);
+        assertThat(envelope.wealthAllocation()).isFalse();
+    }
 }

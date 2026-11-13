@@ -5,6 +5,7 @@ import { useAuth } from "../../auth/auth-context";
 import { createApiClient, ApiError, type EnvelopeDTO } from "../../lib/api";
 import { formatBRL, formatBRLInputMask, maskToPlain, subtractBRL } from "../../lib/money";
 import { todaySaoPaulo } from "../../lib/dates";
+import { focusField } from "../../lib/form-errors";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Notice } from "../ui/Notice";
@@ -35,23 +36,37 @@ export function ExpenseForm({ envelope, kind = "EXPENSE", onSuccess, onCancel }:
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<"amount" | "description", string>>>({});
+
+  /** Erro de um campo: mensagem junto do controle, foco nele, sem Notice no topo. */
+  function failField(field: "amount" | "description", id: string, message: string) {
+    setFieldErrors({ [field]: message });
+    focusField(id);
+  }
+
   const balanceAfter = kind === "EXPENSE" ? subtractBRL(envelope.available.amount, maskToPlain(amountMask)) : null;
   const overdrawn = isOverdrawn(balanceAfter);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     const plain = maskToPlain(amountMask);
-    if (!plain || !/^\d{1,17}\.\d{2}$/.test(plain)) { setError("Valor deve ter duas casas decimais"); return; }
-    if (plain === "0.00") { setError("Valor deve ser positivo"); return; }
-    if (description.length > 140) { setError("Descrição até 140 caracteres"); return; }
+    if (!plain || !/^\d{1,17}\.\d{2}$/.test(plain)) { failField("amount", "expense-amount", "Valor deve ter duas casas decimais"); return; }
+    if (plain === "0.00") { failField("amount", "expense-amount", "Valor deve ser positivo"); return; }
+    if (description.length > 140) { failField("description", "expense-desc", "Descrição até 140 caracteres"); return; }
     setBusy(true);
     try {
       const entry = await api.createEntry(envelope.id, { kind, amount: { amount: plain, currency: "BRL" }, occurredAt, description: description.trim() || null });
       onSuccess({ targetJustReached: entry.targetJustReached ?? false, balanceAfter });
     } catch (err) {
-      if (err instanceof ApiError) setError(err.detail || `Não foi possível registrar o ${kind === "EXPENSE" ? "gasto" : "aporte"}`);
-      else setError("Erro inesperado");
+      if (err instanceof ApiError && err.status === 400) {
+        failField("amount", "expense-amount", err.detail || "Valor inválido para este lançamento");
+      } else if (err instanceof ApiError) {
+        setError(err.detail || `Não foi possível registrar o ${kind === "EXPENSE" ? "gasto" : "aporte"}`);
+      } else {
+        setError("Erro inesperado. Revise os dados e tente registrar de novo.");
+      }
     } finally { setBusy(false); }
   }
 
@@ -59,7 +74,7 @@ export function ExpenseForm({ envelope, kind = "EXPENSE", onSuccess, onCancel }:
     <form onSubmit={submit} className={styles.form}>
       {error && <Notice tone="danger">{error}</Notice>}
       <p className={styles.context}>Verba: <strong>{envelope.name}</strong></p>
-      <Field id="expense-amount" label="Valor (BRL)" hint="Use vírgula para centavos (ex.: 120,00).">
+      <Field id="expense-amount" label="Valor (BRL)" hint="Use vírgula para centavos (ex.: 120,00)." error={fieldErrors.amount}>
         <input
           inputMode="decimal"
           value={amountMask}
@@ -77,7 +92,7 @@ export function ExpenseForm({ envelope, kind = "EXPENSE", onSuccess, onCancel }:
       <Field id="expense-date" label="Data">
         <input type="date" value={occurredAt} onChange={e => setOccurredAt(e.target.value)} required max={todaySaoPaulo()} />
       </Field>
-      <Field id="expense-desc" label="Descrição (opcional)">
+      <Field id="expense-desc" label="Descrição (opcional)" error={fieldErrors.description}>
         <input
           value={description}
           onChange={e => setDescription(e.target.value)}

@@ -54,6 +54,20 @@ class NavigationTest {
     }
 
     @Test
+    fun `labels the bottom bar with words that fit a narrow phone`() {
+        assertEquals(
+            listOf("Início", "Verbas", "Metas", "Gastos", "Mais"),
+            TOP_LEVEL_ROUTES.map { it.label },
+        )
+    }
+
+    @Test
+    fun `keeps the screen title apart from the bottom bar label`() {
+        assertEquals("Início", Route.Overview.label)
+        assertEquals("Visão geral", Route.Overview.title)
+    }
+
+    @Test
     fun `titles match the current screen including stacked routes`() {
         assertEquals("Visão geral", Route.Overview.title)
         assertEquals("Verbas", Route.Envelopes.title)

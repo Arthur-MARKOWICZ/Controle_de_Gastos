@@ -31,3 +31,5 @@ plans/
 .vscode/
 *.swp
 reports/
+# Kotlin compiler caches
+.kotlin/

@@ -7,7 +7,7 @@ import { AppShell } from "../AppShell/AppShell";
 import { MfaSettings } from "../MfaSettings/MfaSettings";
 import { Notice } from "../ui/Notice";
 import { Button } from "../ui/Button";
-import pageStyles from "../VerbasPage/Verbas.module.css";
+import { PageHeader } from "../ui/PageHeader";
 import styles from "./SecuritySettings.module.css";
 
 export type MfaLogoutNotice = "mfa-enabled" | "mfa-disabled";
@@ -56,13 +56,11 @@ export function SecuritySettings({ client, email, connectionNotice, onLoggedOut,
 
   return (
     <AppShell current="settings" email={email} onLogout={onLogout}>
-      <header className={pageStyles.pageHeader}>
-        <div>
-          <p className={pageStyles.eyebrow}>Configurações</p>
-          <h1>Segurança</h1>
-          <p>Contas conectadas, senha e autenticação em duas etapas.</p>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Configurações"
+        title="Segurança"
+        description="Contas conectadas, senha e autenticação em duas etapas."
+      />
       <Link className={styles.back} href="/configuracoes">
         ← Voltar para configurações
       </Link>
@@ -165,7 +163,7 @@ function LinkedAccountsPanel({
 
   return (
     <section className={styles.card} aria-labelledby="linked-accounts-title">
-      <h1 id="linked-accounts-title">Contas conectadas</h1>
+      <h2 id="linked-accounts-title">Contas conectadas</h2>
       {message && (
         <p className={styles.notice} role="status">
           {message}
@@ -253,7 +251,7 @@ function MfaEnabledPanel({ client, onLoggedOut }: { client: AuthClient; onLogged
 
   return (
     <section className={styles.card} aria-labelledby="mfa-enabled-title">
-      <h1 id="mfa-enabled-title">Autenticação em duas etapas</h1>
+      <h2 id="mfa-enabled-title">Autenticação em duas etapas</h2>
       <p className={styles.supporting}>A autenticação em duas etapas está ativa na sua conta.</p>
 
       {recoveryCodes && (

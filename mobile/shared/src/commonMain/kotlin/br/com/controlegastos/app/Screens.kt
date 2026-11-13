@@ -33,15 +33,26 @@ private val GOAL_PURPOSES = arrayOf(EnvelopePurpose.GOAL, EnvelopePurpose.SAVING
 
 /** Diálogo aberto sobre uma tela de mês. */
 private sealed interface MonthDialog {
-    data class Register(val envelope: EnvelopeView) : MonthDialog
+    /** Folha de lançamento: uma verba fixa pelo card, ou a escolha entre as do mês. */
+    data class Entry(
+        val envelopes: List<EnvelopeView>,
+        val initialEnvelopeId: String?,
+        val kind: LedgerKind,
+    ) : MonthDialog
     data class Edit(val envelope: EnvelopeView) : MonthDialog
     data class Archive(val envelope: EnvelopeView) : MonthDialog
     data class Participants(val envelope: EnvelopeView) : MonthDialog
     data class Create(val purpose: EnvelopePurpose, val allowed: List<EnvelopePurpose>) : MonthDialog
     data object Income : MonthDialog
     data object Glossary : MonthDialog
-    data object ChooseExpenseEnvelope : MonthDialog
 }
+
+/** Lançamento aberto pelo card: a verba já está escolhida e o tipo vem da ação primária. */
+private fun entrySheetFor(envelope: EnvelopeView): MonthDialog.Entry = MonthDialog.Entry(
+    envelopes = listOf(envelope),
+    initialEnvelopeId = envelope.id,
+    kind = envelopeCardActions(envelope).primaryKind,
+)
 
 /**
  * Telas que operam sobre o mês corrente do [controller].
@@ -58,6 +69,7 @@ internal fun MonthWorkspaceScreen(
     onOpenEntries: (EnvelopeView) -> Unit,
     onNotify: (String) -> Unit,
     onSessionExpired: () -> Unit = {},
+    onMonthChanged: (YearMonth) -> Unit = {},
     quickExpenseRequested: Boolean = false,
     onQuickExpenseHandled: () -> Unit = {},
 ) {
@@ -68,7 +80,11 @@ internal fun MonthWorkspaceScreen(
 
     androidx.compose.runtime.LaunchedEffect(quickExpenseRequested) {
         if (quickExpenseRequested) {
-            dialog = MonthDialog.ChooseExpenseEnvelope
+            dialog = MonthDialog.Entry(
+                envelopes = controller.expenseEnvelopes,
+                initialEnvelopeId = null,
+                kind = LedgerKind.EXPENSE,
+            )
             onQuickExpenseHandled()
         }
     }
@@ -84,6 +100,15 @@ internal fun MonthWorkspaceScreen(
     // troca faria quatro chamadas para os mesmos dados e piscaria a tela.
     androidx.compose.runtime.LaunchedEffect(controller) {
         if (controller.dashboard == null) reload()
+    }
+
+    /** Dispensa o alerta persistente; a lista é a mesma em Visão geral e em Verbas. */
+    fun dismissAlert(id: String) {
+        scope.launch {
+            runCatching { controller.dismissAlert(id) }
+                .onSuccess { alerts = controller.activeAlerts }
+                .onFailure { onNotify(describeFailure(it, "Não foi possível dispensar o alerta.")) }
+        }
     }
 
     /** Executa a escrita, devolve a mensagem de erro à tela e sincroniza o estado. */
@@ -106,8 +131,20 @@ internal fun MonthWorkspaceScreen(
         controller = controller,
         state = state,
         onRefresh = { reload() },
-        onPreviousMonth = { scope.launch { controller.showPreviousMonth(); state = controller.state } },
-        onNextMonth = { scope.launch { controller.showNextMonth(); state = controller.state } },
+        onPreviousMonth = {
+            scope.launch {
+                controller.showPreviousMonth()
+                state = controller.state
+                onMonthChanged(controller.month)
+            }
+        },
+        onNextMonth = {
+            scope.launch {
+                controller.showNextMonth()
+                state = controller.state
+                onMonthChanged(controller.month)
+            }
+        },
     ) { dashboard ->
         when (route) {
             Route.Envelopes -> {
@@ -119,20 +156,12 @@ internal fun MonthWorkspaceScreen(
                     )
                 }
                 item { NegativeBalanceAlert(dashboard.envelopes) }
-                item {
-                    PersistentNegativeAlerts(alerts) { id ->
-                        scope.launch {
-                            runCatching { controller.dismissAlert(id) }
-                                .onSuccess { alerts = controller.activeAlerts }
-                                .onFailure { onNotify(describeFailure(it, "Não foi possível dispensar o alerta.")) }
-                        }
-                    }
-                }
+                item { PersistentNegativeAlerts(alerts, ::dismissAlert) }
                 envelopeSection(
                     title = "Limites de gasto",
                     envelopes = dashboard.envelopes.filter { it.purpose == EnvelopePurpose.LIMIT.api },
                     emptyMessage = "Nenhum limite de gasto neste mês.",
-                    onRegister = { dialog = MonthDialog.Register(it) },
+                    onRegister = { dialog = entrySheetFor(it) },
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
@@ -142,7 +171,7 @@ internal fun MonthWorkspaceScreen(
                     title = "Compromissos fixos",
                     envelopes = dashboard.envelopes.filter { it.purpose == EnvelopePurpose.FIXED.api },
                     emptyMessage = "Nenhum compromisso fixo neste mês.",
-                    onRegister = { dialog = MonthDialog.Register(it) },
+                    onRegister = { dialog = entrySheetFor(it) },
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
@@ -161,7 +190,7 @@ internal fun MonthWorkspaceScreen(
                     title = "Metas de aporte",
                     envelopes = dashboard.envelopes.filter { it.purpose == EnvelopePurpose.GOAL.api },
                     emptyMessage = "Nenhuma meta de aporte neste mês.",
-                    onRegister = { dialog = MonthDialog.Register(it) },
+                    onRegister = { dialog = entrySheetFor(it) },
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
@@ -171,7 +200,7 @@ internal fun MonthWorkspaceScreen(
                     title = "Metas de acumulação",
                     envelopes = dashboard.envelopes.filter { it.purpose == EnvelopePurpose.SAVINGS_TARGET.api },
                     emptyMessage = "Nenhuma meta de acumulação neste mês.",
-                    onRegister = { dialog = MonthDialog.Register(it) },
+                    onRegister = { dialog = entrySheetFor(it) },
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
@@ -196,7 +225,7 @@ internal fun MonthWorkspaceScreen(
                     title = "Provisões do ano",
                     envelopes = dashboard.envelopes.filter { it.purpose == EnvelopePurpose.ANNUAL_EXPENSE.api },
                     emptyMessage = "Nenhum gasto anual cadastrado.",
-                    onRegister = { dialog = MonthDialog.Register(it) },
+                    onRegister = { dialog = entrySheetFor(it) },
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
@@ -222,11 +251,14 @@ internal fun MonthWorkspaceScreen(
                 }
                 item { IncomeSummaryCard(dashboard) { dialog = MonthDialog.Income } }
                 item { NegativeBalanceAlert(dashboard.envelopes) }
+                // O estouro precisa aparecer onde a pessoa começa o dia, não só
+                // na aba Verbas; dispensar aqui dispensa nas duas telas.
+                item { PersistentNegativeAlerts(alerts, ::dismissAlert) }
                 envelopeSection(
                     title = "Suas verbas",
                     envelopes = dashboard.envelopes,
                     emptyMessage = "Nenhuma verba neste mês. Crie a primeira para começar a reservar.",
-                    onRegister = { dialog = MonthDialog.Register(it) },
+                    onRegister = { dialog = entrySheetFor(it) },
                     onEdit = { dialog = MonthDialog.Edit(it) },
                     onArchive = { dialog = MonthDialog.Archive(it) },
                     onOpenEntries = onOpenEntries,
@@ -249,24 +281,15 @@ internal fun MonthWorkspaceScreen(
 
     when (val open = dialog) {
         null -> Unit
-        is MonthDialog.Register -> EntryFormDialog(
-            envelope = open.envelope,
-            kind = if (open.envelope.isOwner
-                && open.envelope.purpose in setOf(EnvelopePurpose.GOAL.api, EnvelopePurpose.SAVINGS_TARGET.api)
-            ) {
-                LedgerKind.CONTRIBUTION
-            } else {
-                LedgerKind.EXPENSE
-            },
+        is MonthDialog.Entry -> EntrySheet(
+            envelopes = open.envelopes,
+            initialEnvelopeId = open.initialEnvelopeId,
+            kind = open.kind,
+            month = controller.month,
             today = today,
-            onSubmit = { entry, result ->
-                submit(result) { controller.registerEntry(open.envelope.id, entry) }
+            onSubmit = { envelopeId, entry, result ->
+                submit(result) { controller.registerEntry(envelopeId, entry) }
             },
-            onDismiss = { dialog = null },
-        )
-        MonthDialog.ChooseExpenseEnvelope -> ExpenseEnvelopePicker(
-            envelopes = controller.expenseEnvelopes,
-            onSelect = { dialog = MonthDialog.Register(it) },
             onDismiss = { dialog = null },
         )
         is MonthDialog.Edit -> EnvelopeEditDialog(
@@ -283,6 +306,7 @@ internal fun MonthWorkspaceScreen(
             message = "A verba deixa de aparecer nos próximos meses. Os lançamentos já registrados continuam no " +
                 "histórico.",
             confirmLabel = "Encerrar",
+            destructive = true,
             onConfirm = {
                 dialog = null
                 submit({ it?.let(onNotify) }) { controller.archiveEnvelope(open.envelope.id); null }
@@ -495,7 +519,7 @@ internal fun EntryRow(entry: LedgerEntryView) {
                 else MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                "${entry.kind.label} · ${entry.occurredAt}",
+                "${entry.kind.label} · ${formatIsoDateBr(entry.occurredAt)}",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )

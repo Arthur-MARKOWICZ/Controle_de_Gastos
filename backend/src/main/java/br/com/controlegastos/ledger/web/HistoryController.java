@@ -137,12 +137,17 @@ public class HistoryController {
         }
     }
 
-    record HistorySummaryResponse(MoneyResponse income, MoneyResponse expenses, MoneyResponse netBalance,
-                                  MoneyResponse accumulatedBalance, List<MonthlyTotalResponse> monthlyTotals,
+    record HistorySummaryResponse(MoneyResponse income, MoneyResponse expenses, MoneyResponse applied,
+                                  MoneyResponse netBalance, MoneyResponse accumulatedBalance,
+                                  List<MonthlyTotalResponse> monthlyTotals,
                                   List<PurposeTotalResponse> purposeTotals) {
         static HistorySummaryResponse from(LedgerService.HistorySummary summary) {
-            return new HistorySummaryResponse(MoneyResponse.from(summary.income()), MoneyResponse.from(summary.expenses()),
-                    MoneyResponse.from(summary.netBalance()), MoneyResponse.from(summary.accumulatedBalance()),
+            return new HistorySummaryResponse(
+                    MoneyResponse.from(summary.income()),
+                    MoneyResponse.from(summary.expenses()),
+                    MoneyResponse.from(summary.applied()),
+                    MoneyResponse.from(summary.netBalance()),
+                    MoneyResponse.from(summary.accumulatedBalance()),
                     summary.monthlyTotals().stream().map(MonthlyTotalResponse::from).toList(),
                     summary.purposeTotals().stream().map(PurposeTotalResponse::from).toList());
         }

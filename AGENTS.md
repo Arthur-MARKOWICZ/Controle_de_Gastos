@@ -27,6 +27,9 @@ Antes de propor arquitetura, escrever código ou alterar dependências, leia int
 
 - Skills do projeto: [`.agents/skills/`](.agents/skills/)
 - Skill de UI/UX: [`.cursor/skills/ui-ux-pro-max`](.cursor/skills/ui-ux-pro-max) (design system / recomendações visuais; CLI: `uipro`)
+- OpenSpec (spec-driven): [`.cursor/skills/openspec-*`](.cursor/skills/) — propor, aplicar, sincronizar e arquivar mudanças; specs vigentes em [`openspec/`](openspec/) (CLI: `openspec`). No Cursor e no Claude Code: `/openspec-propose`.
+
+Mudanças de comportamento começam por um change em `openspec/changes/`. Specs descrevem o que o sistema deve fazer; ADRs em `docs/decisions/` continuam a fonte de verdade arquitetural.
 
 ## Fonte de verdade
 

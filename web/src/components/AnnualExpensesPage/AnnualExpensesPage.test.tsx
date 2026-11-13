@@ -6,7 +6,7 @@ vi.mock("../../auth/auth-context", () => ({ useAuth: () => ({ client: { request:
 vi.mock("../../hooks/useLedgerSummary", () => ({ useLedgerSummary: () => ({
   summary: { income: null, allocated: { amount: "200.00", currency: "BRL" }, unallocated: { amount: "0.00", currency: "BRL" }, usagePct: 0, envelopes: [{
     id: "ipva", ownerId: "owner", name: "IPVA", purpose: "ANNUAL_EXPENSE", baseAmount: { amount: "0.00", currency: "BRL" }, targetAmount: null, targetReachedAt: null,
-    annualExpense: { annualAmount: { amount: "1000.00", currency: "BRL" }, dueMonth: 1, dueDay: 10, fundingMode: "MONTHLY" }, available: { amount: "400.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: "2026-09-01T00:00:00Z", archivedAt: null, version: 0,
+    annualExpense: { annualAmount: { amount: "1000.00", currency: "BRL" }, dueMonth: 1, dueDay: 10, fundingMode: "MONTHLY" }, available: { amount: "400.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: "2026-09-01T00:00:00Z", archivedAt: null, version: 0,
   }] }, loading: false, error: null, refresh: vi.fn(),
 }) }));
 

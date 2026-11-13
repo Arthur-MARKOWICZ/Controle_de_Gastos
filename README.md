@@ -8,7 +8,8 @@ Leia primeiro [`docs/ideas/fundacao-tecnica.md`](docs/ideas/fundacao-tecnica.md)
 
 ```text
 web (Next.js) ─────┐
-mobile (KMP) ──────┼── API Spring Modulith ── PostgreSQL
+mobile (KMP) ──────┤
+desktop (Tauri) ───┼── API Spring Modulith ── PostgreSQL
 mcp (stdio) ───────┘          │
                               └── identity: e-mail/senha, JWT e sessões
 ```
@@ -17,8 +18,14 @@ mcp (stdio) ───────┘          │
 - `web/`: configuração e relatórios.
 - `mobile/`: lançamentos, saldos, alertas, histórico e relatórios.
 - `mcp/`: servidor MCP (stdio) cliente da API; ver [ADR-023](docs/decisions/0023-mcp-cliente-rest-stdio.md).
+- `desktop/`: cliente desktop (Tauri 2 + Vite/React) da API, com HTTP autenticado no
+  processo Rust e refresh no cofre do sistema; ver
+  [ADR-0029](docs/decisions/0029-cliente-desktop-tauri.md). Linux é o alvo validável.
 - `infra/`: serviços locais e arquivos de deploy.
 - `docs/`: intenção, ADRs, privacidade e API.
+- `openspec/`: specs vigentes e changes em andamento (spec-driven).
+
+Mudanças de comportamento planejadas com OpenSpec ficam em `openspec/changes/`; as specs aceitas em `openspec/specs/`. No Cursor ou Claude Code: `/openspec-propose`. O CLI é `openspec`. ADRs em `docs/decisions/` continuam a fonte de verdade arquitetural.
 
 ## Pré-requisitos
 
@@ -84,7 +91,7 @@ contra a API local.
 | `make hooks` | Instala os hooks de git do lefthook (uma vez por clone) |
 | `make pre-commit` | Roda o conjunto do pre-commit sobre o repositório inteiro |
 | `make test` | Executa testes de backend e web |
-| `make check` | Executa testes, lint e builds verificáveis neste ambiente |
+| `make check` | Executa testes, lint e builds verificáveis neste ambiente; inclui o desktop só quando `cargo` está no PATH |
 | `make infra-up` | Inicia PostgreSQL local |
 | `make infra-down` | Para a infraestrutura local |
 | `cd backend && ./gradlew test` | Testes Java e arquitetura modular |
@@ -93,6 +100,14 @@ contra a API local.
 | `cd web && pnpm lint` | Lint da web |
 | `cd mcp && pnpm test` | Testes do servidor MCP |
 | `cd mcp && pnpm build` | Compila o servidor MCP (stdio) |
+| `make desktop-test` | Testes do cliente desktop (vitest e `cargo test`) |
+| `make desktop-check` | Testes e build verificáveis do cliente desktop |
+
+Sem `cargo` no PATH, `make check` omite o cliente desktop e avisa no terminal;
+os demais canais seguem verificados. `make desktop-check` roda vitest, o build do
+webview e `cargo test` do crate de sessão (`desktop/session`). O shell Tauri em
+`desktop/src-tauri/` precisa das bibliotecas WebKitGTK para compilar e não entra
+nessa verificação.
 
 O ambiente de teste usa uma chave JWT efêmera e cookie sem `Secure` apenas
 porque serve HTTP. Ele não é configuração de produção.

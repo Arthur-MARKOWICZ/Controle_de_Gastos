@@ -33,9 +33,9 @@ vi.mock("../hooks/useLedgerSummary", () => ({
       unallocated: { amount: "750.00", currency: "BRL" },
       usagePct: 85,
       envelopes: [
-        { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-        { id: "2", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "1200.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
-        { id: "3", name: "Livros", purpose: "GOAL", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "180.00", currency: "BRL" }, isNegative: false, role: "OWNER", createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+        { id: "1", name: "Combustível", purpose: "LIMIT", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+        { id: "2", name: "Investimentos", purpose: "GOAL", baseAmount: { amount: "1500.00", currency: "BRL" }, available: { amount: "1200.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+        { id: "3", name: "Livros", purpose: "GOAL", baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "180.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
       ],
     },
     loading: false,
@@ -79,7 +79,8 @@ describe("Dashboard", () => {
     render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
 
     expect(screen.getAllByRole("progressbar")).toHaveLength(3);
+    // LIMIT enche conforme o mês é gasto: 60% disponível = 40% usado
     expect(screen.getByRole("progressbar", { name: "Progresso de Combustível" })
-      .getAttribute("value")).toBe("60");
+      .getAttribute("value")).toBe("40");
   });
 });

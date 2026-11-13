@@ -21,6 +21,9 @@ Como construir um sistema pessoal de verbas reservadas, acessível pela web e pe
 
 - **Mobile:** lançamento rápido, saldos, alertas, notificações e histórico.
 - **Web:** configuração, histórico completo e relatórios.
+- **Desktop (Tauri):** janela própria no computador para lançamento rápido por
+  teclado, visão geral do mês e lista de verbas (ADR-0029).
+- **MCP (stdio):** consulta e registro por agentes de IA (ADR-023).
 - **Backend:** fonte única das regras, autorizações e notificações.
 
 ## Direção recomendada e confirmada
@@ -30,6 +33,9 @@ Monorepo com aplicações separadas e um backend em monólito modular:
 - Java 25 LTS, Spring Boot 4.1 e Spring Modulith 2.1 no backend.
 - TypeScript, React 19 e Next.js 16 Active LTS na web.
 - Kotlin 2.4 e Compose Multiplatform 1.12 no aplicativo Android/iOS.
+- Tauri 2 com Vite, React 19 e TypeScript no cliente desktop; o HTTP
+  autenticado sai do processo Rust e o refresh fica no cofre do sistema
+  operacional (ADR-0029). Linux é o alvo validável.
 - PostgreSQL 18 como banco relacional.
 - Valores monetários em `BigDecimal` com duas casas, persistidos como
   `NUMERIC(19,2)` e expostos como strings decimais no JSON; tipos primitivos
@@ -47,7 +53,7 @@ O backend é um único processo implantável, separado internamente nos módulos
 
 ## Por que esta direção
 
-Ela aproveita a experiência existente em Spring, React e Kotlin, mantém os clientes adequados a cada plataforma e concentra as regras financeiras em uma API transacional. Spring Modulith fornece limites verificáveis entre módulos sem o custo de microserviços. Compose Multiplatform está estável para Android e iOS, mas o alvo iOS não poderá ser compilado neste ambiente por ausência de macOS/Xcode.
+Ela aproveita a experiência existente em Spring, React e Kotlin, mantém os clientes adequados a cada plataforma e concentra as regras financeiras em uma API transacional. Spring Modulith fornece limites verificáveis entre módulos sem o custo de microserviços. Compose Multiplatform está estável para Android e iOS, mas o alvo iOS não poderá ser compilado neste ambiente por ausência de macOS/Xcode. Pelo mesmo critério, o cliente desktop é validado em Linux; Windows e macOS permanecem no projeto Tauri sem afirmação de build testado.
 
 ## Premissas a validar
 

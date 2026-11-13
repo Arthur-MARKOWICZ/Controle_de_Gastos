@@ -12,7 +12,7 @@ vi.mock("../../auth/auth-context", () => ({
 const envelope: EnvelopeDTO = {
   id: "env-1", ownerId: "owner", name: "Combustível", purpose: "LIMIT",
   baseAmount: { amount: "400.00", currency: "BRL" }, available: { amount: "240.00", currency: "BRL" },
-  isNegative: false, role: "OWNER", createdAt: "2026-10-01T00:00:00Z", archivedAt: null, version: 0,
+  isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: "2026-10-01T00:00:00Z", archivedAt: null, version: 0,
 } as EnvelopeDTO;
 
 function typeAmount(digits: string) {
@@ -61,5 +61,37 @@ describe("ExpenseForm", () => {
     fireEvent.submit(screen.getByLabelText("Valor (BRL)").closest("form")!);
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalledWith({ targetJustReached: true, balanceAfter: null }));
+  });
+
+  it("liga o erro de valor ao próprio campo e move o foco para ele", async () => {
+    const onSuccess = vi.fn();
+    render(<ExpenseForm envelope={envelope} onSuccess={onSuccess} onCancel={vi.fn()} />);
+
+    // submit direto: o `required` nativo nem deixa o clique chegar ao handler com o campo vazio
+    fireEvent.submit(screen.getByLabelText("Valor (BRL)").closest("form")!);
+
+    const amount = screen.getByLabelText("Valor (BRL)");
+    expect(amount.getAttribute("aria-invalid")).toBe("true");
+
+    const describedBy = amount.getAttribute("aria-describedby") ?? "";
+    const messageId = describedBy.split(" ").find((id) => document.getElementById(id)?.getAttribute("role") === "alert");
+    expect(messageId).toBeDefined();
+    expect(document.getElementById(messageId!)!.textContent).toMatch(/duas casas decimais/);
+
+    expect(document.activeElement).toBe(amount);
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("mantém o Notice do topo só para erro inesperado, preservando o valor digitado", async () => {
+    request.mockRejectedValue(new Error("boom"));
+    render(<ExpenseForm envelope={envelope} onSuccess={vi.fn()} onCancel={vi.fn()} />);
+
+    typeAmount("5000");
+    fireEvent.click(screen.getByRole("button", { name: "Registrar gasto" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/inesperado/i);
+    expect(screen.getByLabelText("Valor (BRL)").getAttribute("aria-invalid")).toBeNull();
+    expect((screen.getByLabelText("Valor (BRL)") as HTMLInputElement).value).toBe("50,00");
   });
 });

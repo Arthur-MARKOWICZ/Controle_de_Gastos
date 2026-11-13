@@ -67,6 +67,9 @@ class MoneyTest {
         assertEquals("12.34", AmountInput.toMoney("1234").toApiAmount())
         assertEquals("R$ 12,34", AmountInput.display("1234"))
         assertEquals("R$ 0,00", AmountInput.display(""))
+        // Centavos da direita para a esquerda: "50" é cinquenta centavos, não
+        // cinquenta reais. É isso que a dica do campo precisa explicar.
+        assertEquals("R$ 0,50", AmountInput.display("50"))
     }
 
     @Test
@@ -74,5 +77,37 @@ class MoneyTest {
         val typed = AmountInput.sanitize("9".repeat(30))
         assertEquals(AmountInput.MAX_DIGITS, typed.length)
         assertTrue(AmountInput.toMoney(typed).cents > 0)
+    }
+}
+
+/**
+ * Prévia do saldo após um gasto, calculada só para mostrar antes de confirmar.
+ *
+ * O saldo que vale é o que a API devolve depois do lançamento; esta conta
+ * existe para a pessoa decidir com a informação na tela.
+ */
+class BalancePreviewTest {
+    @Test
+    fun `subtracts the expense from what the envelope still has`() {
+        assertEquals(
+            "-5.00",
+            balanceAfterExpense(Money.fromApiAmount("10.00"), Money.fromApiAmount("15.00")).toApiAmount(),
+        )
+        assertEquals(
+            "95.50",
+            balanceAfterExpense(Money.fromApiAmount("120.00"), Money.fromApiAmount("24.50")).toApiAmount(),
+        )
+    }
+
+    @Test
+    fun `keeps the preview negative so the screen can warn without blocking`() {
+        assertTrue(balanceAfterExpense(Money.fromApiAmount("10.00"), Money.fromApiAmount("15.00")).isNegative)
+        assertEquals("R$ -5,00".replace("R$ -", "-R$ "), balanceAfterExpense(Money(1000), Money(1500)).toBrl())
+    }
+
+    @Test
+    fun `subtracts centavos without going through floating point`() {
+        assertEquals("0.01", (Money(10L) - Money(9L)).toApiAmount())
+        assertEquals("-0.01", (Money(9L) - Money(10L)).toApiAmount())
     }
 }

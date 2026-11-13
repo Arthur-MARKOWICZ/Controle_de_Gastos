@@ -254,6 +254,7 @@ class AndroidApiGateway(
         return HistorySummaryView(
             income = money(body.getJSONObject("income")),
             expenses = money(body.getJSONObject("expenses")),
+            applied = money(body.getJSONObject("applied")),
             netBalance = money(body.getJSONObject("netBalance")),
             accumulatedBalance = money(body.getJSONObject("accumulatedBalance")),
             monthlyTotals = body.getJSONArray("monthlyTotals").mapObjects {
@@ -433,6 +434,7 @@ class AndroidApiGateway(
             )
         },
         role = role(json.optString("role")),
+        wealthAllocation = json.optBoolean("wealthAllocation", false),
         archivedAt = json.optStringOrNull("archivedAt"),
         version = json.optLong("version", 0),
     )
@@ -476,6 +478,7 @@ private fun moneyJson(amount: Money) = JSONObject().put("amount", amount.toApiAm
 private fun NewEnvelope.toJson(): String = JSONObject()
     .put("name", name)
     .put("purpose", purpose.api)
+    .put("wealthAllocation", wealthAllocation)
     .apply {
         if (purpose == EnvelopePurpose.ANNUAL_EXPENSE) {
             put("annualAmount", moneyJson(annualAmount ?: Money(0)))
@@ -499,6 +502,7 @@ private fun EnvelopeEdit.toJson(): String = JSONObject()
         dueMonth?.let { put("dueMonth", it) }
         dueDay?.let { put("dueDay", it) }
         fundingMode?.let { put("fundingMode", it.api) }
+        wealthAllocation?.let { put("wealthAllocation", it) }
     }
     .toString()
 

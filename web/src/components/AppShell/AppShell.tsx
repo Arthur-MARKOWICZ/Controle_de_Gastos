@@ -11,7 +11,7 @@ const destinations: Array<{ id: Destination; href: string; index: string; label:
   { id: "envelopes", href: "/verbas", index: "02", label: "Verbas" },
   { id: "goals", href: "/metas", index: "03", label: "Metas" },
   { id: "annual", href: "/gastos-anuais", index: "04", label: "Gastos anuais" },
-  { id: "expenses", href: "/gastos", index: "05", label: "Gastos" },
+  { id: "expenses", href: "/gastos", index: "05", label: "Histórico" },
   { id: "reports", href: "/relatorios", index: "06", label: "Relatórios" },
   { id: "settings", href: "/configuracoes", index: "07", label: "Configurações" },
 ];

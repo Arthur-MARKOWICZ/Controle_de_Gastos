@@ -8,7 +8,7 @@ describe("PAGE_TITLES", () => {
     expect(PAGE_TITLES.home).toBe("Visão geral");
     expect(PAGE_TITLES.verbas).toBe("Verbas");
     expect(PAGE_TITLES.metas).toBe("Metas");
-    expect(PAGE_TITLES.gastos).toBe("Gastos");
+    expect(PAGE_TITLES.gastos).toBe("Histórico");
     expect(PAGE_TITLES.gastosAnuais).toBe("Gastos anuais");
     expect(PAGE_TITLES.relatorios).toBe("Relatórios");
     expect(PAGE_TITLES.configuracoes).toBe("Configurações");

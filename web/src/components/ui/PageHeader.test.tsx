@@ -20,4 +20,13 @@ describe("PageHeader", () => {
     expect(screen.getByText("Resumo do mês")).toBeDefined();
     expect(screen.getByRole("button", { name: "Nova verba" })).toBeDefined();
   });
+
+  it("expõe o título como o único h1 da página", () => {
+    render(<PageHeader title="Relatórios" description="Exporte seus lançamentos" />);
+
+    const headings = screen.getAllByRole("heading");
+    expect(headings).toHaveLength(1);
+    expect(headings[0].tagName).toBe("H1");
+    expect(headings[0].textContent).toBe("Relatórios");
+  });
 });

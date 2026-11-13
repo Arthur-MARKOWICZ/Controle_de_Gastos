@@ -78,11 +78,19 @@ class FinanceDashboardController(
 
     /** Verbas oferecidas no lançamento rápido de gasto; metas recebem aporte pelo próprio card. */
     val expenseEnvelopes: List<EnvelopeView>
-        get() = envelopesOf(EnvelopePurpose.LIMIT, EnvelopePurpose.FIXED, EnvelopePurpose.ANNUAL_EXPENSE)
+        get() = dashboard?.envelopes.orEmpty().expenseEnvelopes()
 
-    /** @return confirmação do lançamento, com alerta quando o gasto deixou a verba negativa. */
-    suspend fun registerEntry(envelopeId: String, entry: NewLedgerEntry): String {
-        val name = envelopeNamed(envelopeId)
+    /**
+     * @param envelopeName nome conhecido por quem chamou, para o lançamento feito
+     * de uma tela cujo mês não é o do painel ainda ser confirmado pelo nome certo.
+     * @return confirmação do lançamento, com alerta quando o gasto deixou a verba negativa.
+     */
+    suspend fun registerEntry(
+        envelopeId: String,
+        entry: NewLedgerEntry,
+        envelopeName: String? = null,
+    ): String {
+        val name = envelopeName ?: envelopeNamed(envelopeId)
         val created = ledger.createEntry(envelopeId, entry)
         refresh()
         if (created.targetJustReached) return "Meta de $name alcançada."

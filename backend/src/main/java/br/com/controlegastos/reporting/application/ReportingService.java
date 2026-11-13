@@ -41,11 +41,14 @@ public class ReportingService {
         List<LedgerReportingQuery.ReportEntry> entries = ledger.activeEntries(range.from(), range.to());
         Map<UUID, Money> expenses = totalsByEnvelope(entries, "EXPENSE");
         Map<UUID, Integer> expenseCount = countExpensesByEnvelope(entries);
+        List<LedgerReportingQuery.ReportEnvelope> consumptionEnvelopes = envelopes.stream()
+                .filter(envelope -> !envelope.wealthAllocation())
+                .toList();
         Map<String, Money> byPurpose = new java.util.HashMap<>();
-        for (LedgerReportingQuery.ReportEnvelope envelope : envelopes) {
+        for (LedgerReportingQuery.ReportEnvelope envelope : consumptionEnvelopes) {
             byPurpose.merge(envelope.purpose(), expenses.getOrDefault(envelope.id(), Money.zero()), Money::add);
         }
-        List<List<String>> rows = envelopes.stream()
+        List<List<String>> rows = consumptionEnvelopes.stream()
                 .sorted(Comparator.comparing(LedgerReportingQuery.ReportEnvelope::purpose).thenComparing(LedgerReportingQuery.ReportEnvelope::name))
                         .map(envelope -> List.of(envelope.purpose(), safeText(envelope.name()),
                         money(expenses.getOrDefault(envelope.id(), Money.zero())),

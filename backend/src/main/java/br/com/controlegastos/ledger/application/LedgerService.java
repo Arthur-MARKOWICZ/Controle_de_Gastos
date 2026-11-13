@@ -219,7 +219,7 @@ public class LedgerService implements LedgerReportingQuery {
     public List<ReportEnvelope> visibleEnvelopes() {
         return envelopes.listVisibleIncludingArchived().stream()
                 .map(envelope -> new ReportEnvelope(envelope.id(), envelope.name(), envelope.purpose().name(),
-                        envelope.baseAmount(), envelope.createdAt(), envelope.archivedAt()))
+                        envelope.baseAmount(), envelope.createdAt(), envelope.archivedAt(), envelope.wealthAllocation()))
                 .toList();
     }
 
@@ -263,14 +263,20 @@ public class LedgerService implements LedgerReportingQuery {
         Map<UUID, Envelope> envelopesById = envelopes.listVisibleIncludingArchived().stream()
                 .collect(java.util.stream.Collectors.toMap(Envelope::id, Function.identity()));
 
-        Money totalExpenses = expenses.stream().map(LedgerEntry::amount).reduce(Money.zero(), Money::add);
+        Money consumption = Money.zero();
+        Money applied = Money.zero();
         Money income = incomeForIntersectingMonths(userId, from, to);
         Map<YearMonth, Money> monthly = new java.util.TreeMap<>();
         Map<br.com.controlegastos.envelopes.domain.EnvelopePurpose, Money> byPurpose =
                 new java.util.EnumMap<>(br.com.controlegastos.envelopes.domain.EnvelopePurpose.class);
         for (LedgerEntry entry : expenses) {
-            monthly.merge(YearMonth.from(entry.occurredAt()), entry.amount(), Money::add);
             Envelope envelope = envelopesById.get(entry.envelopeId());
+            if (envelope != null && envelope.wealthAllocation()) {
+                applied = applied.add(entry.amount());
+                continue;
+            }
+            consumption = consumption.add(entry.amount());
+            monthly.merge(YearMonth.from(entry.occurredAt()), entry.amount(), Money::add);
             if (envelope != null) byPurpose.merge(envelope.purpose(), entry.amount(), Money::add);
         }
 
@@ -282,7 +288,8 @@ public class LedgerService implements LedgerReportingQuery {
         List<PurposeTotal> purposeTotals = java.util.Arrays.stream(br.com.controlegastos.envelopes.domain.EnvelopePurpose.values())
                 .map(purpose -> new PurposeTotal(purpose, byPurpose.getOrDefault(purpose, Money.zero())))
                 .toList();
-        return new HistorySummary(income, totalExpenses, income.subtract(totalExpenses), accumulated, monthlyTotals, purposeTotals);
+        Money netBalance = income.subtract(consumption).subtract(applied);
+        return new HistorySummary(income, consumption, applied, netBalance, accumulated, monthlyTotals, purposeTotals);
     }
 
     @Transactional
@@ -388,8 +395,9 @@ public class LedgerService implements LedgerReportingQuery {
     public record HistoryPage(List<HistoryEntry> items, int page, int size, boolean hasNext) { }
     public record MonthlyTotal(YearMonth month, Money amount) { }
     public record PurposeTotal(br.com.controlegastos.envelopes.domain.EnvelopePurpose purpose, Money amount) { }
-    public record HistorySummary(Money income, Money expenses, Money netBalance, Money accumulatedBalance,
-                                 List<MonthlyTotal> monthlyTotals, List<PurposeTotal> purposeTotals) { }
+    public record HistorySummary(Money income, Money expenses, Money applied, Money netBalance,
+                                 Money accumulatedBalance, List<MonthlyTotal> monthlyTotals,
+                                 List<PurposeTotal> purposeTotals) { }
     public record Registration(LedgerEntry entry, boolean targetJustReached) { }
     public record GoalProgress(Money plannedAmount, Money contributedAmount, Money remainingAmount, int percent) { }
 }

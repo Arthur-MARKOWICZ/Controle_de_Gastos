@@ -9,26 +9,40 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.autofill.ContentType
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
 /** Altura mínima de alvo de toque adotada no app. */
@@ -83,11 +97,15 @@ internal fun SectionHeader(overline: String, title: String, description: String?
     }
 }
 
+/** Dica do campo de valor: sem o exemplo, "50" é lido como cinquenta reais. */
+internal const val AMOUNT_HINT = "Digite em centavos · ex.: 120,00"
+
 /**
  * Campo de valor em BRL.
  *
  * O usuário digita centavos e a máscara posiciona a vírgula, o que evita
- * separador ambíguo e mantém o valor inteiro até virar [Money].
+ * separador ambíguo e mantém o valor inteiro até virar [Money]. A dica fica
+ * sempre visível porque a regra da digitação não se adivinha olhando o campo.
  */
 @Composable
 internal fun AmountField(
@@ -96,15 +114,56 @@ internal fun AmountField(
     label: String,
     modifier: Modifier = Modifier.fillMaxWidth(),
     enabled: Boolean = true,
+    hint: String? = AMOUNT_HINT,
 ) {
     OutlinedTextField(
         value = AmountInput.display(digits),
         onValueChange = { onDigitsChange(AmountInput.sanitize(it)) },
         label = { Text(label) },
+        supportingText = hint?.let { { Text(it) } },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         singleLine = true,
         enabled = enabled,
         modifier = modifier,
+    )
+}
+
+/**
+ * Campo de senha com mostrar/ocultar e autofill.
+ *
+ * Senha oculta por padrão, visível a pedido: digitar 12 caracteres às cegas
+ * num teclado de telefone é onde a tentativa de entrar costuma falhar. O
+ * campo não impede colar, para o gerenciador de senhas continuar servindo.
+ */
+@Composable
+internal fun PasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier.fillMaxWidth(),
+    newPassword: Boolean = false,
+    enabled: Boolean = true,
+) {
+    var visible by remember { mutableStateOf(false) }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        singleLine = true,
+        enabled = enabled,
+        trailingIcon = {
+            IconButton(onClick = { visible = !visible }, modifier = Modifier.height(TouchTarget)) {
+                Icon(
+                    if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                    contentDescription = if (visible) "Ocultar senha" else "Mostrar senha",
+                )
+            }
+        },
+        modifier = modifier.semantics {
+            contentType = if (newPassword) ContentType.NewPassword else ContentType.Password
+        },
     )
 }
 
@@ -154,7 +213,12 @@ internal fun FormDialog(
     )
 }
 
-/** Confirmação para ação difícil de desfazer, com o efeito dito antes. */
+/**
+ * Confirmação para ação difícil de desfazer, com o efeito dito antes.
+ *
+ * Em [destructive] o confirmar sai da cor primária: encerrar uma verba ou
+ * excluir um lançamento não pode parecer a ação comum de seguir adiante.
+ */
 @Composable
 internal fun ConfirmDialog(
     title: String,
@@ -162,13 +226,25 @@ internal fun ConfirmDialog(
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    destructive: Boolean = false,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title, fontWeight = FontWeight.Bold) },
         text = { Text(message) },
         confirmButton = {
-            Button(onClick = onConfirm, modifier = Modifier.height(TouchTarget)) { Text(confirmLabel) }
+            Button(
+                onClick = onConfirm,
+                colors = if (destructive) {
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    )
+                } else {
+                    ButtonDefaults.buttonColors()
+                },
+                modifier = Modifier.height(TouchTarget),
+            ) { Text(confirmLabel) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, modifier = Modifier.height(TouchTarget)) { Text("Cancelar") }

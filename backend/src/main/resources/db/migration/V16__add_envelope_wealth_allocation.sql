@@ -1,0 +1,2 @@
+ALTER TABLE envelope
+    ADD COLUMN wealth_allocation BOOLEAN NOT NULL DEFAULT FALSE;

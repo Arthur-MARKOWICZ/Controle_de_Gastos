@@ -19,6 +19,7 @@ type Props = {
   onRegisterExpense: (e: EnvelopeDTO) => void;
   onManageParticipants: (e: EnvelopeDTO) => void;
   onArchive: (e: EnvelopeDTO) => void;
+  onToggleWealthAllocation: (e: EnvelopeDTO) => void;
   onCreate: (purpose: Purpose) => void;
 };
 
@@ -28,6 +29,7 @@ export function PurposeSection({
   onRegisterExpense,
   onManageParticipants,
   onArchive,
+  onToggleWealthAllocation,
   onCreate,
 }: Props) {
   const meta = PURPOSE_META[purpose];
@@ -71,6 +73,7 @@ export function PurposeSection({
               onRegisterExpense={onRegisterExpense}
               onManageParticipants={onManageParticipants}
               onArchive={onArchive}
+              onToggleWealthAllocation={onToggleWealthAllocation}
             />
           ))}
         </ul>

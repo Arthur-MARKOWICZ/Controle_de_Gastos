@@ -2,19 +2,17 @@
 
 import Link from "next/link";
 import { AppShell } from "../AppShell/AppShell";
-import pageStyles from "../VerbasPage/Verbas.module.css";
+import { PageHeader } from "../ui/PageHeader";
 import styles from "./SettingsPage.module.css";
 
 export function SettingsPage({ email, onLogout }: { email: string; onLogout(): void }) {
   return (
     <AppShell current="settings" email={email} onLogout={onLogout}>
-      <header className={pageStyles.pageHeader}>
-        <div>
-          <p className={pageStyles.eyebrow}>Configurações</p>
-          <h1>Configurações</h1>
-          <p>Preferências da sua conta e do painel.</p>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Conta"
+        title="Configurações"
+        description="Preferências da sua conta e do painel."
+      />
       <ul className={styles.list}>
         <li>
           <Link className={styles.item} href="/conta/seguranca">
