@@ -69,3 +69,40 @@ export const PURPOSE_LABELS: Record<EnvelopePurpose, string> = {
 export function isSpendable(envelope: SummaryEnvelope): boolean {
   return envelope.archivedAt === null;
 }
+
+export type LedgerKind = "EXPENSE" | "CONTRIBUTION";
+
+/** Pendência de recorrência; não afeta o saldo antes da confirmação (ADR-0031). */
+export type PendingOccurrence = {
+  id: string;
+  recurringEntryId: string;
+  envelopeId: string;
+  envelopeName: string;
+  kind: LedgerKind;
+  description: string | null;
+  suggestedAmount: MoneyDTO;
+  dueDate: string;
+  competence: string;
+};
+
+export type PendingOccurrences = { current: PendingOccurrence[]; overdue: PendingOccurrence[] };
+
+export type RecurringEntry = {
+  id: string;
+  envelopeId: string;
+  kind: LedgerKind;
+  amount: MoneyDTO;
+  dayOfMonth: number;
+  description: string | null;
+  active: boolean;
+  firstCompetence: string;
+  version: number;
+};
+
+export type RecurringEntryInput = {
+  kind: LedgerKind;
+  /** String decimal com duas casas, já validada. */
+  amount: string;
+  dayOfMonth: number;
+  description: string | null;
+};

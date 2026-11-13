@@ -14,7 +14,8 @@ import org.json.JSONObject
 class AndroidApiGateway(
     private val context: Context,
     private val client: AndroidApiClient,
-) : AuthGateway, EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway {
+) : AuthGateway, EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway,
+    RecurringGateway {
 
     // ---------------------------------------------------------------- sessão
 
@@ -385,6 +386,67 @@ class AndroidApiGateway(
             .orThrow("Não foi possível remover o participante")
     }
 
+    // ----------------------------------------------------------- recorrências
+
+    override suspend fun listRecurring(envelopeId: String): List<RecurringEntryView> {
+        val response = client.request("GET", "/api/v1/envelopes/$envelopeId/recurring-entries")
+            .orThrow("Não foi possível carregar as recorrências")
+        return JSONArray(response.body).mapObjects(::readRecurring)
+    }
+
+    override suspend fun createRecurring(envelopeId: String, input: RecurringEntryInput): RecurringEntryView =
+        readRecurring(
+            client.requestJson(
+                "POST", "/api/v1/envelopes/$envelopeId/recurring-entries", jsonBody = input.toJson().toString(),
+                failure = "Não foi possível criar a recorrência",
+            ),
+        )
+
+    override suspend fun updateRecurring(
+        envelopeId: String,
+        id: String,
+        input: RecurringEntryInput,
+        active: Boolean,
+    ): RecurringEntryView = readRecurring(
+        client.requestJson(
+            "PUT", "/api/v1/envelopes/$envelopeId/recurring-entries/$id",
+            jsonBody = input.toJson().put("active", active).toString(),
+            failure = "Não foi possível salvar a recorrência",
+        ),
+    )
+
+    override suspend fun deleteRecurring(envelopeId: String, id: String) {
+        client.request("DELETE", "/api/v1/envelopes/$envelopeId/recurring-entries/$id")
+            .orThrow("Não foi possível excluir a recorrência")
+    }
+
+    override suspend fun listPendingOccurrences(): PendingOccurrencesView {
+        val body = client.requestJson(
+            "GET", "/api/v1/recurring-occurrences/pending",
+            failure = "Não foi possível carregar as recorrências pendentes",
+        )
+        return PendingOccurrencesView(
+            current = body.getJSONArray("current").mapObjects(::readPending),
+            overdue = body.getJSONArray("overdue").mapObjects(::readPending),
+        )
+    }
+
+    override suspend fun confirmOccurrence(id: String, amount: Money?, occurredAt: String?) {
+        val body = JSONObject().apply {
+            amount?.let { put("amount", moneyJson(it)) }
+            occurredAt?.let { put("occurredAt", it) }
+        }
+        client.requestJson(
+            "POST", "/api/v1/recurring-occurrences/$id/confirm", jsonBody = body.toString(),
+            failure = "Não foi possível confirmar a pendência",
+        )
+    }
+
+    override suspend fun discardOccurrence(id: String) {
+        client.request("POST", "/api/v1/recurring-occurrences/$id/discard")
+            .orThrow("Não foi possível descartar a pendência")
+    }
+
     // ------------------------------------------------------------- relatórios
 
     override suspend fun downloadReport(
@@ -456,6 +518,31 @@ class AndroidApiGateway(
         changedAt = json.getString("changedAt"),
     )
 
+    private fun readRecurring(json: JSONObject) = RecurringEntryView(
+        id = json.getString("id"),
+        envelopeId = json.getString("envelopeId"),
+        kind = ledgerKind(json.getString("kind")),
+        amount = money(json.getJSONObject("amount")),
+        dayOfMonth = json.getInt("dayOfMonth"),
+        description = json.optStringOrNull("description"),
+        active = json.getBoolean("active"),
+        firstCompetence = json.getString("firstCompetence"),
+    )
+
+    private fun readPending(json: JSONObject) = PendingOccurrenceView(
+        id = json.getString("id"),
+        envelopeId = json.getString("envelopeId"),
+        envelopeName = json.getString("envelopeName"),
+        kind = ledgerKind(json.getString("kind")),
+        description = json.optStringOrNull("description"),
+        suggestedAmount = money(json.getJSONObject("suggestedAmount")),
+        dueDate = json.getString("dueDate"),
+        competence = json.getString("competence"),
+    )
+
+    private fun ledgerKind(api: String) =
+        if (api == LedgerKind.CONTRIBUTION.api) LedgerKind.CONTRIBUTION else LedgerKind.EXPENSE
+
     private fun readParticipant(json: JSONObject) = ParticipantView(
         userId = json.getString("userId"),
         email = json.getString("email"),
@@ -505,6 +592,12 @@ private fun EnvelopeEdit.toJson(): String = JSONObject()
         wealthAllocation?.let { put("wealthAllocation", it) }
     }
     .toString()
+
+private fun RecurringEntryInput.toJson(): JSONObject = JSONObject()
+    .put("kind", kind.api)
+    .put("amount", moneyJson(amount))
+    .put("dayOfMonth", dayOfMonth)
+    .put("description", description?.takeIf(String::isNotBlank) ?: JSONObject.NULL)
 
 private fun NewLedgerEntry.toJson(): String = JSONObject()
     .put("kind", kind.api)

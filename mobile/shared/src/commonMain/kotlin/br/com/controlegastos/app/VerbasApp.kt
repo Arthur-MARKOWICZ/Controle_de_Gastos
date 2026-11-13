@@ -327,6 +327,7 @@ private fun SignedInApp(
                     route = current,
                     controller = financeController,
                     sharing = gateways.sharing,
+                    recurring = gateways.recurring,
                     today = today,
                     onOpenEntries = { go(Route.EnvelopeEntries(it.id, it.name)) },
                     onNotify = ::notify,

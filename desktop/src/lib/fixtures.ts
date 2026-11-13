@@ -1,6 +1,12 @@
 /** Respostas de exemplo da API, com os valores dos cenários das specs. */
 
-import type { Alert, LedgerSummary, SummaryEnvelope } from "./types";
+import type {
+  Alert,
+  LedgerSummary,
+  PendingOccurrence,
+  PendingOccurrences,
+  SummaryEnvelope,
+} from "./types";
 
 export function envelope(overrides: Partial<SummaryEnvelope> = {}): SummaryEnvelope {
   return {
@@ -43,3 +49,24 @@ export function summaryPath(month: string): string {
 }
 
 export const ALERTS_PATH = "/api/v1/alerts";
+
+export const PENDING_PATH = "/api/v1/recurring-occurrences/pending";
+
+export function pendingOccurrence(
+  overrides: Partial<PendingOccurrence> = {},
+): PendingOccurrence {
+  return {
+    id: "oc-1",
+    recurringEntryId: "rec-1",
+    envelopeId: "env-1",
+    envelopeName: "Moradia",
+    kind: "EXPENSE",
+    description: "Aluguel",
+    suggestedAmount: { amount: "1800.00", currency: "BRL" },
+    dueDate: "2026-11-05",
+    competence: "2026-11",
+    ...overrides,
+  };
+}
+
+export const NO_PENDING: PendingOccurrences = { current: [], overdue: [] };

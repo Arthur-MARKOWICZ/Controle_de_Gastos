@@ -25,6 +25,8 @@ import { createApiClient } from "../../lib/api";
 import { useAuth } from "../../auth/auth-context";
 import { AppShell } from "../AppShell/AppShell";
 import { ParticipantsPanel } from "../ParticipantsPanel/ParticipantsPanel";
+import { PendingOccurrences } from "../PendingOccurrences/PendingOccurrences";
+import { RecurringEntriesPanel } from "../RecurringEntriesPanel/RecurringEntriesPanel";
 import { PersistentAlerts } from "../PersistentAlerts/PersistentAlerts";
 
 const ARCHIVE_MESSAGE =
@@ -72,6 +74,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
   const [showIncomeForm, setShowIncomeForm] = useState(false);
   const [expenseTarget, setExpenseTarget] = useState<EnvelopeDTO | null>(null);
   const [participantsTarget, setParticipantsTarget] = useState<EnvelopeDTO | null>(null);
+  const [recurringTarget, setRecurringTarget] = useState<EnvelopeDTO | null>(null);
   const [showGlossary, setShowGlossary] = useState(false);
   const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -179,6 +182,15 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
         {!loading && (
           <div aria-busy={busy || undefined}>
             <PersistentAlerts client={api} refreshKey={alertsRefreshKey} />
+            <PendingOccurrences
+              client={api}
+              refreshKey={alertsRefreshKey}
+              onChanged={() => {
+                setAlertsRefreshKey((key) => key + 1);
+                void refreshEnvelopes();
+                void refreshSummary();
+              }}
+            />
             <MonthSummary
               summary={summary}
               income={income}
@@ -217,6 +229,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
                     envelope={envelope}
                     onRegisterExpense={(target) => { clearFeedback(); setExpenseTarget(target); }}
                     onManageParticipants={(target) => { clearFeedback(); setParticipantsTarget(target); }}
+                    onManageRecurring={(target) => { clearFeedback(); setRecurringTarget(target); }}
                     onArchive={(target) => { clearFeedback(); setPendingArchive(target); }}
                   />
                 ))}
@@ -262,6 +275,15 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
           {expenseTarget && <ExpenseForm envelope={expenseTarget} kind={expenseKind} onSuccess={handleExpenseSuccess} onCancel={() => setExpenseTarget(null)} />}
         </Dialog>
 
+        <Dialog
+          open={!!recurringTarget}
+          onClose={() => setRecurringTarget(null)}
+          title={recurringTarget ? `Recorrências de ${recurringTarget.name}` : "Recorrências"}
+        >
+          {recurringTarget && (
+            <RecurringEntriesPanel client={api} envelope={recurringTarget} onClose={() => setRecurringTarget(null)} />
+          )}
+        </Dialog>
         <Dialog
           open={!!participantsTarget}
           onClose={() => setParticipantsTarget(null)}

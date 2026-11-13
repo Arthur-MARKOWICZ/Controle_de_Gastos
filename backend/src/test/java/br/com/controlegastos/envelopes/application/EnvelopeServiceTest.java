@@ -37,8 +37,10 @@ class EnvelopeServiceTest {
     private final EnvelopeParticipantRepository participants = mock(EnvelopeParticipantRepository.class);
     private final AuthenticationService authentication = mock(AuthenticationService.class);
     private final IncomeQuery incomes = mock(IncomeQuery.class);
+    private final org.springframework.context.ApplicationEventPublisher events =
+            mock(org.springframework.context.ApplicationEventPublisher.class);
     private final EnvelopeService service =
-            new EnvelopeService(envelopes, participants, authentication, incomes, Clock.fixed(NOW, ZoneOffset.UTC));
+            new EnvelopeService(envelopes, participants, authentication, incomes, Clock.fixed(NOW, ZoneOffset.UTC), events);
     private final UUID owner = UUID.randomUUID();
     private final UUID stranger = UUID.randomUUID();
 
@@ -199,6 +201,8 @@ class EnvelopeServiceTest {
         service.archive(envelope.id());
 
         assertThat(envelope.archivedAt()).isEqualTo(first);
+        org.mockito.Mockito.verify(events, org.mockito.Mockito.times(1))
+                .publishEvent(new br.com.controlegastos.envelopes.EnvelopeArchivedEvent(envelope.id()));
     }
 
     @Test

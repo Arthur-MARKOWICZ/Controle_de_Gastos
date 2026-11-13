@@ -98,8 +98,10 @@ export function logout(): Promise<void> {
 }
 
 /** Chamada autenticada crua. Preferir os helpers de `api.ts`. */
+export type ApiMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
+
 export function apiCall(
-  method: "GET" | "POST" | "PATCH",
+  method: ApiMethod,
   path: string,
   body?: unknown,
 ): Promise<ApiReply> {

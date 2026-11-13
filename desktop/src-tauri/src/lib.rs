@@ -90,16 +90,11 @@ async fn api(
     path: String,
     body: Option<String>,
 ) -> Result<ApiReplyView, ErrorView> {
-    let method = match method.to_ascii_uppercase().as_str() {
-        "GET" => Method::Get,
-        "POST" => Method::Post,
-        "PATCH" => Method::Patch,
-        other => {
-            return Err(ErrorView {
-                message: format!("Método não suportado pelo cliente: {other}"),
-                auth_required: false,
-            })
-        }
+    let Some(method) = Method::parse(&method) else {
+        return Err(ErrorView {
+            message: format!("Método não suportado pelo cliente: {method}"),
+            auth_required: false,
+        });
     };
     if !path.starts_with("/api/v1/") {
         return Err(ErrorView {

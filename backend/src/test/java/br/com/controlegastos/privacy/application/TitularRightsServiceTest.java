@@ -41,12 +41,13 @@ class TitularRightsServiceTest {
     }
 
     @Test
-    @DisplayName("exporta as cinco seções do titular atual na ordem do relatório")
+    @DisplayName("exporta as sete seções do titular atual na ordem do relatório")
     void exportaSecoesNaOrdem() {
         Map<String, Object> exported = service.exportCurrentTitular();
 
         assertThat(exported.keySet())
-                .containsExactly("identity", "income", "envelopes", "ledgerEntries", "ledgerEntryRevisions");
+                .containsExactly("identity", "income", "envelopes", "ledgerEntries", "ledgerEntryRevisions",
+                        "recurringEntries", "recurringOccurrences");
     }
 
     @Test
@@ -56,7 +57,7 @@ class TitularRightsServiceTest {
         service.exportCurrentTitular();
 
         ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
-        verify(jdbc, org.mockito.Mockito.times(4)).query(anyString(), any(RowMapper.class), args.capture());
+        verify(jdbc, org.mockito.Mockito.times(6)).query(anyString(), any(RowMapper.class), args.capture());
         assertThat(args.getAllValues()).allSatisfy(params -> assertThat(params).containsOnly(me));
     }
 
@@ -67,7 +68,7 @@ class TitularRightsServiceTest {
         service.exportCurrentTitular();
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-        verify(jdbc, org.mockito.Mockito.times(4)).query(sql.capture(), any(RowMapper.class), any(Object[].class));
+        verify(jdbc, org.mockito.Mockito.times(6)).query(sql.capture(), any(RowMapper.class), any(Object[].class));
         assertThat(sql.getAllValues()).allSatisfy(query -> assertThat(query).containsPattern("::text AS"));
     }
 

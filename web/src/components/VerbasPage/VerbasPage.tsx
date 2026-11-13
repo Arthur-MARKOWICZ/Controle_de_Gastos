@@ -25,6 +25,7 @@ import { useAuth } from "../../auth/auth-context";
 import { AppShell } from "../AppShell/AppShell";
 import { PersistentAlerts } from "../PersistentAlerts/PersistentAlerts";
 import { ParticipantsPanel } from "../ParticipantsPanel/ParticipantsPanel";
+import { RecurringEntriesPanel } from "../RecurringEntriesPanel/RecurringEntriesPanel";
 
 type PurposeFilter = "ALL" | "LIMIT" | "FIXED";
 type SortKey = "progress" | "saldo" | "nome";
@@ -62,6 +63,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   const [showGlossary, setShowGlossary] = useState(false);
   const [expenseTarget, setExpenseTarget] = useState<EnvelopeDTO | null>(null);
   const [participantsTarget, setParticipantsTarget] = useState<EnvelopeDTO | null>(null);
+  const [recurringTarget, setRecurringTarget] = useState<EnvelopeDTO | null>(null);
   const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [alertsRefreshKey, setAlertsRefreshKey] = useState(0);
@@ -261,6 +263,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
                   envelopes={byPurpose[p]}
                   onRegisterExpense={(target) => { setFeedback(null); setExpenseTarget(target); }}
                   onManageParticipants={(target) => { setFeedback(null); setParticipantsTarget(target); }}
+                  onManageRecurring={(target) => { setFeedback(null); setRecurringTarget(target); }}
                   onArchive={(target) => { setFeedback(null); setPendingArchive(target); }}
                   onToggleWealthAllocation={(target) => { setFeedback(null); void toggleWealthAllocation(target); }}
                   onCreate={(purpose) => { setFeedback(null); setShowNewEnvelope(purpose); }}
@@ -314,6 +317,15 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
           {expenseTarget && <ExpenseForm envelope={expenseTarget} onSuccess={handleExpenseSuccess} onCancel={() => setExpenseTarget(null)} />}
         </Dialog>
 
+        <Dialog
+          open={!!recurringTarget}
+          onClose={() => setRecurringTarget(null)}
+          title={recurringTarget ? `Recorrências de ${recurringTarget.name}` : "Recorrências"}
+        >
+          {recurringTarget && (
+            <RecurringEntriesPanel client={api} envelope={recurringTarget} onClose={() => setRecurringTarget(null)} />
+          )}
+        </Dialog>
         <Dialog
           open={!!participantsTarget}
           onClose={() => setParticipantsTarget(null)}

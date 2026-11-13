@@ -208,6 +208,7 @@ internal fun LazyListScope.envelopeSection(
     onArchive: (EnvelopeView) -> Unit,
     onOpenEntries: (EnvelopeView) -> Unit,
     onParticipants: (EnvelopeView) -> Unit = {},
+    onRecurring: (EnvelopeView) -> Unit = {},
 ) {
     item { Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
     if (envelopes.isEmpty()) {
@@ -220,6 +221,7 @@ internal fun LazyListScope.envelopeSection(
             onRegister = { onRegister(envelope) },
             onOpenEntries = { onOpenEntries(envelope) },
             onParticipants = if (envelope.isOwner) ({ onParticipants(envelope) }) else null,
+            onRecurring = if (envelope.isOwner) ({ onRecurring(envelope) }) else null,
             onEdit = if (envelope.isOwner) ({ onEdit(envelope) }) else null,
             onArchive = if (envelope.isOwner) ({ onArchive(envelope) }) else null,
         )

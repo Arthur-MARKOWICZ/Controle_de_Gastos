@@ -58,13 +58,14 @@ class EnvelopeCardActionsTest {
     }
 
     @Test
-    fun `owner reaches entries participants edit and archive through the menu`() {
+    fun `owner reaches entries participants recurrences edit and archive through the menu`() {
         val actions = envelopeCardActions(envelope(EnvelopePurpose.LIMIT))
 
         assertEquals(
             listOf(
                 EnvelopeAction.ENTRIES,
                 EnvelopeAction.PARTICIPANTS,
+                EnvelopeAction.RECURRING,
                 EnvelopeAction.EDIT,
                 EnvelopeAction.ARCHIVE,
             ),

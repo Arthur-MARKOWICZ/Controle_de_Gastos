@@ -51,6 +51,13 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
         }
+
+        // Testes de UI Compose na JVM (telas de recorrência, ADR-0031): o runtime
+        // desktop do Compose desenha sem emulador nem dispositivo.
+        jvmTest.dependencies {
+            implementation("org.jetbrains.compose.ui:ui-test:1.12.0")
+            implementation(compose.desktop.currentOs)
+        }
     }
 }
 

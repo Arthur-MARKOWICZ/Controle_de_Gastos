@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Plus, WarningCircle } from "@phosphor-icons/react";
 import { Amount } from "../components/Amount";
 import { MonthSelector } from "../components/MonthSelector";
+import { PendingOccurrences } from "../components/PendingOccurrences";
 import { useExpenseCapture } from "../components/useExpenseCapture";
 import { dismissAlert, listAlerts } from "../lib/api";
 import { IpcError } from "../lib/ipc";
@@ -125,6 +126,9 @@ export function OverviewScreen({
           </div>
         </section>
       ) : null}
+
+      {/* Confirmar recorrência recarrega o resumo pelo mesmo caminho do gasto manual. */}
+      <PendingOccurrences onChanged={onRegistered} onAuthRequired={onAuthRequired} revision={revision} />
 
       <section aria-labelledby="titulo-alertas">
         <h2 className={styles.sectionTitle} id="titulo-alertas">
