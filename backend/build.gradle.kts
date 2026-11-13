@@ -1,5 +1,6 @@
 plugins {
     java
+    jacoco
     id("org.springframework.boot") version "4.1.1"
     id("io.spring.dependency-management") version "1.1.7"
 }
@@ -71,4 +72,57 @@ tasks.register<Test>("unitTest") {
     filter {
         excludeTestsMatching("*IntegrationTest")
     }
+}
+
+// Cobertura (ADR-0030): o relatório combina unitários e integração, porque
+// vários services só são exercitados pela API. A verificação entra no `check`.
+jacoco {
+    toolVersion = "0.8.16"
+}
+
+// Ponto de entrada e configuração declarativa não têm regra própria.
+val coverageExclusions = listOf(
+    "br/com/controlegastos/ControleGastosApplication*",
+    "**/config/**",
+)
+
+tasks.test {
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required = true
+        html.required = true
+    }
+    classDirectories.setFrom(
+        files(classDirectories.files.map { fileTree(it) { exclude(coverageExclusions) } })
+    )
+}
+
+// Limites em fração (0.80 = 80%). Começam na linha de base medida e só sobem
+// (catraca descrita no ADR-0030).
+val coverageMinimumLines = providers.gradleProperty("coverageMinimumLines").orElse("0.00")
+val coverageMinimumBranches = providers.gradleProperty("coverageMinimumBranches").orElse("0.00")
+
+tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.test)
+    classDirectories.setFrom(tasks.jacocoTestReport.map { it.classDirectories })
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                minimum = coverageMinimumLines.get().toBigDecimal()
+            }
+            limit {
+                counter = "BRANCH"
+                minimum = coverageMinimumBranches.get().toBigDecimal()
+            }
+        }
+    }
+}
+
+tasks.check {
+    dependsOn(tasks.jacocoTestCoverageVerification)
 }

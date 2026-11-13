@@ -8,5 +8,13 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Cobertura (ADR-0030): limites na linha de base, só sobem.
+    coverage: {
+      provider: "v8",
+      reporter: ["text-summary", "html", "lcov"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/app/**/layout.tsx", "src/**/*.d.ts"],
+      thresholds: { lines: 0, branches: 0 },
+    },
   },
 });

@@ -30,6 +30,7 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
   const [editingTarget, setEditingTarget] = useState<EnvelopeDTO | null>(null);
   const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
   const contributionKind = contribution?.role === "OWNER" ? "CONTRIBUTION" : "EXPENSE";
   const goals = useMemo(() => (summary?.envelopes ?? []).filter((envelope) => envelope.purpose === "GOAL"), [summary]);
   const targets = useMemo(() => (summary?.envelopes ?? []).filter((envelope) => envelope.purpose === "SAVINGS_TARGET"), [summary]);
@@ -38,7 +39,13 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
     if (!pendingArchive) return;
     const envelope = pendingArchive;
     setPendingArchive(null);
-    await createApiClient(client).archiveEnvelope(envelope.id);
+    setFailure(null);
+    try {
+      await createApiClient(client).archiveEnvelope(envelope.id);
+    } catch (e) {
+      setFailure(e instanceof Error ? e.message : "Não foi possível encerrar a meta");
+      return;
+    }
     setFeedback(`Meta "${envelope.name}" encerrada.`);
     void refresh();
   }
@@ -77,6 +84,11 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
       {feedback && (
         <Notice tone="success" onClose={() => setFeedback(null)}>
           {feedback}
+        </Notice>
+      )}
+      {failure && (
+        <Notice tone="danger" onClose={() => setFailure(null)}>
+          {failure}
         </Notice>
       )}
       <PageHeader

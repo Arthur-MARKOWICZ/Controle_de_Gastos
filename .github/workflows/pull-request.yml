@@ -35,10 +35,12 @@ jobs:
 
       # Inclui os *IntegrationTest, que sobem PostgreSQL via Testcontainers no
       # Docker do runner. É o que o pre-commit deliberadamente não roda.
+      # `check` roda a suíte completa, o relatório JaCoCo e o limite de
+      # cobertura do ADR-0030.
       - name: Testar backend
         run: |
           set -Eeuo pipefail
-          cd backend && ./gradlew test
+          make backend-check
 
       - name: Publicar relatório de testes do backend
         if: ${{ !cancelled() }}
@@ -46,6 +48,15 @@ jobs:
         with:
           name: relatorio-testes-backend
           path: backend/build/reports/tests/test
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Publicar cobertura backend
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cobertura-backend
+          path: backend/build/reports/jacoco
           retention-days: 7
           if-no-files-found: ignore
 
@@ -82,6 +93,15 @@ jobs:
           set -Eeuo pipefail
           make web-check
 
+      - name: Publicar cobertura web
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cobertura-web
+          path: web/coverage
+          retention-days: 7
+          if-no-files-found: ignore
+
   mobile:
     name: Mobile — testes compartilhados e build Android
     runs-on: ubuntu-24.04
@@ -114,6 +134,108 @@ jobs:
         with:
           name: relatorio-testes-mobile
           path: mobile/shared/build/reports/tests/jvmTest
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Publicar cobertura mobile
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cobertura-mobile
+          path: |
+            mobile/shared/build/reports/kover
+            mobile/androidApp/build/reports/kover
+          retention-days: 7
+          if-no-files-found: ignore
+
+  mcp:
+    name: MCP — testes, cobertura e build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          package_json_file: mcp/package.json
+
+      - name: Configurar Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: mcp/pnpm-lock.yaml
+
+      - name: Instalar dependências
+        run: |
+          set -Eeuo pipefail
+          cd mcp && pnpm install --frozen-lockfile
+
+      - name: Verificar mcp
+        run: |
+          set -Eeuo pipefail
+          make mcp-check
+
+      - name: Publicar cobertura mcp
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cobertura-mcp
+          path: mcp/coverage
+          retention-days: 7
+          if-no-files-found: ignore
+
+  desktop:
+    name: Desktop — testes, cobertura, cargo test e build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Obter código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+        with:
+          package_json_file: desktop/package.json
+
+      - name: Configurar Node.js 24
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: desktop/pnpm-lock.yaml
+
+      # O runner já traz rustup/cargo estáveis. Só o crate `desktop/session`
+      # compila aqui; o shell em src-tauri/ exige WebKitGTK (ADR-0029).
+      - name: Conferir toolchain Rust
+        run: |
+          set -Eeuo pipefail
+          cargo --version
+
+      - name: Instalar dependências
+        run: |
+          set -Eeuo pipefail
+          cd desktop && pnpm install --frozen-lockfile
+
+      - name: Verificar desktop
+        run: |
+          set -Eeuo pipefail
+          make desktop-check
+
+      - name: Publicar cobertura desktop
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cobertura-desktop
+          path: desktop/coverage
           retention-days: 7
           if-no-files-found: ignore
 

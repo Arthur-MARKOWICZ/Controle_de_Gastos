@@ -1,5 +1,6 @@
 package br.com.controlegastos.identity;
 
+import org.junit.jupiter.api.DisplayName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -186,4 +187,76 @@ class MfaLoginApiIntegrationTest {
     private record PasswordConfirmation(String password) { }
     private record CodeConfirmation(String code) { }
     private record MfaVerify(String challengeId, String code) { }
+
+    private String challengeFor(String email) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content(credentials(email, PASSWORD)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.mfaRequired").value(true)).andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsByteArray()).get("challengeId").asText();
+    }
+
+    private String enableMfa(String email) throws Exception {
+        register(email, PASSWORD);
+        String accessToken = loginToken(email, PASSWORD);
+        String secret = enroll(accessToken);
+        confirmEnrollment(accessToken, codeFor(secret));
+        return secret;
+    }
+
+    @Test
+    @DisplayName("desafio já usado não emite segunda sessão")
+    void desafioReutilizadoRecusado() throws Exception {
+        String email = "mfa-login-reuse@example.com";
+        String secret = enableMfa(email);
+        String challengeId = challengeFor(email);
+        mockMvc.perform(post("/api/v1/auth/mfa/verify").contentType(MediaType.APPLICATION_JSON)
+                        .content(verifyBody(challengeId, codeFor(secret))))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/mfa/verify").contentType(MediaType.APPLICATION_JSON)
+                        .content(verifyBody(challengeId, codeFor(secret))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_FAILED"));
+        assertThat(activeSessionCount(users.findByEmailNormalized(email).orElseThrow().id())).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("código gerado com o segredo de outra conta é recusado")
+    void codigoDeOutraContaRecusado() throws Exception {
+        String email = "mfa-login-cross-a@example.com";
+        enableMfa(email);
+        String otherSecret = enableMfa("mfa-login-cross-b@example.com");
+
+        mockMvc.perform(post("/api/v1/auth/mfa/verify").contentType(MediaType.APPLICATION_JSON)
+                        .content(verifyBody(challengeFor(email), codeFor(otherSecret))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("senha errada com MFA ativo responde 401 sem emitir desafio")
+    void senhaErradaSemDesafio() throws Exception {
+        enableMfa("mfa-login-wrong@example.com");
+
+        mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content(credentials("mfa-login-wrong@example.com", "senha errada de teste")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.challengeId").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("verificação sem código responde 400 INVALID_REQUEST")
+    void verificacaoSemCodigo() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/mfa/verify").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"challengeId\":\"x\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @DisplayName("JSON malformado na verificação responde 400 INVALID_REQUEST")
+    void jsonMalformado() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/mfa/verify").contentType(MediaType.APPLICATION_JSON).content("{nao json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
 }

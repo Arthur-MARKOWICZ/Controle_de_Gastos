@@ -135,7 +135,8 @@ public class ReportingService {
     }
 
     private String safeText(String value) {
-        if (value != null && !value.isEmpty() && "=+-@".indexOf(value.charAt(0)) >= 0) return "'" + value;
+        // Prefixos que planilhas interpretam como fórmula (OWASP CSV injection).
+        if (value != null && !value.isEmpty() && "=+-@\t\r".indexOf(value.charAt(0)) >= 0) return "'" + value;
         return value;
     }
 }

@@ -1,5 +1,6 @@
 package br.com.controlegastos.ledger;
 
+import org.junit.jupiter.api.DisplayName;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -144,4 +145,73 @@ class GoalProgressApiIntegrationTest {
     }
 
     private record Credentials(String email, String password) {}
+
+    private org.springframework.test.web.servlet.ResultActions postEntry(String token, String envelopeId,
+                                                                          Object body) throws Exception {
+        var request = post("/api/v1/envelopes/{id}/entries", envelopeId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body));
+        if (token != null) request.header("Authorization", "Bearer " + token);
+        return mockMvc.perform(request);
+    }
+
+    @Test
+    @DisplayName("aporte negativo na meta é recusado com 400")
+    void aporteNegativoRecusado() throws Exception {
+        String token = tokenFor("goal-negative@example.com");
+        String goalId = createGoal(token);
+
+        postEntry(token, goalId, Map.of("kind", "CONTRIBUTION", "amount", money("-1.00"), "occurredAt", "2026-09-10"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("tipo de lançamento desconhecido é recusado com 400")
+    void tipoDesconhecidoRecusado() throws Exception {
+        String token = tokenFor("goal-kind@example.com");
+        String goalId = createGoal(token);
+
+        postEntry(token, goalId, Map.of("kind", "SAQUE", "amount", money("1.00"), "occurredAt", "2026-09-10"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("lançamento sem data é recusado com 400")
+    void semDataRecusado() throws Exception {
+        String token = tokenFor("goal-nodate@example.com");
+        String goalId = createGoal(token);
+
+        postEntry(token, goalId, Map.of("kind", "CONTRIBUTION", "amount", money("1.00")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("terceiro não aporta na meta de outro titular nem altera o progresso")
+    void terceiroNaoAporta() throws Exception {
+        String owner = tokenFor("goal-owner@example.com");
+        String stranger = tokenFor("goal-stranger@example.com");
+        String goalId = createGoal(owner);
+
+        int status = postEntry(stranger, goalId, Map.of("kind", "CONTRIBUTION", "amount", money("50.00"), "occurredAt", "2026-09-10"))
+                .andReturn().getResponse().getStatus();
+
+        org.assertj.core.api.Assertions.assertThat(status).isIn(403, 404);
+        summary(owner, "2026-09").andExpect(jsonPath("$.envelopes[0].goalProgress.contributedAmount.amount").value("0.00"));
+    }
+
+    @Test
+    @DisplayName("resumo de outro titular não mostra a meta")
+    void resumoIsoladoPorTitular() throws Exception {
+        String owner = tokenFor("goal-iso-owner@example.com");
+        String other = tokenFor("goal-iso-other@example.com");
+        createGoal(owner);
+
+        summary(other, "2026-09").andExpect(jsonPath("$.envelopes.length()").value(0));
+    }
+
+    @Test
+    @DisplayName("resumo sem sessão responde 401")
+    void resumoSemSessao() throws Exception {
+        mockMvc.perform(get("/api/v1/ledger/summary?month=2026-09")).andExpect(status().isUnauthorized());
+    }
 }

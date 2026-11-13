@@ -1,5 +1,9 @@
 package br.com.controlegastos.envelopes;
 
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import org.junit.jupiter.api.DisplayName;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -89,5 +93,61 @@ class AnnualDueDateValidationApiIntegrationTest {
 
     private Map<String, String> money(String amount) {
         return Map.of("amount", amount, "currency", "BRL");
+    }
+
+    private org.springframework.test.web.servlet.ResultActions annual(String token, int month, int day) throws Exception {
+        return mockMvc.perform(post("/api/v1/envelopes").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(Map.of("name", "IPVA", "purpose", "ANNUAL_EXPENSE",
+                        "annualAmount", money("1200.00"), "dueMonth", month, "dueDay", day, "fundingMode", "MONTHLY"))));
+    }
+
+    @Test
+    @DisplayName("29 de fevereiro é aceito como vencimento anual")
+    void vinteNoveFevereiroAceito() throws Exception {
+        String token = tokenFor("due-29-02@example.com");
+        putIncome(token, "2000.00");
+
+        annual(token, 2, 29).andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("31 de dezembro é aceito como vencimento anual")
+    void trintaUmDezembroAceito() throws Exception {
+        String token = tokenFor("due-31-12@example.com");
+        putIncome(token, "2000.00");
+
+        annual(token, 12, 31).andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("mês 13 é recusado com 400")
+    void mesTrezeRecusado() throws Exception {
+        String token = tokenFor("due-13@example.com");
+
+        annual(token, 13, 1).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("dia zero é recusado com 400")
+    void diaZeroRecusado() throws Exception {
+        String token = tokenFor("due-zero@example.com");
+
+        annual(token, 1, 0).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("31 de abril é recusado com 400")
+    void trintaUmAbrilRecusado() throws Exception {
+        String token = tokenFor("due-31-04@example.com");
+
+        annual(token, 4, 31).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("criar gasto anual sem sessão responde 401")
+    void semSessao() throws Exception {
+        mockMvc.perform(post("/api/v1/envelopes").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
     }
 }

@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.multiplatform.library)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kover)
 }
 
 kotlin {
@@ -49,6 +50,26 @@ kotlin {
 
         commonTest.dependencies {
             implementation(kotlin("test"))
+        }
+    }
+}
+
+// Cobertura (ADR-0030) medida pelos testes JVM; limites na linha de base, só sobem.
+// Funções @Composable só desenham estado: a regra testável fica nos controllers,
+// gateways e validações, que é o que a cobertura mede.
+kover {
+    reports {
+        filters {
+            excludes {
+                annotatedBy("androidx.compose.runtime.Composable")
+                classes("*ComposableSingletons*")
+            }
+        }
+        verify {
+            rule {
+                minBound(0, kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE)
+                minBound(0, kotlinx.kover.gradle.plugin.dsl.CoverageUnit.BRANCH)
+            }
         }
     }
 }
