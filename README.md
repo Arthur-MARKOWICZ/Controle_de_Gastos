@@ -91,11 +91,14 @@ contra a API local.
 | `make hooks` | Instala os hooks de git do lefthook (uma vez por clone) |
 | `make pre-commit` | Roda o conjunto do pre-commit sobre o repositório inteiro |
 | `make test` | Executa testes de backend e web |
-| `make check` | Executa testes, lint e builds verificáveis neste ambiente; inclui o desktop só quando `cargo` está no PATH |
+| `make check` | Executa testes, lint, cobertura e builds verificáveis (backend, web, mcp, mobile Android e desktop só quando `cargo` está no PATH); exige Android SDK |
 | `make infra-up` | Inicia PostgreSQL local |
 | `make infra-down` | Para a infraestrutura local |
 | `cd backend && ./gradlew test` | Testes Java e arquitetura modular |
 | `cd backend && ./gradlew unitTest` | Só os testes Java que não usam Docker |
+| `cd backend && ./gradlew check` | Suíte completa com relatório e limite de cobertura JaCoCo |
+| `make mobile-check` | Testes JVM do `shared` e do `androidApp`, limite Kover e build Android de debug |
+| `pnpm test:coverage` (em `web`, `mcp` ou `desktop`) | Testes com relatório e limite de cobertura em `coverage/` |
 | `cd web && pnpm test` | Testes unitários da web |
 | `cd web && pnpm lint` | Lint da web |
 | `cd mcp && pnpm test` | Testes do servidor MCP |
@@ -108,6 +111,11 @@ os demais canais seguem verificados. `make desktop-check` roda vitest, o build d
 webview e `cargo test` do crate de sessão (`desktop/session`). O shell Tauri em
 `desktop/src-tauri/` precisa das bibliotecas WebKitGTK para compilar e não entra
 nessa verificação.
+
+O padrão mínimo de testes (1 caminho feliz, 3 situações indevidas e 3 erros
+verificados por unidade) e os limites de cobertura de cada módulo estão no
+[ADR-0030](docs/decisions/0030-padrao-minimo-de-testes-e-cobertura.md). iOS
+segue não validado sem macOS/Xcode.
 
 O ambiente de teste usa uma chave JWT efêmera e cookie sem `Secure` apenas
 porque serve HTTP. Ele não é configuração de produção.

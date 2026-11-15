@@ -2,7 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OverviewScreen } from "./OverviewScreen";
-import { ALERTS_PATH, alert, envelope, summary, summaryPath } from "../lib/fixtures";
+import {
+  ALERTS_PATH,
+  NO_PENDING,
+  PENDING_PATH,
+  alert,
+  envelope,
+  pendingOccurrence,
+  summary,
+  summaryPath,
+} from "../lib/fixtures";
 import { installFakeIpc, resetIpc } from "../lib/test-ipc";
 import type { FakeIpc } from "../lib/test-ipc";
 import type { LedgerSummary } from "../lib/types";
@@ -30,6 +39,7 @@ function montar(ipc: FakeIpc, month = "2026-11", onMonthChange = vi.fn()) {
 function ipcCom(resumo: LedgerSummary, alertas = { items: [] as ReturnType<typeof alert>[] }) {
   return installFakeIpc()
     .onApi(summaryPath("2026-11"), { status: 200, body: resumo })
+    .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
     .onApi(ALERTS_PATH, { status: 200, body: alertas });
 }
 
@@ -82,6 +92,7 @@ describe("7.1 resumo do mês", () => {
         status: 200,
         body: summary({ unallocated: { amount: "90.00", currency: "BRL" } }),
       })
+      .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
       .onApi(ALERTS_PATH, { status: 200, body: { items: [] } });
     montar(ipc, "2026-10");
 
@@ -132,7 +143,9 @@ describe("7.3 dispensar alerta", () => {
     const user = userEvent.setup();
     const ipc = installFakeIpc()
       .onApi(summaryPath("2026-11"), { status: 200, body: summary() })
+      .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
       .onApi(ALERTS_PATH, { status: 200, body: { items: [alert()] } })
+      .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
       .onApi(ALERTS_PATH, { status: 200, body: { items: [] } })
       .onApi("/api/v1/alerts/alerta-1/dismiss", { status: 204, body: "" });
     montar(ipc);
@@ -153,6 +166,7 @@ describe("7.3 dispensar alerta", () => {
     const user = userEvent.setup();
     const ipc = installFakeIpc()
       .onApi(summaryPath("2026-11"), { status: 200, body: summary() })
+      .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
       .onApi(ALERTS_PATH, { status: 200, body: { items: [alert()] } })
       .onApi("/api/v1/alerts/alerta-1/dismiss", {
         status: 409,
@@ -167,5 +181,33 @@ describe("7.3 dispensar alerta", () => {
     expect(erro).toHaveTextContent("O alerta não foi dispensado");
     // O alerta continua lá: nada de sumir com ele sem confirmação da API.
     expect(screen.getByText(/A verba Combustível está com saldo negativo/)).toBeTruthy();
+  });
+});
+
+describe("recorrências pendentes na visão geral", () => {
+  it("confirmar uma pendência pede a recarga do resumo do mês", async () => {
+    const user = userEvent.setup();
+    const onRegistered = vi.fn();
+    installFakeIpc()
+      .onApi(summaryPath("2026-11"), { status: 200, body: summary() })
+      .onApi(PENDING_PATH, { status: 200, body: { current: [pendingOccurrence()], overdue: [] } })
+      .onApi(ALERTS_PATH, { status: 200, body: { items: [] } })
+      .onApi("/api/v1/recurring-occurrences/oc-1/confirm", {
+        status: 200,
+        body: { id: "oc-1", status: "CONFIRMED", ledgerEntryId: "l-1" },
+      });
+    render(
+      <OverviewScreen
+        month="2026-11"
+        onMonthChange={vi.fn()}
+        revision={0}
+        onRegistered={onRegistered}
+        onAuthRequired={semEfeito}
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Confirmar Aluguel" }));
+
+    await waitFor(() => expect(onRegistered).toHaveBeenCalledTimes(1));
   });
 });

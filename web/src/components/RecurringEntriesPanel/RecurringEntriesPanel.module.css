@@ -1,0 +1,67 @@
+.panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.lead {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.item,
+.empty {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+}
+
+.empty {
+  color: var(--text-muted);
+}
+
+.itemText {
+  display: grid;
+  gap: 0.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.itemText span {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.inactive {
+  font-style: italic;
+}
+
+.itemActions,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.formTitle {
+  margin: 0;
+  font-size: 1rem;
+}

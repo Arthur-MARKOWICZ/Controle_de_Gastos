@@ -25,7 +25,7 @@
 ## Decisions
 
 ### D1. `LIKE` sobre `lower(description)` com índice GIN trigram
-Migração `V17__add_ledger_description_trgm_index.sql`:
+Migração `V18__add_ledger_description_trgm_index.sql`:
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE INDEX ledger_entry_description_trgm_idx
@@ -55,8 +55,8 @@ Na JPQL, o filtro é `LOWER(e.description) LIKE :pattern ESCAPE '\'`. O `pattern
 ### D6. Android: estado de filtro no `HistoryController`
 `HistoryController` ganha `query: String` e `envelopeId: String?`, além de `search(text)`, `filterEnvelope(id)` e `clearFilters()`, que zeram `page` e recarregam. Trocar de mês preserva os filtros. `LedgerGateway.loadHistory` recebe um `HistoryFilter(query, envelopeId)` com default vazio, para os chamadores atuais não quebrarem. `HistoryPageView` ganha `matchedTotal: Money`. `HistoryScreen` adiciona o campo (`ImeAction.Search` + debounce com `LaunchedEffect`) e um seletor de verba. O filtro de autor fica fora do Android neste corte, para não poluir a tela pequena. A API já o suporta.
 
-### D7. ADR-0030
-Registrar em `docs/decisions/0030-busca-textual-com-pg-trgm.md` a adoção da extensão, o índice de expressão em `lower(description)`, a limitação de acentos e o critério para revisar (`unaccent` ou `tsvector`).
+### D7. ADR-0032
+Registrar em `docs/decisions/0032-busca-textual-com-pg-trgm.md` a adoção da extensão, o índice de expressão em `lower(description)`, a limitação de acentos e o critério para revisar (`unaccent` ou `tsvector`).
 
 ### Canais
 - **API**: afetada (D1–D4).
@@ -72,13 +72,13 @@ Registrar em `docs/decisions/0030-busca-textual-com-pg-trgm.md` a adoção da ex
 - [Com parâmetros ligados, o planner pode preferir um plano genérico e ignorar o índice trigram por causa das flags `OR`] → No volume de um usuário pessoal, o filtro por `owner_id`/participante já reduz muito as linhas. O índice atende ao critério de aceite e passa a valer quando o volume crescer. Se medições mostrarem lentidão, migrar para query montada com `Specification` (D2).
 - [Termos de 1 ou 2 caracteres não aproveitam trigramas] → Funcionam com varredura limitada pelo filtro de visibilidade. Não impomos mínimo para não frustrar buscas curtas como "uber".
 - [`lower()` no Postgres depende da collation e `toLowerCase(Locale.ROOT)` em Java pode divergir em casos raros] → Para o português com UTF-8 os dois produzem o mesmo resultado. Há cenário de teste com "Farmácia"/"farmácia".
-- [Acentos: "farmacia" não acha "farmácia"] → Limitação documentada no ADR-0030 e na proposal. Revisitar com `unaccent` se o diário de validação apontar.
+- [Acentos: "farmacia" não acha "farmácia"] → Limitação documentada no ADR-0032 e na proposal. Revisitar com `unaccent` se o diário de validação apontar.
 - [`CREATE EXTENSION` falhar em produção por falta de privilégio] → `pg_trgm` é *trusted*, então o role dono do banco consegue criar. Validar no ambiente de produção antes do deploy (tarefa explícita).
 - [Uma query extra de soma por página] → É uma agregação simples sobre o mesmo conjunto filtrado e aceitável no volume atual, sem cache (regra do projeto).
 
 ## Migration Plan
 
-1. Deploy do backend com `V17`. O Flyway cria a extensão e o índice. O índice GIN sobre uma tabela pequena é criado em segundos. Se o volume crescer no futuro, prefira `CREATE INDEX CONCURRENTLY` em migração não transacional.
+1. Deploy do backend com `V18`. O Flyway cria a extensão e o índice. O índice GIN sobre uma tabela pequena é criado em segundos. Se o volume crescer no futuro, prefira `CREATE INDEX CONCURRENTLY` em migração não transacional.
 2. A API é retrocompatível, então web e Android podem sair depois do backend.
 3. Rollback: os clientes antigos ignoram `matchedTotal`. Para reverter o banco, use uma migração `V18` com `DROP INDEX ledger_entry_description_trgm_idx` (a extensão pode ficar).
 

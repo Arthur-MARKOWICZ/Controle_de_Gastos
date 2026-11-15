@@ -2,8 +2,8 @@
 
 ## 1. Decisão e banco
 
-- [x] 1.1 Escrever `docs/decisions/0030-busca-textual-com-pg-trgm.md`: contexto (#94), decisão (`pg_trgm` + índice GIN em `lower(description)`), alternativas (`ILIKE` nativo, `tsvector`, `unaccent`), consequências e quando revisar
-- [x] 1.2 Criar `backend/src/main/resources/db/migration/V17__add_ledger_description_trgm_index.sql` com `CREATE EXTENSION IF NOT EXISTS pg_trgm` e o índice `ledger_entry_description_trgm_idx`
+- [x] 1.1 Escrever `docs/decisions/0032-busca-textual-com-pg-trgm.md`: contexto (#94), decisão (`pg_trgm` + índice GIN em `lower(description)`), alternativas (`ILIKE` nativo, `tsvector`, `unaccent`), consequências e quando revisar
+- [x] 1.2 Criar `backend/src/main/resources/db/migration/V18__add_ledger_description_trgm_index.sql` com `CREATE EXTENSION IF NOT EXISTS pg_trgm` e o índice `ledger_entry_description_trgm_idx`
 - [x] 1.3 Confirmar que o role do banco de produção pode criar a extensão *trusted* (dono do banco com `CREATE`) e registrar o resultado no ADR
 
 ## 2. API — busca e filtros (TDD)

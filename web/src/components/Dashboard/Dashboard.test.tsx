@@ -8,6 +8,11 @@ const alertsState = vi.hoisted(() => ({
   items: [] as Array<{ id: string; envelopeId: string; envelopeName: string; referenceMonth: string }>,
 }));
 
+const pendingState = vi.hoisted(() => ({
+  current: [] as Array<Record<string, unknown>>,
+  confirm: null as null | ((id: string) => Promise<unknown>),
+}));
+
 const envelopesHook = vi.hoisted(() => ({
   envelopes: [] as Array<{
     id: string;
@@ -111,6 +116,8 @@ vi.mock("../../lib/api", async (importOriginal) => {
     createApiClient: (client: Parameters<typeof original.createApiClient>[0]) => ({
       ...original.createApiClient(client),
       listAlerts: () => Promise.resolve({ items: alertsState.items }),
+      listPendingOccurrences: () => Promise.resolve({ current: pendingState.current, overdue: [] }),
+      confirmOccurrence: (id: string) => pendingState.confirm!(id),
       dismissAlert: (id: string) => {
         alertsState.items = alertsState.items.filter((alert) => alert.id !== id);
         return Promise.resolve();
@@ -147,6 +154,10 @@ vi.mock("../../hooks/useIncome", () => ({
 }));
 
 beforeEach(resetHooks);
+beforeEach(() => {
+  pendingState.current = [];
+  pendingState.confirm = () => Promise.resolve({ id: "o1", status: "CONFIRMED", ledgerEntryId: "l1" });
+});
 
 afterEach(() => {
   cleanup();
@@ -311,5 +322,24 @@ describe("Dashboard", () => {
     await waitFor(() =>
       expect(screen.queryByRole("region", { name: "Alertas persistentes de saldo negativo" })).toBeNull(),
     );
+  });
+
+  it("confirmar uma recorrência pendente recarrega verbas e resumo do mês", async () => {
+    pendingState.current = [{
+      id: "o1", recurringEntryId: "r1", envelopeId: "env-1", envelopeName: "Moradia", kind: "EXPENSE",
+      description: "Aluguel", suggestedAmount: { amount: "1800.00", currency: "BRL" },
+      dueDate: "2026-09-05", competence: "2026-09",
+    }];
+    const confirm = vi.fn().mockResolvedValue({ id: "o1", status: "CONFIRMED", ledgerEntryId: "l1" });
+    pendingState.confirm = confirm;
+    render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar Aluguel" }));
+
+    await waitFor(() => expect(confirm).toHaveBeenCalledWith("o1"));
+    await waitFor(() => {
+      expect(ledgerHook.refresh).toHaveBeenCalled();
+      expect(envelopesHook.refresh).toHaveBeenCalled();
+    });
   });
 });

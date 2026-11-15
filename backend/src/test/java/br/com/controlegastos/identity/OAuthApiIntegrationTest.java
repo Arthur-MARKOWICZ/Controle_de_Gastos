@@ -1,5 +1,6 @@
 package br.com.controlegastos.identity;
 
+import org.junit.jupiter.api.DisplayName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -245,5 +246,72 @@ class OAuthApiIntegrationTest {
             throw new IllegalStateException("state ausente na URL: " + url);
         }
         return matcher.group(1);
+    }
+
+    private String stateFromGoogle() throws Exception {
+        when(googleOAuthClient.provider()).thenReturn(OAuthProvider.GOOGLE);
+        when(googleOAuthClient.authorizationUrl(any()))
+                .thenAnswer(invocation -> "https://accounts.google.com/authorize?state=" + invocation.getArgument(0));
+        String response = mockMvc.perform(post("/api/v1/auth/oauth/google/authorize-url"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return extractState(objectMapper.readTree(response).get("authorizationUrl").asText());
+    }
+
+    @Test
+    @DisplayName("state já usado num callback não autentica de novo")
+    void stateReutilizadoFalha() throws Exception {
+        String state = stateFromGoogle();
+        when(googleOAuthClient.exchangeCode("code-1")).thenReturn("access-1");
+        when(googleOAuthClient.fetchProfile("access-1"))
+                .thenReturn(new OAuthProviderClient.ProviderProfile("google-reuse", "reuse@example.com"));
+        mockMvc.perform(get("/api/v1/auth/oauth/google/callback").param("code", "code-1").param("state", state))
+                .andExpect(header().string("Location", "https://app.example.com/oauth/callback?status=ok"));
+
+        mockMvc.perform(get("/api/v1/auth/oauth/google/callback").param("code", "code-1").param("state", state))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "https://app.example.com/oauth/callback?error=oauth_failed"))
+                .andExpect(cookie().doesNotExist("refresh_token"));
+    }
+
+    @Test
+    @DisplayName("provedor fora do ar na troca do código redireciona com erro genérico e sem cookie")
+    void provedorForaDoAr() throws Exception {
+        String state = stateFromGoogle();
+        when(googleOAuthClient.exchangeCode("code-down"))
+                .thenThrow(new org.springframework.web.client.ResourceAccessException("timeout"));
+
+        mockMvc.perform(get("/api/v1/auth/oauth/google/callback").param("code", "code-down").param("state", state))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "https://app.example.com/oauth/callback?error=oauth_failed"))
+                .andExpect(cookie().doesNotExist("refresh_token"));
+    }
+
+    @Test
+    @DisplayName("state emitido para o Google não vale no callback do GitHub")
+    void stateDeOutroProvedorFalha() throws Exception {
+        String state = stateFromGoogle();
+        when(githubOAuthClient.provider()).thenReturn(OAuthProvider.GITHUB);
+
+        mockMvc.perform(get("/api/v1/auth/oauth/github/callback").param("code", "c").param("state", state))
+                .andExpect(header().string("Location", "https://app.example.com/oauth/callback?error=oauth_failed"));
+    }
+
+    @Test
+    @DisplayName("callback sem código redireciona com erro genérico")
+    void callbackSemCodigo() throws Exception {
+        String state = stateFromGoogle();
+
+        int status = mockMvc.perform(get("/api/v1/auth/oauth/google/callback").param("state", state))
+                .andReturn().getResponse().getStatus();
+
+        assertThat(status).isIn(302, 400);
+        assertThat(users.findAll()).noneMatch(user -> user.emailNormalized().startsWith("google-"));
+    }
+
+    @Test
+    @DisplayName("URL de autorização para provedor desconhecido responde 400")
+    void autorizacaoProvedorDesconhecido() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/orkut/authorize-url"))
+                .andExpect(status().isBadRequest());
     }
 }

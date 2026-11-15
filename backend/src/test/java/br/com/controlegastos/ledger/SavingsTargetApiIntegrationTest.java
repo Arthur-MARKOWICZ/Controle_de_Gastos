@@ -1,5 +1,6 @@
 package br.com.controlegastos.ledger;
 
+import org.junit.jupiter.api.DisplayName;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -112,5 +113,65 @@ class SavingsTargetApiIntegrationTest {
     }
 
     private record Credentials(String email, String password) {
+    }
+
+    private org.springframework.test.web.servlet.ResultActions createEnvelopeRaw(String token, Object body) throws Exception {
+        return mockMvc.perform(post("/api/v1/envelopes").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(body)));
+    }
+
+    @Test
+    @DisplayName("meta de acumulação sem valor-alvo é recusada com 400")
+    void semValorAlvoRecusada() throws Exception {
+        String token = tokenFor("target-missing@example.com");
+
+        createEnvelopeRaw(token, Map.of("name", "Notebook", "purpose", "SAVINGS_TARGET", "baseAmount", money("0.00")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("valor-alvo zero é recusado com 400")
+    void valorAlvoZeroRecusado() throws Exception {
+        String token = tokenFor("target-zero@example.com");
+
+        createEnvelopeRaw(token, Map.of("name", "Notebook", "purpose", "SAVINGS_TARGET",
+                "baseAmount", money("0.00"), "targetAmount", money("0.00")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("meta de acumulação com valor-base mensal é recusada com 400")
+    void comValorBaseRecusada() throws Exception {
+        String token = tokenFor("target-base@example.com");
+
+        createEnvelopeRaw(token, Map.of("name", "Notebook", "purpose", "SAVINGS_TARGET",
+                "baseAmount", money("10.00"), "targetAmount", money("100.00")))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("terceiro não aporta na meta de acumulação de outro titular")
+    void terceiroNaoAporta() throws Exception {
+        String owner = tokenFor("target-owner@example.com");
+        String stranger = tokenFor("target-stranger@example.com");
+        String envelopeId = createSavingsTarget(owner);
+
+        int status = mockMvc.perform(post("/api/v1/envelopes/{id}/entries", envelopeId)
+                        .header("Authorization", "Bearer " + stranger)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "kind", "CONTRIBUTION", "amount", money("1000.00"), "occurredAt", "2026-09-01"))))
+                .andReturn().getResponse().getStatus();
+
+        org.assertj.core.api.Assertions.assertThat(status).isIn(403, 404);
+        mockMvc.perform(get("/api/v1/ledger/summary?month=2026-09").header("Authorization", "Bearer " + owner))
+                .andExpect(jsonPath("$.envelopes[0].targetReachedAt").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("criar meta sem sessão responde 401")
+    void criarSemSessao() throws Exception {
+        mockMvc.perform(post("/api/v1/envelopes").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
     }
 }

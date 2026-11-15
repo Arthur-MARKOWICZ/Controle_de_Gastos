@@ -52,7 +52,7 @@ public class LedgerEntryController {
     @ResponseStatus(HttpStatus.CREATED)
     EntryResponse create(@PathVariable UUID id, @RequestBody JsonNode body) {
         LedgerKind kind = kindField(body, "kind");
-        Money amount = moneyField(body, "amount");
+        Money amount = MoneyJson.required(body, "amount");
         LocalDate occurredAt = dateField(body, "occurredAt");
         String description = body.has("description") && !body.get("description").isNull()
                 ? body.get("description").asString()
@@ -69,17 +69,6 @@ public class LedgerEntryController {
         if (!body.has(field) || !body.get(field).isString()) throw new IllegalArgumentException("O campo " + field + " é obrigatório");
         String raw = body.get(field).asString();
         try { return LedgerKind.valueOf(raw); } catch (IllegalArgumentException e) { throw new IllegalArgumentException("Kind inválido: " + raw); }
-    }
-
-    private Money moneyField(JsonNode body, String field) {
-        if (!body.has(field) || !body.get(field).isObject()) throw new IllegalArgumentException("O campo " + field + " é obrigatório");
-        JsonNode node = body.get(field);
-        if (!node.has("amount") || !node.get("amount").isString() || !node.has("currency")) throw new IllegalArgumentException("Money deve ter amount e currency");
-        if (!"BRL".equals(node.get("currency").asString())) throw new IllegalArgumentException("Moeda deve ser BRL");
-        String amountStr = node.get("amount").asString();
-        if (!amountStr.matches("^\\d{1,17}\\.\\d{2}$")) throw new IllegalArgumentException("Amount deve ter exatamente duas casas decimais");
-        if (node.size() != 2) throw new IllegalArgumentException("Money deve ter apenas amount e currency");
-        return Money.brl(amountStr);
     }
 
     private LocalDate dateField(JsonNode body, String field) {

@@ -14,6 +14,7 @@ data class VerbasGateways(
     val reports: ReportGateway,
     val alerts: AlertGateway,
     val sharing: SharingGateway,
+    val recurring: RecurringGateway = UnavailableGateway,
 ) {
     companion object {
         val Unavailable = VerbasGateways(
@@ -31,7 +32,8 @@ data class VerbasGateways(
 private const val UNAVAILABLE = "Dados financeiros não configurados para esta plataforma"
 
 /** Usado pelo iOS, que ainda não tem cliente HTTP (ADR-004). */
-object UnavailableGateway : EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway {
+object UnavailableGateway :
+    EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway, RecurringGateway {
     override suspend fun listEnvelopes(month: YearMonth?): List<EnvelopeView> = error(UNAVAILABLE)
     override suspend fun createEnvelope(envelope: NewEnvelope): EnvelopeView = error(UNAVAILABLE)
     override suspend fun updateEnvelope(id: String, edit: EnvelopeEdit): EnvelopeView = error(UNAVAILABLE)
@@ -43,6 +45,20 @@ object UnavailableGateway : EnvelopeGateway, LedgerGateway, IncomeGateway, Repor
     override suspend fun listParticipants(envelopeId: String): List<ParticipantView> = error(UNAVAILABLE)
     override suspend fun inviteParticipant(envelopeId: String, email: String): ParticipantView = error(UNAVAILABLE)
     override suspend fun removeParticipant(envelopeId: String, userId: String) = error(UNAVAILABLE)
+
+    override suspend fun listRecurring(envelopeId: String): List<RecurringEntryView> = error(UNAVAILABLE)
+    override suspend fun createRecurring(envelopeId: String, input: RecurringEntryInput): RecurringEntryView =
+        error(UNAVAILABLE)
+    override suspend fun updateRecurring(
+        envelopeId: String,
+        id: String,
+        input: RecurringEntryInput,
+        active: Boolean,
+    ): RecurringEntryView = error(UNAVAILABLE)
+    override suspend fun deleteRecurring(envelopeId: String, id: String) = error(UNAVAILABLE)
+    override suspend fun listPendingOccurrences(): PendingOccurrencesView = error(UNAVAILABLE)
+    override suspend fun confirmOccurrence(id: String, amount: Money?, occurredAt: String?) = error(UNAVAILABLE)
+    override suspend fun discardOccurrence(id: String) = error(UNAVAILABLE)
 
     override suspend fun loadDashboard(month: YearMonth?): FinancialDashboard = error(UNAVAILABLE)
     override suspend fun listEntries(envelopeId: String, month: YearMonth?): List<LedgerEntryView> = error(UNAVAILABLE)

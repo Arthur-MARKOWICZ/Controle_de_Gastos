@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "./App";
-import { ALERTS_PATH, summary, summaryPath } from "./lib/fixtures";
+import { ALERTS_PATH, NO_PENDING, PENDING_PATH, summary, summaryPath } from "./lib/fixtures";
 import { currentMonthSaoPaulo } from "./lib/dates";
 import { installFakeIpc, resetIpc } from "./lib/test-ipc";
 import type { FakeIpc } from "./lib/test-ipc";
@@ -28,6 +28,7 @@ function montar({ sessao = { email: "titular@exemplo.com" }, tema = "SYSTEM" }: 
     .on("theme_set", () => null)
     .on("logout", () => null)
     .onApi(summaryPath(MES), { status: 200, body: summary() })
+    .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
     .onApi(ALERTS_PATH, { status: 200, body: { items: [] } });
   render(<App />);
   return ipc;

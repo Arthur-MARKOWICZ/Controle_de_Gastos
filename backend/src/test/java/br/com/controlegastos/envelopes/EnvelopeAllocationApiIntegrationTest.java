@@ -1,5 +1,7 @@
 package br.com.controlegastos.envelopes;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import org.junit.jupiter.api.DisplayName;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -152,5 +154,85 @@ class EnvelopeAllocationApiIntegrationTest {
 
     private Map<String, String> money(String amount) {
         return Map.of("amount", amount, "currency", "BRL");
+    }
+
+    private String newEnvelope(String token, String name, String base) throws Exception {
+        return objectMapper.readTree(mockMvc.perform(post("/api/v1/envelopes").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", name, "purpose", "LIMIT", "baseAmount", money(base)))))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsByteArray()).get("id").asString();
+    }
+
+    private org.springframework.test.web.servlet.ResultActions patchEnvelope(String token, String id, Map<String, Object> body)
+            throws Exception {
+        var request = patch("/api/v1/envelopes/{id}", id).contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(body));
+        if (token != null) request.header("Authorization", "Bearer " + token);
+        return mockMvc.perform(request);
+    }
+
+    @Test
+    @DisplayName("alocar exatamente a renda é aceito")
+    void alocarExatamenteARenda() throws Exception {
+        String token = tokenFor("alloc-exato@example.com");
+        putIncome(token, "1000.00");
+
+        newEnvelope(token, "Aluguel", "1000.00");
+    }
+
+    @Test
+    @DisplayName("verbas de outro titular não contam no meu limite de renda")
+    void verbasDeOutroNaoContam() throws Exception {
+        String me = tokenFor("alloc-me@example.com");
+        String other = tokenFor("alloc-other@example.com");
+        putIncome(me, "100.00");
+        putIncome(other, "5000.00");
+        newEnvelope(other, "Aluguel", "4000.00");
+
+        newEnvelope(me, "Mercado", "100.00");
+    }
+
+    @Test
+    @DisplayName("um centavo acima da renda é recusado com o problema de alocação")
+    void umCentavoAcimaRecusado() throws Exception {
+        String token = tokenFor("alloc-centavo@example.com");
+        putIncome(token, "1000.00");
+        newEnvelope(token, "Aluguel", "900.00");
+
+        mockMvc.perform(post("/api/v1/envelopes").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "Lazer", "purpose", "LIMIT", "baseAmount", money("100.01")))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("A soma das verbas-base excede a renda mensal"));
+    }
+
+    @Test
+    @DisplayName("verba-base negativa é recusada com 400")
+    void verbaNegativaRecusada() throws Exception {
+        String token = tokenFor("alloc-negativa@example.com");
+
+        mockMvc.perform(post("/api/v1/envelopes").header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("name", "Lazer", "purpose", "LIMIT", "baseAmount", money("-1.00")))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("verba arquivada libera a renda para outra verba")
+    void arquivadaLiberaRenda() throws Exception {
+        String token = tokenFor("alloc-arquivada@example.com");
+        putIncome(token, "1000.00");
+        String id = newEnvelope(token, "Aluguel", "1000.00");
+        mockMvc.perform(post("/api/v1/envelopes/{id}/archive", id).header("Authorization", "Bearer " + token))
+                .andExpect(status().is2xxSuccessful());
+
+        newEnvelope(token, "Novo aluguel", "1000.00");
+    }
+
+    @Test
+    @DisplayName("criar verba sem sessão responde 401")
+    void criarSemSessao() throws Exception {
+        mockMvc.perform(post("/api/v1/envelopes").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnauthorized());
     }
 }

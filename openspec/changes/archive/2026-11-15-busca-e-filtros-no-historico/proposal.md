@@ -8,8 +8,8 @@ O histórico de lançamentos (`GET /api/v1/history`) só filtra por período. Pa
 
 - `GET /api/v1/history` passa a aceitar parâmetros opcionais `q` (texto contido na descrição, sem diferenciar maiúsculas), `envelopeId` e `author` (`ME` = lançados por mim, `OTHERS` = lançados por outras pessoas). Sem eles, o comportamento atual não muda. A mudança não é breaking.
 - A resposta paginada do histórico ganha `matchedTotal` (Money BRL): soma dos gastos ativos (não excluídos) que atendem a todos os filtros no período. É isso que responde "quanto gastei em X".
-- Migração Flyway `V17` cria a extensão `pg_trgm` e um índice GIN trigram em `ledger_entry.description`, para a busca `ILIKE '%termo%'` não depender de varredura sequencial.
-- Novo ADR-0030 registra a adoção da extensão `pg_trgm`, porque ela é dependência nova de infraestrutura do banco.
+- Migração Flyway `V18` cria a extensão `pg_trgm` e um índice GIN trigram em `ledger_entry.description`, para a busca `ILIKE '%termo%'` não depender de varredura sequencial.
+- Novo ADR-0032 registra a adoção da extensão `pg_trgm`, porque ela é dependência nova de infraestrutura do banco.
 - Web: a página de histórico ganha campo de busca seletor de verba e filtro de autor (todos / por mim / por outras pessoas). Os filtros ficam na URL, junto com `from`/`to`, e a soma dos resultados aparece quando algum filtro está ativo.
 - Android: o histórico ganha campo de busca e filtro de verba, e mostra a soma filtrada.
 - A busca respeita a mesma visibilidade de hoje: o dono vê as entradas das suas verbas, o participante vê as das verbas compartilhadas com ele, e um terceiro não vê nada. Os filtros só restringem esse conjunto.
@@ -39,12 +39,12 @@ O histórico de lançamentos (`GET /api/v1/history`) só filtra por período. Pa
 - ADR-0006 (valores monetários decimais): `matchedTotal` usa string decimal com duas casas.
 - ADR-0024 (modelagem do banco, sem RLS): o isolamento continua nas queries da aplicação (`owner_id` ou participante).
 - ADR-0026 (compartilhamento assimétrico): o participante vê na busca exatamente o que já vê no histórico.
-- **Novo ADR-0030**: adoção de `pg_trgm` para busca textual.
+- **Novo ADR-0032**: adoção de `pg_trgm` para busca textual.
 
 ## Impact
 
-- Backend: `ledger/web/HistoryController`, `ledger/application/LedgerService.history`, `ledger/infrastructure/LedgerEntryRepository.findHistory` e nova query de soma, migração `V17__add_ledger_description_trgm_index.sql`, testes de integração com Testcontainers (`postgres:18-alpine`).
+- Backend: `ledger/web/HistoryController`, `ledger/application/LedgerService.history`, `ledger/infrastructure/LedgerEntryRepository.findHistory` e nova query de soma, migração `V18__add_ledger_description_trgm_index.sql`, testes de integração com Testcontainers (`postgres:18-alpine`).
 - Web: `web/src/lib/api.ts` (`getHistory`, `HistoryPageDTO`) e `web/src/components/HistoryPage/`.
 - Android/KMP: `LedgerGateway.loadHistory`, `AndroidApiGateway`, `LedgerContract` (`HistoryPageView`), `HistoryController`, `HistoryScreen` e testes em `commonTest`.
 - Banco: extensão `pg_trgm`, que é *trusted* desde o PostgreSQL 13. Basta o role dono do banco ter `CREATE` no banco, sem superusuário.
-- Docs: `docs/decisions/0030-busca-textual-com-pg-trgm.md`. Avaliar se `docs/privacy/inventario-de-dados.md` precisa mencionar o termo de busca (ele é transitório e não é persistido).
+- Docs: `docs/decisions/0032-busca-textual-com-pg-trgm.md`. Avaliar se `docs/privacy/inventario-de-dados.md` precisa mencionar o termo de busca (ele é transitório e não é persistido).

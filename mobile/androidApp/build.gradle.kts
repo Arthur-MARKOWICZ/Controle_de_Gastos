@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kover)
 }
 
 fun propertiesOf(file: File): Properties = Properties().apply {
@@ -123,4 +124,22 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test.junit)
     testImplementation(libs.org.json)
+}
+
+// Cobertura (ADR-0030) dos testes JVM do app; MainActivity e telas Compose são
+// exercitadas pelo `shared`, não aqui.
+kover {
+    reports {
+        filters {
+            excludes {
+                classes("br.com.controlegastos.app.MainActivity*", "*ComposableSingletons*", "*.BuildConfig")
+            }
+        }
+        verify {
+            rule {
+                minBound(0, kotlinx.kover.gradle.plugin.dsl.CoverageUnit.LINE)
+                minBound(0, kotlinx.kover.gradle.plugin.dsl.CoverageUnit.BRANCH)
+            }
+        }
+    }
 }

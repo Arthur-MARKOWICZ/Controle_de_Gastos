@@ -1,4 +1,4 @@
-# ADR-0030: Busca textual no histórico com `pg_trgm`
+# ADR-0032: Busca textual no histórico com `pg_trgm`
 
 ## Status
 
@@ -21,7 +21,7 @@ O backend é um monólito modular em PostgreSQL 18, sem cache nem serviço de bu
 
 ## Decisão
 
-- Habilitar a extensão `pg_trgm` na migração `V17`. Ela é *trusted* desde o
+- Habilitar a extensão `pg_trgm` na migração `V18`. Ela é *trusted* desde o
   PostgreSQL 13, então basta o role dono do banco ter `CREATE` no banco, sem
   superusuário.
 - Criar o índice GIN de expressão
@@ -70,4 +70,4 @@ SELECT has_database_privilege(current_user, current_database(), 'CREATE');
 ```
 
 Se a consulta retornar `false`, a extensão precisa ser criada uma vez por um
-administrador antes da migração. O `IF NOT EXISTS` torna a `V17` idempotente.
+administrador antes da migração. O `IF NOT EXISTS` torna a `V18` idempotente.

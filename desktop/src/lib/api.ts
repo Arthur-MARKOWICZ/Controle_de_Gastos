@@ -6,8 +6,14 @@
  * `isNegative` é sempre `false` por contrato documentado (ADR-0029).
  */
 
-import { apiCall, IpcError } from "./ipc";
-import type { Alert, LedgerSummary } from "./types";
+import { apiCall, IpcError, type ApiMethod } from "./ipc";
+import type {
+  Alert,
+  LedgerSummary,
+  PendingOccurrences,
+  RecurringEntry,
+  RecurringEntryInput,
+} from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -21,9 +27,10 @@ export class ApiError extends Error {
 
 function messageFor(status: number, body: string): string {
   try {
-    const parsed = JSON.parse(body) as { message?: unknown };
-    if (typeof parsed.message === "string" && parsed.message.trim() !== "") {
-      return parsed.message;
+    // `problem+json` da API traz o texto em `detail`; `message` fica por compatibilidade.
+    const parsed = JSON.parse(body) as { message?: unknown; detail?: unknown };
+    for (const text of [parsed.message, parsed.detail]) {
+      if (typeof text === "string" && text.trim() !== "") return text;
     }
   } catch {
     // corpo sem JSON: cai na mensagem por status
@@ -35,7 +42,7 @@ function messageFor(status: number, body: string): string {
 }
 
 async function request<T>(
-  method: "GET" | "POST" | "PATCH",
+  method: ApiMethod,
   path: string,
   body?: unknown,
 ): Promise<T> {
@@ -86,6 +93,63 @@ export function registerExpense(
       description: input.description,
     },
   );
+}
+
+export const PENDING_OCCURRENCES_PATH = "/api/v1/recurring-occurrences/pending";
+
+export function listPendingOccurrences(): Promise<PendingOccurrences> {
+  return request<PendingOccurrences>("GET", PENDING_OCCURRENCES_PATH);
+}
+
+/** Sem ajuste, a API usa o valor sugerido e a data prevista. */
+export function confirmOccurrence(
+  id: string,
+  adjustment?: { amount: string; occurredAt: string },
+): Promise<unknown> {
+  return request("POST", `/api/v1/recurring-occurrences/${encodeURIComponent(id)}/confirm`,
+    adjustment
+      ? { amount: { amount: adjustment.amount, currency: "BRL" }, occurredAt: adjustment.occurredAt }
+      : {});
+}
+
+export function discardOccurrence(id: string): Promise<void> {
+  return request<void>("POST", `/api/v1/recurring-occurrences/${encodeURIComponent(id)}/discard`);
+}
+
+export function recurringPath(envelopeId: string): string {
+  return `/api/v1/envelopes/${encodeURIComponent(envelopeId)}/recurring-entries`;
+}
+
+export function listRecurringEntries(envelopeId: string): Promise<RecurringEntry[]> {
+  return request<RecurringEntry[]>("GET", recurringPath(envelopeId));
+}
+
+export function createRecurringEntry(envelopeId: string, input: RecurringEntryInput): Promise<RecurringEntry> {
+  return request<RecurringEntry>("POST", recurringPath(envelopeId), {
+    kind: input.kind,
+    amount: { amount: input.amount, currency: "BRL" },
+    dayOfMonth: input.dayOfMonth,
+    description: input.description,
+  });
+}
+
+export function updateRecurringEntry(
+  envelopeId: string,
+  id: string,
+  input: RecurringEntryInput & { active: boolean },
+): Promise<RecurringEntry> {
+  return request<RecurringEntry>("PUT", `${recurringPath(envelopeId)}/${encodeURIComponent(id)}`, {
+    kind: input.kind,
+    amount: { amount: input.amount, currency: "BRL" },
+    dayOfMonth: input.dayOfMonth,
+    description: input.description,
+    active: input.active,
+  });
+}
+
+/** Exclusão lógica: lançamentos já confirmados permanecem; pendências são descartadas. */
+export function deleteRecurringEntry(envelopeId: string, id: string): Promise<void> {
+  return request<void>("DELETE", `${recurringPath(envelopeId)}/${encodeURIComponent(id)}`);
 }
 
 export { IpcError };

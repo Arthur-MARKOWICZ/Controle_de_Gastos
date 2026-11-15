@@ -1,5 +1,7 @@
 package br.com.controlegastos.ledger;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import org.junit.jupiter.api.DisplayName;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -119,4 +121,78 @@ class EnvelopeEntrySoftDeleteApiIntegrationTest {
     }
 
     private record Credentials(String email, String password) {}
+
+    @Test
+    @DisplayName("excluir duas vezes o mesmo gasto é idempotente")
+    void excluirDuasVezesIdempotente() throws Exception {
+        String token = tokenFor("softdelete-twice@example.com");
+        String envelopeId = createEnvelope(token, "Mercado", "LIMIT", "200.00");
+        String entryId = createExpense(token, envelopeId, "30.00");
+
+        mockMvc.perform(delete("/api/v1/ledger/entries/{id}", entryId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+        mockMvc.perform(delete("/api/v1/ledger/entries/{id}", entryId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("terceiro sem vínculo não exclui o gasto: 403")
+    void terceiroNaoExclui() throws Exception {
+        String owner = tokenFor("softdelete-owner@example.com");
+        String stranger = tokenFor("softdelete-stranger@example.com");
+        String envelopeId = createEnvelope(owner, "Mercado", "LIMIT", "200.00");
+        String entryId = createExpense(owner, envelopeId, "30.00");
+
+        mockMvc.perform(delete("/api/v1/ledger/entries/{id}", entryId).header("Authorization", "Bearer " + stranger))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/envelopes/{id}/entries", envelopeId)
+                        .header("Authorization", "Bearer " + owner).param("month", "2026-09"))
+                .andExpect(jsonPath("$.items.length()").value(1));
+    }
+
+    @Test
+    @DisplayName("editar gasto excluído logicamente responde 404 LEDGER_ENTRY_NOT_FOUND")
+    void editarExcluidoRecusado() throws Exception {
+        String token = tokenFor("softdelete-edit@example.com");
+        String envelopeId = createEnvelope(token, "Mercado", "LIMIT", "200.00");
+        String entryId = createExpense(token, envelopeId, "30.00");
+        mockMvc.perform(delete("/api/v1/ledger/entries/{id}", entryId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(patch("/api/v1/ledger/entries/{id}", entryId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("envelopeId", envelopeId, "amount", money("10.00")))))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LEDGER_ENTRY_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("excluir lançamento inexistente responde 404 LEDGER_ENTRY_NOT_FOUND")
+    void excluirInexistenteResponde404() throws Exception {
+        String token = tokenFor("softdelete-missing@example.com");
+
+        mockMvc.perform(delete("/api/v1/ledger/entries/{id}", java.util.UUID.randomUUID())
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("LEDGER_ENTRY_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("identificador malformado responde 400 INVALID_REQUEST")
+    void idMalformadoResponde400() throws Exception {
+        String token = tokenFor("softdelete-bad-id@example.com");
+
+        mockMvc.perform(delete("/api/v1/ledger/entries/{id}", "nao-uuid").header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @DisplayName("excluir sem sessão responde 401")
+    void excluirSemSessao() throws Exception {
+        mockMvc.perform(delete("/api/v1/ledger/entries/{id}", java.util.UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
 }

@@ -21,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -126,7 +127,8 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,
-            MethodArgumentTypeMismatchException.class, IllegalArgumentException.class})
+            MethodArgumentTypeMismatchException.class, IllegalArgumentException.class,
+            MissingServletRequestParameterException.class})
     ProblemDetail invalidRequest() {
         return problem(HttpStatus.BAD_REQUEST, "INVALID_REQUEST",
                 "Requisição inválida", "Revise os dados informados.");

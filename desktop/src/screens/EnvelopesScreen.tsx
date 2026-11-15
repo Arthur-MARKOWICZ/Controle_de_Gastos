@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { Plus, WarningCircle } from "@phosphor-icons/react";
 import { Amount } from "../components/Amount";
 import { MonthSelector } from "../components/MonthSelector";
+import { RecurringPanel } from "../components/RecurringPanel";
 import { useExpenseCapture } from "../components/useExpenseCapture";
 import { useSummary } from "../lib/use-summary";
 import { isSpendable, PURPOSE_LABELS } from "../lib/types";
@@ -24,6 +26,7 @@ export function EnvelopesScreen({
   const { state } = useSummary(month, revision, onAuthRequired);
   const envelopes = state.kind === "ready" ? state.summary.envelopes : [];
   const { openFor, dialog } = useExpenseCapture(envelopes, onRegistered);
+  const [recurringOpen, setRecurringOpen] = useState<string | null>(null);
 
   return (
     <div className={styles.screen}>
@@ -86,6 +89,25 @@ export function EnvelopesScreen({
               ) : (
                 <span className={styles.rowPurpose}>Arquivada</span>
               )}
+
+              {/* Recorrências são só do dono (ADR-0031). */}
+              {envelope.role === "OWNER" && isSpendable(envelope) ? (
+                <button
+                  className={styles.rowAction}
+                  type="button"
+                  aria-expanded={recurringOpen === envelope.id}
+                  aria-label={`Recorrências de ${envelope.name}`}
+                  onClick={() => setRecurringOpen((open) => (open === envelope.id ? null : envelope.id))}
+                >
+                  Recorrências
+                </button>
+              ) : null}
+
+              {recurringOpen === envelope.id ? (
+                <div className={styles.rowDetail}>
+                  <RecurringPanel envelope={envelope} onAuthRequired={onAuthRequired} />
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

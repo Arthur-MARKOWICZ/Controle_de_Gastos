@@ -71,6 +71,7 @@ internal fun EnvelopeCard(
     onArchive: (() -> Unit)? = null,
     onOpenEntries: (() -> Unit)? = null,
     onParticipants: (() -> Unit)? = null,
+    onRecurring: (() -> Unit)? = null,
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -111,6 +112,7 @@ internal fun EnvelopeCard(
                 onArchive = onArchive,
                 onOpenEntries = onOpenEntries,
                 onParticipants = onParticipants,
+                onRecurring = onRecurring,
             )
         }
     }
@@ -124,11 +126,13 @@ private fun EnvelopeCardActionBar(
     onArchive: (() -> Unit)?,
     onOpenEntries: (() -> Unit)?,
     onParticipants: (() -> Unit)?,
+    onRecurring: (() -> Unit)?,
 ) {
     val actions = envelopeCardActions(envelope)
     val handlers = mapOf(
         EnvelopeAction.ENTRIES to onOpenEntries,
         EnvelopeAction.PARTICIPANTS to onParticipants,
+        EnvelopeAction.RECURRING to onRecurring,
         EnvelopeAction.EDIT to onEdit,
         EnvelopeAction.ARCHIVE to onArchive,
     )

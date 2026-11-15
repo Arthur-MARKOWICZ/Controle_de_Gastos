@@ -10,6 +10,8 @@ const eslintConfig = defineConfig([
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
+    // Relatório gerado pelo `pnpm test:coverage` (ADR-0030).
+    "coverage/**",
     "build/**",
     "next-env.d.ts",
   ]),

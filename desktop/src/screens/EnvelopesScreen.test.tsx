@@ -141,3 +141,23 @@ describe("9.5 atalho da janela", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
+
+describe("recorrências na lista de verbas", () => {
+  it("o dono abre as recorrências da verba", async () => {
+    const user = userEvent.setup();
+    const ipc = montar([envelope({ name: "Moradia" })]);
+    ipc.onApi("/api/v1/envelopes/env-1/recurring-entries", { status: 200, body: [] });
+    await screen.findByText("Moradia");
+
+    await user.click(screen.getByRole("button", { name: "Recorrências de Moradia" }));
+
+    expect(await screen.findByText("Nenhuma recorrência ainda.")).toBeTruthy();
+  });
+
+  it("o participante não vê recorrências", async () => {
+    montar([envelope({ name: "Mercado", purpose: "LIMIT", role: "PARTICIPANT" })]);
+    await screen.findByText("Mercado");
+
+    expect(screen.queryByRole("button", { name: "Recorrências de Mercado" })).toBeNull();
+  });
+});

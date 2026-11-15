@@ -1,5 +1,6 @@
 package br.com.controlegastos.identity;
 
+import org.junit.jupiter.api.DisplayName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -238,4 +239,62 @@ class MfaRecoveryApiIntegrationTest {
     private record PasswordConfirmation(String password) { }
     private record CodeConfirmation(String code) { }
     private record MfaRecovery(String challengeId, String recoveryCode) { }
+
+    @Test
+    @DisplayName("código de recuperação errado responde 401 e não emite token restrito")
+    void codigoErradoRecusado() throws Exception {
+        String email = "mfa-recovery-wrong@example.com";
+        String accessToken = registerAndLogin(email);
+        confirm(accessToken, codeFor(enroll(accessToken)));
+
+        mockMvc.perform(post("/api/v1/auth/mfa/recovery").contentType(MediaType.APPLICATION_JSON)
+                        .content(recoveryBody(loginChallenge(email), "ZZZZZ-ZZZZZ")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_FAILED"))
+                .andExpect(jsonPath("$.restrictedToken").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("código de recuperação de outra conta é recusado")
+    void codigoDeOutraContaRecusado() throws Exception {
+        String emailA = "mfa-recovery-a@example.com";
+        String tokenA = registerAndLogin(emailA);
+        confirm(tokenA, codeFor(enroll(tokenA)));
+        String tokenB = registerAndLogin("mfa-recovery-b@example.com");
+        List<String> codesB = confirm(tokenB, codeFor(enroll(tokenB)));
+
+        mockMvc.perform(post("/api/v1/auth/mfa/recovery").contentType(MediaType.APPLICATION_JSON)
+                        .content(recoveryBody(loginChallenge(emailA), codesB.get(0))))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("desafio inexistente responde 401")
+    void desafioInexistente() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/mfa/recovery").contentType(MediaType.APPLICATION_JSON)
+                        .content(recoveryBody("desafio-que-nao-existe", "ABCDE-23456")))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("corpo sem código de recuperação responde 400 INVALID_REQUEST")
+    void semCodigo() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/mfa/recovery").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"challengeId\":\"x\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    @DisplayName("tentativas repetidas de recuperação são bloqueadas com 429")
+    void tentativasRepetidasBloqueadas() throws Exception {
+        String body = recoveryBody("desafio-bloqueio", "ABCDE-23456");
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/v1/auth/mfa/recovery").contentType(MediaType.APPLICATION_JSON).content(body));
+        }
+
+        mockMvc.perform(post("/api/v1/auth/mfa/recovery").contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_ATTEMPTS"));
+    }
 }

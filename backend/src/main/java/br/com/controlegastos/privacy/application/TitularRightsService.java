@@ -35,6 +35,8 @@ public class TitularRightsService {
         payload.put("envelopes", exportEnvelopes(userId));
         payload.put("ledgerEntries", exportLedger(userId));
         payload.put("ledgerEntryRevisions", exportLedgerRevisions(userId));
+        payload.put("recurringEntries", exportRecurringEntries(userId));
+        payload.put("recurringOccurrences", exportRecurringOccurrences(userId));
         return payload;
     }
 
@@ -122,6 +124,66 @@ public class TitularRightsService {
                     return row;
                 },
                 userId,
+                userId);
+    }
+
+    private List<Map<String, Object>> exportRecurringEntries(UUID userId) {
+        return jdbc.query(
+                """
+                SELECT r.id, r.envelope_id, r.kind, r.amount::text AS amount, r.day_of_month, r.description,
+                       r.active, r.first_competence, r.created_at, r.deleted_at
+                FROM recurring_entry r
+                JOIN envelope e ON e.id = r.envelope_id
+                WHERE e.owner_id = ?
+                ORDER BY r.created_at
+                """,
+                (rs, rowNum) -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("id", rs.getObject("id", UUID.class).toString());
+                    row.put("envelopeId", rs.getObject("envelope_id", UUID.class).toString());
+                    row.put("kind", rs.getString("kind"));
+                    row.put("amount", rs.getString("amount"));
+                    row.put("currency", "BRL");
+                    row.put("dayOfMonth", rs.getInt("day_of_month"));
+                    row.put("description", rs.getString("description"));
+                    row.put("active", rs.getBoolean("active"));
+                    row.put("firstCompetence", rs.getDate("first_competence").toLocalDate().toString().substring(0, 7));
+                    row.put("createdAt", rs.getTimestamp("created_at").toInstant().toString());
+                    row.put("deletedAt", rs.getTimestamp("deleted_at") == null
+                            ? null
+                            : rs.getTimestamp("deleted_at").toInstant().toString());
+                    return row;
+                },
+                userId);
+    }
+
+    private List<Map<String, Object>> exportRecurringOccurrences(UUID userId) {
+        return jdbc.query(
+                """
+                SELECT o.id, o.recurring_entry_id, o.competence, o.due_date, o.suggested_amount::text AS suggested_amount,
+                       o.status, o.ledger_entry_id, o.resolved_at, o.created_at
+                FROM recurring_occurrence o
+                JOIN envelope e ON e.id = o.envelope_id
+                WHERE e.owner_id = ?
+                ORDER BY o.due_date, o.created_at
+                """,
+                (rs, rowNum) -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("id", rs.getObject("id", UUID.class).toString());
+                    row.put("recurringEntryId", rs.getObject("recurring_entry_id", UUID.class).toString());
+                    row.put("competence", rs.getDate("competence").toLocalDate().toString().substring(0, 7));
+                    row.put("dueDate", rs.getDate("due_date").toLocalDate().toString());
+                    row.put("suggestedAmount", rs.getString("suggested_amount"));
+                    row.put("currency", "BRL");
+                    row.put("status", rs.getString("status"));
+                    UUID ledgerEntryId = rs.getObject("ledger_entry_id", UUID.class);
+                    row.put("ledgerEntryId", ledgerEntryId == null ? null : ledgerEntryId.toString());
+                    row.put("resolvedAt", rs.getTimestamp("resolved_at") == null
+                            ? null
+                            : rs.getTimestamp("resolved_at").toInstant().toString());
+                    row.put("createdAt", rs.getTimestamp("created_at").toInstant().toString());
+                    return row;
+                },
                 userId);
     }
 

@@ -8,6 +8,7 @@ type Props = {
   envelope: EnvelopeDTO;
   onRegisterExpense?: (envelope: EnvelopeDTO) => void;
   onManageParticipants?: (envelope: EnvelopeDTO) => void;
+  onManageRecurring?: (envelope: EnvelopeDTO) => void;
   onArchive?: (envelope: EnvelopeDTO) => void;
   onEditTarget?: (envelope: EnvelopeDTO) => void;
   onEditAnnual?: (envelope: EnvelopeDTO) => void;
@@ -46,6 +47,7 @@ export function EnvelopeCard({
   envelope,
   onRegisterExpense,
   onManageParticipants,
+  onManageRecurring,
   onArchive,
   onEditTarget,
   onEditAnnual,
@@ -105,6 +107,14 @@ export function EnvelopeCard({
       label: "Participantes",
       ariaLabel: `Participantes de ${envelope.name}`,
       onClick: () => onManageParticipants(envelope),
+    });
+  }
+  if (onManageRecurring && isOwner) {
+    secondaryActions.push({
+      key: "recurring",
+      label: "Recorrências",
+      ariaLabel: `Recorrências de ${envelope.name}`,
+      onClick: () => onManageRecurring(envelope),
     });
   }
   if (onEditTarget && envelope.purpose === "SAVINGS_TARGET" && isOwner) {
