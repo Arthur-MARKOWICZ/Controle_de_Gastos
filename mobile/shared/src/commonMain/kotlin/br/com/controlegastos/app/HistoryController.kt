@@ -26,6 +26,16 @@ class HistoryController(
     var includeDeleted: Boolean = false
         private set
 
+    /** Termo de busca na descrição, já sem espaços nas pontas. */
+    var query: String = ""
+        private set
+
+    /** Verba escolhida no filtro; nula mostra todas as visíveis. */
+    var envelopeId: String? = null
+        private set
+
+    val filtersActive: Boolean get() = filter().isActive
+
     var state: HistoryState = HistoryState.Loading
         private set
 
@@ -44,7 +54,7 @@ class HistoryController(
             lastFailure = null
             state = HistoryState.Content(
                 summary = gateway.loadHistorySummary(month.firstDay(), month.lastDay()),
-                page = gateway.loadHistory(month.firstDay(), month.lastDay(), page, includeDeleted),
+                page = gateway.loadHistory(month.firstDay(), month.lastDay(), page, includeDeleted, filter()),
             )
         } catch (failure: Throwable) {
             lastFailure = failure
@@ -77,6 +87,31 @@ class HistoryController(
         refresh()
     }
 
+    /** Busca na descrição; mantém o mês e volta para a primeira página. */
+    suspend fun search(text: String) {
+        query = text.trim()
+        restartPaging()
+    }
+
+    suspend fun filterEnvelope(id: String?) {
+        envelopeId = id
+        restartPaging()
+    }
+
+    suspend fun clearFilters() {
+        query = ""
+        envelopeId = null
+        restartPaging()
+    }
+
+    private suspend fun restartPaging() {
+        page = 0
+        state = HistoryState.Loading
+        refresh()
+    }
+
+    private fun filter() = HistoryFilter(query = query, envelopeId = envelopeId)
+
     suspend fun nextPage() {
         val content = state as? HistoryState.Content ?: return
         if (!content.page.hasNext) return
@@ -102,4 +137,27 @@ class HistoryController(
 
     suspend fun listRevisions(entryId: String): List<LedgerEntryRevisionView> =
         gateway.listEntryRevisions(entryId).items
+}
+
+/** Estado vazio da lista: a mensagem e se oferece limpar os filtros. */
+internal data class HistoryEmptyState(val message: String, val offerClearFilters: Boolean)
+
+/**
+ * O que a lista do histórico mostra além dos itens, decidido fora da tela para
+ * ser testável: o total filtrado (só com filtro ativo) e o estado vazio.
+ */
+internal data class HistoryListContent(val resultsTotal: String?, val emptyState: HistoryEmptyState?)
+
+internal fun historyListContent(page: HistoryPageView, filtersActive: Boolean): HistoryListContent {
+    val total = if (filtersActive) {
+        "Total dos resultados: ${page.matchedTotal.toBrl()} (todas as páginas, sem excluídos)"
+    } else {
+        null
+    }
+    val empty = when {
+        page.items.isNotEmpty() -> null
+        filtersActive -> HistoryEmptyState("Nenhum gasto corresponde aos filtros.", offerClearFilters = true)
+        else -> HistoryEmptyState("Nenhum lançamento neste período.", offerClearFilters = false)
+    }
+    return HistoryListContent(total, empty)
 }

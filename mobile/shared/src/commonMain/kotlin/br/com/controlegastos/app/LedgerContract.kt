@@ -48,7 +48,17 @@ data class HistoryPageView(
     val items: List<HistoryItemView>,
     val page: Int,
     val hasNext: Boolean,
+    /** Soma dos gastos ativos que atendem aos filtros, em todas as páginas. */
+    val matchedTotal: Money = Money(0),
 )
+
+/** Filtros opcionais do histórico; termo vazio e verba nula não filtram. */
+data class HistoryFilter(
+    val query: String = "",
+    val envelopeId: String? = null,
+) {
+    val isActive: Boolean get() = query.isNotBlank() || envelopeId != null
+}
 
 data class PurposeTotalView(val purpose: String, val amount: Money)
 
@@ -100,7 +110,13 @@ interface LedgerGateway {
     suspend fun loadDashboard(month: YearMonth?): FinancialDashboard
     suspend fun listEntries(envelopeId: String, month: YearMonth?): List<LedgerEntryView>
     suspend fun createEntry(envelopeId: String, entry: NewLedgerEntry): LedgerEntryView
-    suspend fun loadHistory(from: String, to: String, page: Int, includeDeleted: Boolean): HistoryPageView
+    suspend fun loadHistory(
+        from: String,
+        to: String,
+        page: Int,
+        includeDeleted: Boolean,
+        filter: HistoryFilter = HistoryFilter(),
+    ): HistoryPageView
     suspend fun loadHistorySummary(from: String, to: String): HistorySummaryView
     suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView
     suspend fun deleteEntry(id: String)

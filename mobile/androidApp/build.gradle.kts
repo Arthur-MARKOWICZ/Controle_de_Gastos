@@ -118,4 +118,9 @@ dependencies {
     implementation("org.jetbrains.compose.foundation:foundation:1.12.0")
     implementation("org.jetbrains.compose.ui:ui:1.12.0")
     debugImplementation("org.jetbrains.compose.ui:ui-tooling:1.12.0")
+
+    // org.json do android.jar é só stub na JVM; a implementação real roda os testes de parsing.
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlin.test.junit)
+    testImplementation(libs.org.json)
 }

@@ -11,6 +11,7 @@ import { Button } from "../ui/Button";
 import {
   createApiClient,
   type EnvelopeDTO,
+  type HistoryAuthorFilter,
   type HistoryItemDTO,
   type HistoryPageDTO,
   type HistorySummaryDTO,
@@ -33,6 +34,12 @@ const purposes = {
   ANNUAL_EXPENSE: "Gasto anual",
 } as const;
 
+const SEARCH_DEBOUNCE_MS = 400;
+
+function parseAuthor(value: string | null): HistoryAuthorFilter | undefined {
+  return value === "ME" || value === "OTHERS" ? value : undefined;
+}
+
 function defaultFrom() {
   return `${currentMonthSaoPaulo()}-01`;
 }
@@ -45,6 +52,18 @@ export function HistoryPage({ email, onLogout }: Props) {
   const to = searchParams.get("to") ?? todaySaoPaulo();
   const page = Number(searchParams.get("page") ?? "0") || 0;
   const includeDeleted = searchParams.get("includeDeleted") === "true";
+  const q = searchParams.get("q")?.trim() ?? "";
+  const envelopeFilter = searchParams.get("envelopeId") ?? "";
+  const author = parseAuthor(searchParams.get("author"));
+  const filtersActive = q !== "" || envelopeFilter !== "" || author !== undefined;
+  const [searchText, setSearchText] = useState(q);
+  const [syncedQuery, setSyncedQuery] = useState(q);
+  if (syncedQuery !== q) {
+    // A URL mudou por fora (voltar, limpar filtros): o campo acompanha.
+    setSyncedQuery(q);
+    setSearchText(q);
+  }
+  const searchTimer = useRef<number | undefined>(undefined);
   const [data, setData] = useState<HistoryPageDTO | null>(null);
   const [summary, setSummary] = useState<HistorySummaryDTO | null>(null);
   const [envelopes, setEnvelopes] = useState<EnvelopeDTO[]>([]);
@@ -84,7 +103,11 @@ export function HistoryPage({ email, onLogout }: Props) {
     try {
       const api = createApiClient(client);
       const [history, report, visibleEnvelopes] = await Promise.all([
-        api.getHistory(from, to, page, 10, includeDeleted),
+        api.getHistory(from, to, page, 10, includeDeleted, {
+          q: q || undefined,
+          envelopeId: envelopeFilter || undefined,
+          author,
+        }),
         api.getHistorySummary(from, to),
         api.getEnvelopes(to.slice(0, 7)),
       ]);
@@ -98,13 +121,15 @@ export function HistoryPage({ email, onLogout }: Props) {
       setLoading(false);
       setBusy(false);
     }
-  }, [client, from, to, page, includeDeleted]);
+  }, [client, from, to, page, includeDeleted, q, envelopeFilter, author]);
 
   useEffect(() => {
     hasDataRef.current = false;
     const timer = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => () => window.clearTimeout(searchTimer.current), []);
 
   const grouped = useMemo(() => {
     const groups: Record<keyof typeof purposes, HistoryItemDTO[]> = {
@@ -120,11 +145,30 @@ export function HistoryPage({ email, onLogout }: Props) {
 
   function navigate(next: Record<string, string | number | boolean | undefined>) {
     const params = new URLSearchParams();
-    const merged = { from, to, page, includeDeleted, ...next };
+    const merged = { from, to, page, includeDeleted, q, envelopeId: envelopeFilter, author, ...next };
     Object.entries(merged).forEach(([key, value]) => {
-      if (value !== false && value !== undefined) params.set(key, String(value));
+      if (value !== false && value !== undefined && value !== "") params.set(key, String(value));
     });
     router.push(`/gastos?${params}`);
+  }
+
+  function applySearch(text: string) {
+    window.clearTimeout(searchTimer.current);
+    navigate({ q: text.trim(), page: 0 });
+  }
+
+  function changeSearch(text: string) {
+    setSearchText(text);
+    window.clearTimeout(searchTimer.current);
+    searchTimer.current = window.setTimeout(() => {
+      if (text.trim() !== q) applySearch(text);
+    }, SEARCH_DEBOUNCE_MS);
+  }
+
+  function clearFilters() {
+    window.clearTimeout(searchTimer.current);
+    setSearchText("");
+    navigate({ q: undefined, envelopeId: undefined, author: undefined, page: 0 });
   }
 
   function startEdit(item: HistoryItemDTO) {
@@ -224,9 +268,41 @@ export function HistoryPage({ email, onLogout }: Props) {
           className={styles.filters}
           onSubmit={(event) => {
             event.preventDefault();
-            navigate({ page: 0 });
+            applySearch(searchText);
           }}
         >
+          <label className={styles.search}>
+            Buscar na descrição
+            <input
+              type="search"
+              value={searchText}
+              maxLength={140}
+              placeholder="Ex.: farmácia"
+              onChange={(event) => changeSearch(event.target.value)}
+            />
+          </label>
+          <label>
+            Verba
+            <select
+              value={envelopeFilter}
+              onChange={(event) => navigate({ envelopeId: event.target.value, page: 0 })}
+            >
+              <option value="">Todas</option>
+              {envelopes.map((envelope) => (
+                <option key={envelope.id} value={envelope.id}>
+                  {envelope.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Autor
+            <select value={author ?? ""} onChange={(event) => navigate({ author: event.target.value, page: 0 })}>
+              <option value="">Todos</option>
+              <option value="ME">Lançados por mim</option>
+              <option value="OTHERS">Lançados por outras pessoas</option>
+            </select>
+          </label>
           <label>
             De
             <input type="date" value={from} onChange={(event) => navigate({ from: event.target.value, page: 0 })} />
@@ -243,6 +319,11 @@ export function HistoryPage({ email, onLogout }: Props) {
             />{" "}
             Incluir excluídos
           </label>
+          {filtersActive && (
+            <Button variant="secondary" type="button" onClick={clearFilters}>
+              Limpar filtros
+            </Button>
+          )}
         </form>
         {feedback && (
           <Notice tone="success" onClose={() => setFeedback(null)}>
@@ -317,11 +398,25 @@ export function HistoryPage({ email, onLogout }: Props) {
                 <h2 id="gastos-titulo">Gastos</h2>
                 <span>Página {(data?.page ?? 0) + 1}</span>
               </header>
+              {filtersActive && data && (
+                <p className={styles.matchedTotal}>
+                  Total dos resultados: <strong>{formatBRL(data.matchedTotal.amount)}</strong> (todas as páginas, sem excluídos)
+                </p>
+              )}
               {(data?.items.length ?? 0) === 0 ? (
-                <div className={styles.empty}>
-                  <p>Nenhum gasto no período selecionado.</p>
-                  {canRegister && <Button onClick={startRegister}>Registrar gasto</Button>}
-                </div>
+                filtersActive ? (
+                  <div className={styles.empty}>
+                    <p>Nenhum gasto corresponde aos filtros.</p>
+                    <Button variant="secondary" onClick={clearFilters}>
+                      Limpar filtros
+                    </Button>
+                  </div>
+                ) : (
+                  <div className={styles.empty}>
+                    <p>Nenhum gasto no período selecionado.</p>
+                    {canRegister && <Button onClick={startRegister}>Registrar gasto</Button>}
+                  </div>
+                )
               ) : (
                 (Object.keys(purposes) as (keyof typeof purposes)[]).map(
                   (purpose) =>

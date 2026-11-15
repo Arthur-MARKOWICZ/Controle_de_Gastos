@@ -73,6 +73,17 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
                 pageable);
     }
 
+    /** Modo do filtro de autor do histórico: todos, só a pessoa autenticada ou só outras pessoas. */
+    enum AuthorFilter { ANY, ME, OTHERS }
+
+    /**
+     * Filtros opcionais do histórico, já normalizados: {@code textPattern} é o padrão
+     * {@code LIKE} em minúsculas com curingas escapados; nulos desligam o filtro.
+     */
+    record HistoryFilter(String textPattern, UUID envelopeId, AuthorFilter author) {
+        public static final HistoryFilter NONE = new HistoryFilter(null, null, AuthorFilter.ANY);
+    }
+
     @Query("""
         SELECT e FROM LedgerEntry e
         WHERE e.kind = br.com.controlegastos.ledger.domain.LedgerKind.EXPENSE
@@ -86,6 +97,9 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
           AND (
             e.deletedAt IS NULL OR (:includeDeleted = true AND e.ownerId = :userId)
           )
+          AND (:filterText = false OR LOWER(e.description) LIKE :pattern ESCAPE '\\')
+          AND (:filterEnvelope = false OR e.envelopeId = :envelopeId)
+          AND (:author = 'ANY' OR (:author = 'ME' AND e.authorId = :userId) OR (:author = 'OTHERS' AND e.authorId <> :userId))
         ORDER BY e.occurredAt DESC, e.createdAt DESC
         """)
     Page<LedgerEntry> findHistory(
@@ -93,7 +107,55 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             @Param("includeDeleted") boolean includeDeleted,
+            @Param("filterText") boolean filterText,
+            @Param("pattern") String pattern,
+            @Param("filterEnvelope") boolean filterEnvelope,
+            @Param("envelopeId") UUID envelopeId,
+            @Param("author") String author,
             Pageable pageable);
+
+    default Page<LedgerEntry> findHistory(
+            UUID userId, LocalDate from, LocalDate to, boolean includeDeleted, HistoryFilter filter, Pageable pageable) {
+        return findHistory(userId, from, to, includeDeleted,
+                filter.textPattern() != null, filter.textPattern() != null ? filter.textPattern() : "",
+                filter.envelopeId() != null, filter.envelopeId() != null ? filter.envelopeId() : userId,
+                filter.author().name(), pageable);
+    }
+
+    /** Soma dos gastos ativos do histórico com os mesmos filtros de {@link #findHistory}. */
+    @Query(value = """
+        SELECT COALESCE(SUM(e.amount), 0) FROM ledger_entry e
+        WHERE e.kind = 'EXPENSE'
+          AND e.occurred_at BETWEEN :from AND :to
+          AND e.deleted_at IS NULL
+          AND (
+            e.owner_id = :userId OR EXISTS (
+              SELECT 1 FROM envelope_participant participant
+              WHERE participant.envelope_id = e.envelope_id AND participant.user_id = :userId
+            )
+          )
+          AND (:filterText = false OR lower(e.description) LIKE :pattern ESCAPE '\\')
+          AND (:filterEnvelope = false OR e.envelope_id = :envelopeId)
+          AND (CAST(:author AS VARCHAR) = 'ANY'
+               OR (CAST(:author AS VARCHAR) = 'ME' AND e.author_id = :userId)
+               OR (CAST(:author AS VARCHAR) = 'OTHERS' AND e.author_id <> :userId))
+        """, nativeQuery = true)
+    java.math.BigDecimal sumHistory(
+            @Param("userId") UUID userId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("filterText") boolean filterText,
+            @Param("pattern") String pattern,
+            @Param("filterEnvelope") boolean filterEnvelope,
+            @Param("envelopeId") UUID envelopeId,
+            @Param("author") String author);
+
+    default java.math.BigDecimal sumHistory(UUID userId, LocalDate from, LocalDate to, HistoryFilter filter) {
+        return sumHistory(userId, from, to,
+                filter.textPattern() != null, filter.textPattern() != null ? filter.textPattern() : "",
+                filter.envelopeId() != null, filter.envelopeId() != null ? filter.envelopeId() : userId,
+                filter.author().name());
+    }
 
     @Query("""
         SELECT e FROM LedgerEntry e

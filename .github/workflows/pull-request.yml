@@ -113,7 +113,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: relatorio-testes-mobile
-          path: mobile/shared/build/reports/tests/jvmTest
+          path: |
+            mobile/shared/build/reports/tests/jvmTest
+            mobile/androidApp/build/reports/tests/testDebugUnitTest
           retention-days: 7
           if-no-files-found: ignore
 

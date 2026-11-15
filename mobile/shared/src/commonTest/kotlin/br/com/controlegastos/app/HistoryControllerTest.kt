@@ -52,6 +52,64 @@ class HistoryControllerTest {
     }
 
     @Test
+    fun `search sends the trimmed term and restarts the paging`() = runSuspend {
+        val gateway = FakeHistoryGateway(hasNext = true)
+        val controller = HistoryController(gateway, YearMonth(2026, 9))
+        controller.refresh()
+        controller.nextPage()
+
+        controller.search("  farmácia ")
+
+        assertEquals(0, controller.page)
+        assertEquals("farmácia", controller.query)
+        assertEquals(HistoryFilter(query = "farmácia"), gateway.lastFilter)
+        assertTrue(controller.filtersActive)
+    }
+
+    @Test
+    fun `changing the month keeps the filters`() = runSuspend {
+        val gateway = FakeHistoryGateway()
+        val controller = HistoryController(gateway, YearMonth(2026, 9))
+        controller.search("farmácia")
+        controller.filterEnvelope("env-2")
+
+        controller.showPreviousMonth()
+
+        assertEquals("2026-08-01" to "2026-08-31", gateway.lastPeriod)
+        assertEquals(HistoryFilter(query = "farmácia", envelopeId = "env-2"), gateway.lastFilter)
+    }
+
+    @Test
+    fun `filters by envelope and clears every filter`() = runSuspend {
+        val gateway = FakeHistoryGateway(hasNext = true)
+        val controller = HistoryController(gateway, YearMonth(2026, 9))
+        controller.search("farmácia")
+        controller.nextPage()
+
+        controller.filterEnvelope("env-2")
+        assertEquals(0, controller.page)
+        assertEquals("env-2", gateway.lastFilter?.envelopeId)
+
+        controller.clearFilters()
+
+        assertEquals(HistoryFilter(), gateway.lastFilter)
+        assertEquals("", controller.query)
+        assertEquals(null, controller.envelopeId)
+        assertTrue(!controller.filtersActive)
+    }
+
+    @Test
+    fun `blank search means no text filter`() = runSuspend {
+        val gateway = FakeHistoryGateway()
+        val controller = HistoryController(gateway, YearMonth(2026, 9))
+
+        controller.search("   ")
+
+        assertEquals(HistoryFilter(), gateway.lastFilter)
+        assertTrue(!controller.filtersActive)
+    }
+
+    @Test
     fun `explains a rejected edit with the server code`() = runSuspend {
         val gateway = FakeHistoryGateway()
         gateway.failure = ApiException(403, ApiErrorCode.FORBIDDEN, "")
@@ -66,13 +124,21 @@ class HistoryControllerTest {
 
 private class FakeHistoryGateway(private val hasNext: Boolean = false) : LedgerGateway {
     var lastPeriod: Pair<String, String>? = null
+    var lastFilter: HistoryFilter? = null
     var loads = 0
     var failure: Throwable? = null
     val deleted = mutableListOf<String>()
 
-    override suspend fun loadHistory(from: String, to: String, page: Int, includeDeleted: Boolean): HistoryPageView {
+    override suspend fun loadHistory(
+        from: String,
+        to: String,
+        page: Int,
+        includeDeleted: Boolean,
+        filter: HistoryFilter,
+    ): HistoryPageView {
         failure?.let { throw it }
         lastPeriod = from to to
+        lastFilter = filter
         loads++
         return HistoryPageView(emptyList(), page, hasNext)
     }

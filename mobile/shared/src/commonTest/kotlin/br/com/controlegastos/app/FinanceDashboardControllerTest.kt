@@ -216,7 +216,7 @@ private class FakeLedgerGateway(private var dashboard: FinancialDashboard) : Led
     }
 
     override suspend fun listEntries(envelopeId: String, month: YearMonth?): List<LedgerEntryView> = emptyList()
-    override suspend fun loadHistory(from: String, to: String, page: Int, includeDeleted: Boolean) =
+    override suspend fun loadHistory(from: String, to: String, page: Int, includeDeleted: Boolean, filter: HistoryFilter) =
         HistoryPageView(emptyList(), 0, false)
     override suspend fun loadHistorySummary(from: String, to: String) = HistorySummaryView(
         Money(0), Money(0), Money(0), Money(0), Money(0), emptyList(), emptyList(),

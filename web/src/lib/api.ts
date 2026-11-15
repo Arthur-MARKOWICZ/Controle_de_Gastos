@@ -69,7 +69,19 @@ export type HistoryItemDTO = {
   role: "OWNER" | "PARTICIPANT";
 };
 
-export type HistoryPageDTO = { items: HistoryItemDTO[]; page: number; size: number; hasNext: boolean };
+export type HistoryPageDTO = {
+  items: HistoryItemDTO[];
+  page: number;
+  size: number;
+  hasNext: boolean;
+  /** Soma dos gastos ativos que atendem aos filtros, em todas as páginas. */
+  matchedTotal: MoneyDTO;
+};
+
+export type HistoryAuthorFilter = "ME" | "OTHERS";
+
+/** Filtros opcionais do histórico; vazios não são enviados. */
+export type HistoryFilters = { q?: string; envelopeId?: string; author?: HistoryAuthorFilter };
 
 export type InAppAlertDTO = {
   id: string;
@@ -261,9 +273,20 @@ export function createApiClient(authClient: AuthClient) {
         .request(`/api/v1/income/history?page=${page}&size=${size}`)
         .then(handleResponse<IncomeHistoryPageDTO>);
     },
-    getHistory(from: string, to: string, page = 0, size = 10, includeDeleted = false): Promise<HistoryPageDTO> {
+    getHistory(
+      from: string,
+      to: string,
+      page = 0,
+      size = 10,
+      includeDeleted = false,
+      filters: HistoryFilters = {},
+    ): Promise<HistoryPageDTO> {
       const params = new URLSearchParams({ from, to, page: String(page), size: String(size) });
       if (includeDeleted) params.set("includeDeleted", "true");
+      const q = filters.q?.trim();
+      if (q) params.set("q", q);
+      if (filters.envelopeId) params.set("envelopeId", filters.envelopeId);
+      if (filters.author) params.set("author", filters.author);
       return authClient.request(`/api/v1/history?${params}`).then(handleResponse<HistoryPageDTO>);
     },
     getHistorySummary(from: string, to: string): Promise<HistorySummaryDTO> {
