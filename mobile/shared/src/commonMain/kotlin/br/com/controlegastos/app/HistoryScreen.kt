@@ -10,12 +10,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -30,9 +34,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+/** Pausa de digitação antes de aplicar a busca, para não consultar a cada tecla. */
+private const val SEARCH_DEBOUNCE_MS = 400L
 
 private sealed interface HistoryDialog {
     data class Edit(val item: HistoryItemView) : HistoryDialog
@@ -66,6 +77,7 @@ internal fun HistoryScreen(
     var state by remember(controller) { mutableStateOf(controller.state) }
     var dialog by remember { mutableStateOf<HistoryDialog?>(null) }
     var entrySheetOpen by remember { mutableStateOf(false) }
+    var searchText by remember(controller) { mutableStateOf(controller.query) }
     val scope = rememberCoroutineScope()
 
     fun reloading(action: suspend () -> Unit) = scope.launch {
@@ -81,6 +93,10 @@ internal fun HistoryScreen(
             entrySheetOpen = true
             onQuickExpenseHandled()
         }
+    }
+    LaunchedEffect(searchText) {
+        delay(SEARCH_DEBOUNCE_MS)
+        if (searchText.trim() != controller.query) reloading { controller.search(searchText) }
     }
     LaunchedEffect(envelopeGateway, controller.month) {
         envelopes = runCatching { envelopeGateway.listEnvelopes(controller.month) }.getOrDefault(envelopes)
@@ -120,6 +136,21 @@ internal fun HistoryScreen(
                 Text("Mostrar lançamentos excluídos")
             }
         }
+        item {
+            HistoryFilters(
+                searchText = searchText,
+                onSearchTextChange = { searchText = it },
+                onSearch = { reloading { controller.search(searchText) } },
+                envelopes = envelopes,
+                envelopeId = controller.envelopeId,
+                onEnvelopeSelected = { id -> reloading { controller.filterEnvelope(id) } },
+                filtersActive = controller.filtersActive,
+                onClear = {
+                    searchText = ""
+                    reloading { controller.clearFilters() }
+                },
+            )
+        }
         when (val current = state) {
             HistoryState.Loading -> item { LoadingBox("Carregando histórico", Modifier.fillMaxWidth()) }
             is HistoryState.Error -> item { ErrorCard(current.message) { reloading { controller.refresh() } } }
@@ -131,8 +162,26 @@ internal fun HistoryScreen(
                 item {
                     Text("Lançamentos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
-                if (current.page.items.isEmpty()) {
-                    item { EmptyCard("Nenhum lançamento neste período.") }
+                val listContent = historyListContent(current.page, controller.filtersActive)
+                listContent.resultsTotal?.let { total ->
+                    item { Text(total, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+                val emptyState = listContent.emptyState
+                if (emptyState != null) {
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            EmptyCard(emptyState.message)
+                            if (emptyState.offerClearFilters) {
+                                TextButton(
+                                    onClick = {
+                                        searchText = ""
+                                        reloading { controller.clearFilters() }
+                                    },
+                                    modifier = Modifier.height(TouchTarget),
+                                ) { Text("Limpar filtros") }
+                            }
+                        }
+                    }
                 } else {
                     items(current.page.items, key = { it.entry.id }) { item ->
                         HistoryRow(
@@ -235,6 +284,61 @@ internal fun HistoryScreen(
             load = { controller.listRevisions(open.item.entry.id) },
             onDismiss = { dialog = null },
         )
+    }
+}
+
+@Composable
+private fun HistoryFilters(
+    searchText: String,
+    onSearchTextChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    envelopes: List<EnvelopeView>,
+    envelopeId: String?,
+    onEnvelopeSelected: (String?) -> Unit,
+    filtersActive: Boolean,
+    onClear: () -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    val selectedName = envelopes.firstOrNull { it.id == envelopeId }?.name ?: "Todas"
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedTextField(
+            value = searchText,
+            onValueChange = { onSearchTextChange(it.take(140)) },
+            label = { Text("Buscar na descrição") },
+            placeholder = { Text("Ex.: farmácia") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch() }),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                TextButton(onClick = { menuOpen = true }, modifier = Modifier.height(TouchTarget)) {
+                    Text("Verba: $selectedName")
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Todas") },
+                        onClick = { menuOpen = false; onEnvelopeSelected(null) },
+                        modifier = Modifier.semantics { selected = envelopeId == null },
+                    )
+                    envelopes.forEach { envelope ->
+                        DropdownMenuItem(
+                            text = { Text(envelope.name) },
+                            onClick = { menuOpen = false; onEnvelopeSelected(envelope.id) },
+                            modifier = Modifier.semantics { selected = envelope.id == envelopeId },
+                        )
+                    }
+                }
+            }
+            if (filtersActive) {
+                TextButton(onClick = onClear, modifier = Modifier.height(TouchTarget)) { Text("Limpar filtros") }
+            }
+        }
     }
 }
 

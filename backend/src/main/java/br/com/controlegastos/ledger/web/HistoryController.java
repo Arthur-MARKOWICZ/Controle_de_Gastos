@@ -36,9 +36,13 @@ public class HistoryController {
             @RequestParam String from,
             @RequestParam String to,
             @RequestParam(defaultValue = "false") boolean includeDeleted,
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) String envelopeId,
+            @RequestParam(required = false) String author,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        return HistoryPageResponse.from(ledger.history(parseDate(from), parseDate(to), includeDeleted, page, size));
+        LedgerService.HistorySearch search = new LedgerService.HistorySearch(q, envelopeId, author);
+        return HistoryPageResponse.from(ledger.history(parseDate(from), parseDate(to), includeDeleted, search, page, size));
     }
 
     @GetMapping("/history/summary")
@@ -119,9 +123,11 @@ public class HistoryController {
         }
     }
 
-    record HistoryPageResponse(List<HistoryItemResponse> items, int page, int size, boolean hasNext) {
+    record HistoryPageResponse(List<HistoryItemResponse> items, int page, int size, boolean hasNext,
+                               MoneyResponse matchedTotal) {
         static HistoryPageResponse from(LedgerService.HistoryPage page) {
-            return new HistoryPageResponse(page.items().stream().map(HistoryItemResponse::from).toList(), page.page(), page.size(), page.hasNext());
+            return new HistoryPageResponse(page.items().stream().map(HistoryItemResponse::from).toList(),
+                    page.page(), page.size(), page.hasNext(), MoneyResponse.from(page.matchedTotal()));
         }
     }
 

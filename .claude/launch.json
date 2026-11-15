@@ -4,8 +4,29 @@
     {
       "name": "web",
       "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "cd web && pnpm dev"],
+      "runtimeArgs": [
+        "-c",
+        "cd web && pnpm dev"
+      ],
       "port": 3000
+    },
+    {
+      "name": "web-prod",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd web && pnpm start"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "set -a; . ./.env; set +a; export DATABASE_URL=jdbc:postgresql://localhost:5432/${POSTGRES_DB:-controle_gastos} DATABASE_USERNAME=${POSTGRES_USER:-controle_gastos} DATABASE_PASSWORD=$POSTGRES_PASSWORD AUTH_JWT_SECRET=$(openssl rand -base64 48) AUTH_COOKIE_SECURE=false AUTH_COOKIE_NAME=refresh_token; cd backend && ./gradlew bootRun"
+      ],
+      "port": 8080
     }
   ]
 }

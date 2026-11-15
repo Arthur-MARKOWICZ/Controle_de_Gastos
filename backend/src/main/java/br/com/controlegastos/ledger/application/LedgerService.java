@@ -244,15 +244,22 @@ public class LedgerService implements LedgerReportingQuery {
 
     @Transactional(readOnly = true)
     public HistoryPage history(LocalDate from, LocalDate to, boolean includeDeleted, int page, int size) {
+        return history(from, to, includeDeleted, HistorySearch.NONE, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public HistoryPage history(LocalDate from, LocalDate to, boolean includeDeleted, HistorySearch search, int page, int size) {
         validateHistoryRange(from, to, page, size);
+        LedgerEntryRepository.HistoryFilter filter = historyFilter(search);
         UUID userId = authentication.currentUserId();
-        Page<LedgerEntry> result = entries.findHistory(userId, from, to, includeDeleted, PageRequest.of(page, size));
+        Page<LedgerEntry> result = entries.findHistory(userId, from, to, includeDeleted, filter, PageRequest.of(page, size));
+        Money matchedTotal = Money.brl(entries.sumHistory(userId, from, to, filter));
         Map<UUID, Envelope> envelopesById = envelopes.listVisibleIncludingArchived().stream()
                 .collect(java.util.stream.Collectors.toMap(Envelope::id, Function.identity()));
         List<HistoryEntry> items = result.getContent().stream()
                 .map(entry -> historyEntry(entry, envelopesById.get(entry.envelopeId()), userId))
                 .toList();
-        return new HistoryPage(items, result.getNumber(), result.getSize(), result.hasNext());
+        return new HistoryPage(items, result.getNumber(), result.getSize(), result.hasNext(), matchedTotal);
     }
 
     @Transactional(readOnly = true)
@@ -387,6 +394,40 @@ public class LedgerService implements LedgerReportingQuery {
         return new HistoryEntry(entry, envelope.name(), envelope.purpose(), role);
     }
 
+    private static final int MAX_SEARCH_LENGTH = 140;
+
+    private LedgerEntryRepository.HistoryFilter historyFilter(HistorySearch search) {
+        String query = search.query() == null ? "" : search.query().strip();
+        if (query.length() > MAX_SEARCH_LENGTH) {
+            throw new IllegalArgumentException("A busca deve ter no máximo 140 caracteres");
+        }
+        String pattern = query.isEmpty() ? null : "%" + escapeLike(query.toLowerCase(java.util.Locale.ROOT)) + "%";
+        UUID envelopeId = null;
+        if (search.envelopeId() != null && !search.envelopeId().isBlank()) {
+            try {
+                envelopeId = UUID.fromString(search.envelopeId().strip());
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException("envelopeId inválido");
+            }
+        }
+        LedgerEntryRepository.AuthorFilter author = LedgerEntryRepository.AuthorFilter.ANY;
+        if (search.author() != null && !search.author().isBlank()) {
+            try {
+                author = LedgerEntryRepository.AuthorFilter.valueOf(search.author().strip());
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException("author deve ser ME ou OTHERS");
+            }
+            if (author == LedgerEntryRepository.AuthorFilter.ANY) {
+                throw new IllegalArgumentException("author deve ser ME ou OTHERS");
+            }
+        }
+        return new LedgerEntryRepository.HistoryFilter(pattern, envelopeId, author);
+    }
+
+    private static String escapeLike(String value) {
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+    }
+
     private void validateHistoryRange(LocalDate from, LocalDate to, int page, int size) {
         if (from == null || to == null || from.isAfter(to)) throw new IllegalArgumentException("Intervalo de datas inválido");
         if (page < 0 || size < 1 || size > 100) throw new IllegalArgumentException("Paginação inválida");
@@ -394,7 +435,12 @@ public class LedgerService implements LedgerReportingQuery {
 
     public record HistoryEntry(LedgerEntry entry, String envelopeName,
                                br.com.controlegastos.envelopes.domain.EnvelopePurpose purpose, String role) { }
-    public record HistoryPage(List<HistoryEntry> items, int page, int size, boolean hasNext) { }
+    public record HistoryPage(List<HistoryEntry> items, int page, int size, boolean hasNext, Money matchedTotal) { }
+
+    /** Filtros opcionais do histórico como chegam da borda; vazios ou nulos não filtram. */
+    public record HistorySearch(String query, String envelopeId, String author) {
+        public static final HistorySearch NONE = new HistorySearch(null, null, null);
+    }
     public record MonthlyTotal(YearMonth month, Money amount) { }
     public record PurposeTotal(br.com.controlegastos.envelopes.domain.EnvelopePurpose purpose, Money amount) { }
     public record HistorySummary(Money income, Money expenses, Money applied, Money netBalance,

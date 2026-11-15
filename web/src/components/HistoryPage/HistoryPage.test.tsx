@@ -42,12 +42,25 @@ const apiState = vi.hoisted(() => ({
   items: [] as Array<Record<string, unknown>>,
   envelopes: [] as Array<Record<string, unknown>>,
   purposeTotals: [] as Array<{ purpose: string; amount: { amount: string; currency: string } }>,
+  matchedTotal: "50.00",
 }));
 
 function resetApiState() {
   apiState.items = [ownerItem()];
   apiState.envelopes = [ownerEnvelope()];
   apiState.purposeTotals = [];
+  apiState.matchedTotal = "50.00";
+  navState.query = "from=2026-08-01&to=2026-08-31";
+  navState.push = vi.fn();
+  getHistory.fn = vi.fn().mockImplementation(() =>
+    Promise.resolve({
+      items: apiState.items,
+      page: 0,
+      size: 10,
+      hasNext: false,
+      matchedTotal: { amount: apiState.matchedTotal, currency: "BRL" },
+    }),
+  );
 }
 
 beforeAll(() => {
@@ -59,10 +72,17 @@ beforeAll(() => {
   });
 });
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
-  useSearchParams: () => new URLSearchParams("from=2026-08-01&to=2026-08-31"),
+const navState = vi.hoisted(() => ({
+  query: "from=2026-08-01&to=2026-08-31",
+  push: (() => undefined) as (url: string) => void,
 }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: navState.push }),
+  useSearchParams: () => new URLSearchParams(navState.query),
+}));
+
+const getHistory = vi.hoisted(() => ({ fn: (() => undefined) as unknown as ReturnType<typeof vi.fn> }));
 
 const authClient = vi.hoisted(() => ({ request: vi.fn() }));
 
@@ -75,9 +95,7 @@ vi.mock("../../lib/api", async (importOriginal) => {
   return {
     ...original,
     createApiClient: () => ({
-      getHistory: vi.fn().mockImplementation(() =>
-        Promise.resolve({ items: apiState.items, page: 0, size: 10, hasNext: false }),
-      ),
+      getHistory: getHistory.fn,
       getHistorySummary: vi.fn().mockImplementation(() =>
         Promise.resolve({
           income: { amount: "5000.00", currency: "BRL" },
@@ -117,7 +135,7 @@ describe("HistoryPage", () => {
     expect(screen.getByText("Aplicado no período")).toBeDefined();
     expect(screen.getByText("Saldo líquido")).toBeDefined();
     expect(screen.getByText("Saldo acumulado")).toBeDefined();
-    expect(screen.getByText("Combustível")).toBeDefined();
+    expect(screen.getByText("Combustível", { selector: "strong" })).toBeDefined();
   });
 
   it("mostra a paginação a partir de 1 quando a API usa índice 0", async () => {
@@ -200,7 +218,7 @@ describe("HistoryPage", () => {
 
     render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
 
-    expect(await screen.findByText("Combustível")).toBeDefined();
+    expect(await screen.findByText("Combustível", { selector: "strong" })).toBeDefined();
     expect(screen.getByText(/R\$\s*50,00/)).toBeDefined();
     expect(screen.queryByRole("button", { name: "Editar" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
@@ -229,5 +247,118 @@ describe("HistoryPage", () => {
     expect(bars).toHaveLength(2);
     expect((bars[0] as HTMLElement).style.width).toBe("100%");
     expect((bars[1] as HTMLElement).style.width).toBe("25%");
+  });
+
+  describe("busca e filtros", () => {
+    function secondEnvelope() {
+      return { ...ownerEnvelope(), id: "env-2", name: "Saúde" };
+    }
+
+    it("lê busca, verba e autor da URL e envia para a API", async () => {
+      navState.query = "from=2026-08-01&to=2026-08-31&q=farm%C3%A1cia&envelopeId=env-2&author=ME";
+      apiState.envelopes = [ownerEnvelope(), secondEnvelope()];
+      render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+      await screen.findByText("Combustível", { selector: "strong" });
+      expect(getHistory.fn).toHaveBeenCalledWith("2026-08-01", "2026-08-31", 0, 10, false, {
+        q: "farmácia",
+        envelopeId: "env-2",
+        author: "ME",
+      });
+      expect((screen.getByLabelText("Buscar na descrição") as HTMLInputElement).value).toBe("farmácia");
+      expect((screen.getByLabelText("Verba") as HTMLSelectElement).value).toBe("env-2");
+      expect((screen.getByLabelText("Autor") as HTMLSelectElement).value).toBe("ME");
+    });
+
+    it("aplica a busca ao confirmar, volta para a primeira página e omite filtros vazios", async () => {
+      navState.query = "from=2026-08-01&to=2026-08-31&page=2";
+      render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+      const input = await screen.findByLabelText("Buscar na descrição");
+
+      fireEvent.change(input, { target: { value: "  farmácia " } });
+      fireEvent.submit(input.closest("form") as HTMLFormElement);
+
+      expect(navState.push).toHaveBeenLastCalledWith("/gastos?from=2026-08-01&to=2026-08-31&page=0&q=farm%C3%A1cia");
+    });
+
+    it("aplica a busca após uma pausa na digitação, não a cada tecla", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+        const input = await screen.findByLabelText("Buscar na descrição");
+        fireEvent.change(input, { target: { value: "f" } });
+        fireEvent.change(input, { target: { value: "fa" } });
+        expect(navState.push).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(450);
+        expect(navState.push).toHaveBeenCalledTimes(1);
+        expect(navState.push).toHaveBeenLastCalledWith("/gastos?from=2026-08-01&to=2026-08-31&page=0&q=fa");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("filtra por verba e por autor pela URL", async () => {
+      apiState.envelopes = [ownerEnvelope(), secondEnvelope()];
+      render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+      const envelopeSelect = await screen.findByLabelText("Verba");
+      await screen.findByRole("option", { name: "Saúde" });
+
+      fireEvent.change(envelopeSelect, { target: { value: "env-2" } });
+      expect(navState.push).toHaveBeenLastCalledWith("/gastos?from=2026-08-01&to=2026-08-31&page=0&envelopeId=env-2");
+
+      fireEvent.change(screen.getByLabelText("Autor"), { target: { value: "OTHERS" } });
+      expect(navState.push).toHaveBeenLastCalledWith("/gastos?from=2026-08-01&to=2026-08-31&page=0&author=OTHERS");
+      expect(screen.getByRole("option", { name: "Lançados por mim" })).toBeDefined();
+      expect(screen.getByRole("option", { name: "Lançados por outras pessoas" })).toBeDefined();
+    });
+
+    it("limpar filtros remove busca, verba e autor da URL", async () => {
+      navState.query = "from=2026-08-01&to=2026-08-31&q=farm&envelopeId=env-1&author=ME&includeDeleted=true";
+      render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+      fireEvent.click(await screen.findByRole("button", { name: "Limpar filtros" }));
+
+      expect(navState.push).toHaveBeenLastCalledWith("/gastos?from=2026-08-01&to=2026-08-31&page=0&includeDeleted=true");
+    });
+
+    it("mostra o total dos resultados só com filtro ativo", async () => {
+      navState.query = "from=2026-08-01&to=2026-08-31&q=gasolina";
+      apiState.matchedTotal = "48.00";
+      render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+      const total = await screen.findByText(/Total dos resultados/);
+      expect(total.textContent).toMatch(/R\$\s?48,00/);
+      expect(total.textContent).toMatch(/todas as páginas/);
+      expect(total.textContent).toMatch(/sem excluídos/);
+    });
+
+    it("não mostra o total filtrado sem filtro", async () => {
+      render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+      await screen.findByText("Combustível", { selector: "strong" });
+      expect(screen.queryByText(/Total dos resultados/)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Limpar filtros" })).toBeNull();
+    });
+
+    it("distingue busca sem resultado do período vazio", async () => {
+      navState.query = "from=2026-08-01&to=2026-08-31&q=inexistente";
+      apiState.items = [];
+      apiState.matchedTotal = "0.00";
+      render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+      expect(await screen.findByText("Nenhum gasto corresponde aos filtros.")).toBeDefined();
+      expect(screen.queryByText("Nenhum gasto no período selecionado.")).toBeNull();
+      const empty = screen.getByText("Nenhum gasto corresponde aos filtros.").parentElement as HTMLElement;
+      expect(within(empty).getByRole("button", { name: "Limpar filtros" })).toBeDefined();
+    });
+
+    it("participante continua sem editar nem excluir nos resultados filtrados", async () => {
+      navState.query = "from=2026-08-01&to=2026-08-31&author=ME";
+      apiState.items = [{ ...ownerItem(), role: "PARTICIPANT" }];
+      render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+      await screen.findByText("Combustível", { selector: "strong" });
+      expect(screen.queryByRole("button", { name: "Editar" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Excluir" })).toBeNull();
+    });
   });
 });

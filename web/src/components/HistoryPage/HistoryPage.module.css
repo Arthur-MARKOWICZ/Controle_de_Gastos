@@ -8,3 +8,7 @@
   padding: 0;
   list-style: none;
 }
+
+/* Busca e filtros do histórico (#94): campos quebram linha em vez de estourar. */
+.filters{display:flex;flex-wrap:wrap}.filters select{min-height:2.5rem;padding:.5rem .75rem;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-primary);background:var(--surface)}.search{flex:1 1 16rem}.matchedTotal{padding:.875rem 1.25rem;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:.875rem}.matchedTotal strong{color:var(--text-primary)}
+@media(max-width:48rem){.filters>*{flex:1 1 100%}}

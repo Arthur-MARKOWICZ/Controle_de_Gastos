@@ -54,7 +54,7 @@ mobile-check:
 	cd mobile && ./gradlew :shared:jvmTest :androidApp:testDebugUnitTest :shared:koverVerify :androidApp:koverVerify :androidApp:assembleDebug --no-configuration-cache
 
 mobile-unit-test:
-	cd mobile && ./gradlew :shared:jvmTest --no-configuration-cache
+	cd mobile && ./gradlew :shared:jvmTest :androidApp:testDebugUnitTest --no-configuration-cache
 
 # Instala os hooks de git do lefthook. Rode uma vez por clone.
 hooks:

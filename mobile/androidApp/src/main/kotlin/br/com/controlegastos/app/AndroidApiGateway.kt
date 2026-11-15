@@ -221,7 +221,13 @@ class AndroidApiGateway(
         ),
     )
 
-    override suspend fun loadHistory(from: String, to: String, page: Int, includeDeleted: Boolean): HistoryPageView {
+    override suspend fun loadHistory(
+        from: String,
+        to: String,
+        page: Int,
+        includeDeleted: Boolean,
+        filter: HistoryFilter,
+    ): HistoryPageView {
         val body = client.requestJson(
             "GET", "/api/v1/history",
             query = mapOf(
@@ -230,21 +236,12 @@ class AndroidApiGateway(
                 "page" to page.toString(),
                 "size" to "20",
                 "includeDeleted" to includeDeleted.takeIf { it }?.toString(),
+                "q" to filter.query.trim().takeIf { it.isNotEmpty() },
+                "envelopeId" to filter.envelopeId,
             ),
             failure = "Não foi possível carregar o histórico",
         )
-        return HistoryPageView(
-            items = body.getJSONArray("items").mapObjects { item ->
-                HistoryItemView(
-                    entry = readEntry(item.getJSONObject("entry")),
-                    envelopeName = item.getString("envelopeName"),
-                    purpose = item.getString("purpose"),
-                    role = role(item.optString("role")),
-                )
-            },
-            page = body.optInt("page", page),
-            hasNext = body.optBoolean("hasNext", false),
-        )
+        return readHistoryPage(body, page)
     }
 
     override suspend fun loadHistorySummary(from: String, to: String): HistorySummaryView {
@@ -501,17 +498,6 @@ class AndroidApiGateway(
         version = json.optLong("version", 0),
     )
 
-    private fun readEntry(json: JSONObject) = LedgerEntryView(
-        id = json.getString("id"),
-        envelopeId = json.getString("envelopeId"),
-        kind = LedgerKind.fromApiOrNull(json.getString("kind")) ?: LedgerKind.EXPENSE,
-        amount = money(json.getJSONObject("amount")),
-        occurredAt = json.getString("occurredAt"),
-        description = json.optStringOrNull("description"),
-        targetJustReached = json.optBoolean("targetJustReached", false),
-        deletedAt = json.optStringOrNull("deletedAt"),
-    )
-
     private fun readIncome(json: JSONObject) = IncomeView(
         amount = Money.fromApiAmount(json.getString("amount")),
         effectiveFrom = json.getString("effectiveFrom"),
@@ -548,11 +534,6 @@ class AndroidApiGateway(
         email = json.getString("email"),
         addedAt = json.getString("addedAt"),
     )
-
-    private fun money(json: JSONObject) = Money.fromApiAmount(json.getString("amount"))
-
-    private fun role(api: String) =
-        if (api.equals("PARTICIPANT", ignoreCase = true)) EnvelopeRole.PARTICIPANT else EnvelopeRole.OWNER
 
     private fun monthQuery(month: YearMonth?) = mapOf("month" to month?.toApiMonth())
 
@@ -616,3 +597,34 @@ private fun JSONObject.stringList(key: String): List<String> {
 
 private fun <T> JSONArray.mapObjects(read: (JSONObject) -> T): List<T> =
     List(length()) { read(getJSONObject(it)) }
+
+/** Lê a página do histórico; `matchedTotal` ausente (API antiga) vira zero. */
+internal fun readHistoryPage(body: JSONObject, requestedPage: Int) = HistoryPageView(
+    items = body.getJSONArray("items").mapObjects { item ->
+        HistoryItemView(
+            entry = readEntry(item.getJSONObject("entry")),
+            envelopeName = item.getString("envelopeName"),
+            purpose = item.getString("purpose"),
+            role = role(item.optString("role")),
+        )
+    },
+    page = body.optInt("page", requestedPage),
+    hasNext = body.optBoolean("hasNext", false),
+    matchedTotal = body.optJSONObject("matchedTotal")?.let(::money) ?: Money(0),
+)
+
+private fun readEntry(json: JSONObject) = LedgerEntryView(
+    id = json.getString("id"),
+    envelopeId = json.getString("envelopeId"),
+    kind = LedgerKind.fromApiOrNull(json.getString("kind")) ?: LedgerKind.EXPENSE,
+    amount = money(json.getJSONObject("amount")),
+    occurredAt = json.getString("occurredAt"),
+    description = json.optStringOrNull("description"),
+    targetJustReached = json.optBoolean("targetJustReached", false),
+    deletedAt = json.optStringOrNull("deletedAt"),
+)
+
+private fun money(json: JSONObject) = Money.fromApiAmount(json.getString("amount"))
+
+private fun role(api: String) =
+    if (api.equals("PARTICIPANT", ignoreCase = true)) EnvelopeRole.PARTICIPANT else EnvelopeRole.OWNER
