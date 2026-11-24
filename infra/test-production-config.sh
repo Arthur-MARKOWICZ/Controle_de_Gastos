@@ -4,6 +4,8 @@ set -eu
 readonly ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 readonly COMPOSE_FILE="$ROOT_DIR/compose.yaml"
 readonly WORKFLOW_FILE="$ROOT_DIR/.github/workflows/deploy.yml"
+readonly BACKEND_DOCKERFILE="$ROOT_DIR/backend/Dockerfile"
+readonly BACKEND_GRADLE_PROPERTIES="$ROOT_DIR/backend/gradle.properties"
 readonly NGINX_HTTP_TEMPLATE="$ROOT_DIR/infra/nginx/controle-gastos.http.conf.template"
 readonly NGINX_HTTPS_TEMPLATE="$ROOT_DIR/infra/nginx/controle-gastos.https.conf.template"
 readonly INSTALL_SCRIPT="$ROOT_DIR/infra/nginx/install-https.sh"
@@ -20,7 +22,7 @@ assert_contains() {
   grep -F -- "$pattern" "$file" >/dev/null || fail "$message"
 }
 
-for file in "$COMPOSE_FILE" "$WORKFLOW_FILE" "$NGINX_HTTP_TEMPLATE" "$NGINX_HTTPS_TEMPLATE" "$INSTALL_SCRIPT"; do
+for file in "$COMPOSE_FILE" "$WORKFLOW_FILE" "$BACKEND_DOCKERFILE" "$BACKEND_GRADLE_PROPERTIES" "$NGINX_HTTP_TEMPLATE" "$NGINX_HTTPS_TEMPLATE" "$INSTALL_SCRIPT"; do
   test -f "$file" || fail "arquivo obrigatório ausente: $file"
 done
 
@@ -59,6 +61,9 @@ assert_contains "$WORKFLOW_FILE" 'POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWO
 assert_contains "$WORKFLOW_FILE" "'bash -se'" 'segredos devem ser enviados pelo stdin do SSH, não na linha de comando'
 assert_contains "$WORKFLOW_FILE" "ALTER ROLE %I WITH PASSWORD %L" 'workflow deve aplicar a senha ao volume PostgreSQL já inicializado'
 assert_contains "$WORKFLOW_FILE" 'wait_for_http http://127.0.0.1:8080/actuator/health/readiness backend' 'deploy deve aguardar readiness do backend'
+assert_contains "$WORKFLOW_FILE" 'build_with_retry' 'deploy deve repetir o docker build quando o Maven Central devolver 429'
+assert_contains "$BACKEND_DOCKERFILE" 'until ./gradlew dependencies --no-daemon; do' 'Dockerfile do backend deve repetir o download de dependências após recusa HTTP'
+assert_contains "$BACKEND_GRADLE_PROPERTIES" 'systemProp.org.gradle.internal.repository.max.tentatives=10' 'Gradle deve repetir resolução HTTP ao receber 429 do Maven Central'
 
 for template in "$NGINX_HTTP_TEMPLATE" "$NGINX_HTTPS_TEMPLATE"; do
   assert_contains "$template" '__PUBLIC_APP_DOMAIN__' "template Nginx deve possuir o placeholder de domínio: $template"
