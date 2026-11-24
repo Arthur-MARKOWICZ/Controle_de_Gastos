@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "controle-gastos": {
+      "command": "/home/arthurmarkowiczlopes/.nvm/versions/node/v24.20.0/bin/node",
+      "args": [
+        "/home/arthurmarkowiczlopes/Documents/projeto_pessoal/controle_gastos/mcp/dist/index.js"
+      ],
+      "env": {
+        "CONTROLE_GASTOS_API_BASE_URL": "https://gastos.arthurmlopes.systems"
+      }
+    }
+  }
+}
