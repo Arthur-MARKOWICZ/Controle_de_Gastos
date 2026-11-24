@@ -82,14 +82,37 @@ jobs:
             | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$' \
             || { echo "PUBLIC_APP_URL deve conter um domínio completo válido" >&2; exit 1; }
           # Builds em paralelo; BuildKit reaproveita caches de Gradle/pnpm/Next dos Dockerfiles.
-          docker build --pull --tag controle-gastos-backend:latest backend &
+          # Maven Central devolve 429 a IPs do GitHub Actions; cada build tenta de novo.
+          build_with_retry() {
+            label=$1
+            shift
+            attempt=1
+            max=4
+            while true; do
+              if "$@"; then
+                return 0
+              fi
+              if [ "$attempt" -ge "$max" ]; then
+                echo "$label: build falhou após $max tentativas" >&2
+                return 1
+              fi
+              attempt=$((attempt + 1))
+              echo "$label: nova tentativa $attempt/$max em 30s" >&2
+              sleep 30
+            done
+          }
+          backend_status=0
+          web_status=0
+          build_with_retry backend docker build --pull --tag controle-gastos-backend:latest backend &
           backend_pid=$!
-          docker build --pull \
+          build_with_retry web docker build --pull \
             --build-arg "NEXT_PUBLIC_API_URL=$PUBLIC_APP_URL" \
             --tag controle-gastos-web:latest web &
           web_pid=$!
-          wait "$backend_pid"
-          wait "$web_pid"
+          wait "$backend_pid" || backend_status=$?
+          wait "$web_pid" || web_status=$?
+          test "$backend_status" -eq 0
+          test "$web_status" -eq 0
 
       - name: Configurar SSH
         env:

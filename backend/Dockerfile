@@ -8,12 +8,25 @@ COPY gradle ./gradle
 RUN chmod +x gradlew
 
 # Baixa wrapper e dependências em cache BuildKit (sobrevive entre builds).
+# Maven Central devolve 429 a IPs do GitHub Actions; o loop espera e tenta de novo.
 RUN --mount=type=cache,id=controle-gastos-gradle,target=/root/.gradle,sharing=locked \
-    ./gradlew dependencies --no-daemon --quiet >/dev/null
+    attempt=1; \
+    until ./gradlew dependencies --no-daemon; do \
+      if [ "$attempt" -ge 5 ]; then exit 1; fi; \
+      attempt=$((attempt + 1)); \
+      echo "Download de dependências falhou; tentativa $attempt/5 em 30s" >&2; \
+      sleep 30; \
+    done
 
 COPY src ./src
 RUN --mount=type=cache,id=controle-gastos-gradle,target=/root/.gradle,sharing=locked \
-    ./gradlew bootJar -x test --no-daemon \
+    attempt=1; \
+    until ./gradlew bootJar -x test --no-daemon; do \
+      if [ "$attempt" -ge 5 ]; then exit 1; fi; \
+      attempt=$((attempt + 1)); \
+      echo "bootJar falhou; tentativa $attempt/5 em 30s" >&2; \
+      sleep 30; \
+    done \
     && JAR="$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-plain.jar' | head -n 1)" \
     && cp "$JAR" /workspace/application.jar \
     && java -Djarmode=tools -jar /workspace/application.jar extract --layers --destination /extracted
