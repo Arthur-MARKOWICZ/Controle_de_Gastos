@@ -71,6 +71,12 @@ public class InAppAlert {
         );
     }
 
+    public static InAppAlert sharedExpense(UUID ownerId, UUID envelopeId, String envelopeName,
+                                           YearMonth month, Instant now) {
+        return new InAppAlert(UUID.randomUUID(), ownerId, envelopeId, envelopeName,
+                AlertType.SHARED_EXPENSE, month.atDay(1), now);
+    }
+
     public void dismiss(Instant now) {
         if (!isActive()) {
             return;

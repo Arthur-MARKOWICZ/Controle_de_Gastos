@@ -85,7 +85,7 @@ export type HistoryFilters = { q?: string; envelopeId?: string; author?: History
 
 export type InAppAlertDTO = {
   id: string;
-  type: "NEGATIVE_BALANCE";
+  type: "NEGATIVE_BALANCE" | "SHARED_EXPENSE";
   envelopeId: string;
   envelopeName: string;
   referenceMonth: string;
@@ -93,6 +93,16 @@ export type InAppAlertDTO = {
 };
 
 export type AlertListDTO = { items: InAppAlertDTO[] };
+
+/** Consentimento por tipo e horário do lembrete diário (ADR-0033). Horário em `HH:mm`. */
+export type NotificationPreferencesDTO = {
+  dailyReminder: boolean;
+  negativeBalance: boolean;
+  sharedExpense: boolean;
+  reminderTime: string;
+};
+
+export type WebPushSubscriptionDTO = { endpoint: string; keys: { p256dh: string; auth: string } };
 
 export type ParticipantDTO = { userId: string; email: string; addedAt: string };
 export type ParticipantListDTO = { items: ParticipantDTO[] };
@@ -434,6 +444,43 @@ export function createApiClient(authClient: AuthClient) {
     discardOccurrence(occurrenceId: string): Promise<void> {
       return authClient
         .request(`/api/v1/recurring-occurrences/${encodeURIComponent(occurrenceId)}/discard`, { method: "POST" })
+        .then(handleResponse<void>);
+    },
+    getNotificationPreferences(): Promise<NotificationPreferencesDTO> {
+      return authClient.request("/api/v1/notifications/preferences").then(handleResponse<NotificationPreferencesDTO>);
+    },
+    updateNotificationPreferences(body: NotificationPreferencesDTO): Promise<NotificationPreferencesDTO> {
+      return authClient
+        .request("/api/v1/notifications/preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        .then(handleResponse<NotificationPreferencesDTO>);
+    },
+    /** `null` quando o servidor está sem chaves VAPID e o push fica desligado. */
+    getWebPushPublicKey(): Promise<string | null> {
+      return authClient
+        .request("/api/v1/notifications/web-push/public-key")
+        .then(handleResponse<{ publicKey: string | null }>)
+        .then((body) => body.publicKey);
+    },
+    registerWebPushSubscription(subscription: WebPushSubscriptionDTO): Promise<void> {
+      return authClient
+        .request("/api/v1/notifications/web-push/subscriptions", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(subscription),
+        })
+        .then(handleResponse<void>);
+    },
+    removeWebPushSubscription(endpoint: string): Promise<void> {
+      return authClient
+        .request("/api/v1/notifications/web-push/subscriptions/remove", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint }),
+        })
         .then(handleResponse<void>);
     },
   };

@@ -191,4 +191,7 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
             @Param("userId") UUID userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
+
+    boolean existsByAuthorIdAndKindAndOccurredAtAndDeletedAtIsNull(
+            UUID authorId, br.com.controlegastos.ledger.domain.LedgerKind kind, java.time.LocalDate occurredAt);
 }

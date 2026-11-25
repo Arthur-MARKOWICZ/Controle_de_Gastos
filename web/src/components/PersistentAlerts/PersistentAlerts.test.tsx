@@ -36,6 +36,23 @@ describe("PersistentAlerts", () => {
     });
   });
 
+  it("descreve o gasto de participante em verba compartilhada sem dizer quem nem quanto", async () => {
+    const client = clientWith([{
+      id: "a2",
+      type: "SHARED_EXPENSE",
+      envelopeId: "e2",
+      envelopeName: "Casa",
+      referenceMonth: "2026-11",
+      createdAt: "2026-11-05T18:00:00Z",
+    }]);
+    render(<PersistentAlerts client={client} />);
+
+    const region = await screen.findByRole("region", { name: "Alertas persistentes" });
+    expect(region.textContent).toContain("Novo gasto em verba compartilhada");
+    expect(region.textContent).toContain("Casa");
+    expect(region.textContent).not.toContain("saldo negativo");
+  });
+
   it("não renderiza nada sem alertas", async () => {
     const client = clientWith([]);
     const { container } = render(<PersistentAlerts client={client} />);

@@ -71,6 +71,11 @@ fun VerbasApp(
     /** Resultado do App Link do login social, entregue pelo sistema. */
     oauthCallback: OAuthCallback? = null,
     onOAuthCallbackHandled: () -> Unit = {},
+    /** Lembrete diário local (ADR-0033); o iOS ainda não agenda. */
+    reminderScheduler: ReminderScheduler = NoReminderScheduler,
+    /** A pessoa tocou no lembrete: abre o lançamento rápido. */
+    quickExpenseIntent: Boolean = false,
+    onQuickExpenseIntentHandled: () -> Unit = {},
 ) {
     val authController = remember(gateways) { AuthSessionController(gateways.auth) }
     val themeController = remember(themePreferenceStore) { ThemePreferenceController(themePreferenceStore) }
@@ -197,6 +202,9 @@ fun VerbasApp(
                 onShareText = onShareText,
                 onOpenReport = onOpenReport,
                 onOpenInBrowser = onOpenInBrowser,
+                reminderScheduler = reminderScheduler,
+                quickExpenseIntent = quickExpenseIntent,
+                onQuickExpenseIntentHandled = onQuickExpenseIntentHandled,
                 onSignOut = {
                     authState = AuthState.Anonymous
                     scope.launch { runCatching { authController.logout() } }
@@ -237,11 +245,26 @@ private fun SignedInApp(
     onShareText: (String) -> Unit,
     onOpenReport: (DownloadedReport) -> Unit,
     onOpenInBrowser: ((String) -> Unit)?,
+    reminderScheduler: ReminderScheduler,
+    quickExpenseIntent: Boolean,
+    onQuickExpenseIntentHandled: () -> Unit,
     onSignOut: () -> Unit,
     onSessionExpired: () -> Unit,
 ) {
     var backStack by remember { mutableStateOf<BackStack>(listOf(Route.Overview)) }
     var quickExpenseRequested by remember { mutableStateOf(false) }
+    val reminder = remember(gateways, reminderScheduler) {
+        ReminderSettingsController(gateways.notifications, reminderScheduler)
+    }
+    // Ao abrir o app, o agendamento local segue o horário salvo na API.
+    LaunchedEffect(reminder) { reminder.sync() }
+    LaunchedEffect(quickExpenseIntent) {
+        if (quickExpenseIntent) {
+            backStack = listOf(Route.Overview)
+            quickExpenseRequested = true
+            onQuickExpenseIntentHandled()
+        }
+    }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -356,7 +379,11 @@ private fun SignedInApp(
                     themeMode = themeMode,
                     onThemeSelected = onThemeSelected,
                     onOpen = ::go,
-                    onLogout = onSignOut,
+                    reminder = reminder,
+                    onLogout = {
+                        reminder.signOut()
+                        onSignOut()
+                    },
                 )
                 Route.Reports -> ReportsScreen(
                     gateway = gateways.reports,

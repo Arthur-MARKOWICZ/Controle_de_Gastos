@@ -1,0 +1,11 @@
+# Complementa o application.yml principal só nos testes (Spring Boot lê
+# classpath:/config/ com precedência maior, sem substituir o arquivo base).
+#
+# Cada *IntegrationTest para o seu PostgreSQL (Testcontainers) ao terminar a classe,
+# mas o contexto Spring fica em cache até o fim da JVM. No desligamento, o Event
+# Publication Registry (ADR-0033) consulta o banco já parado; sem este limite,
+# cada contexto esperaria os 30 s padrão do Hikari.
+spring:
+  datasource:
+    hikari:
+      connection-timeout: 2000

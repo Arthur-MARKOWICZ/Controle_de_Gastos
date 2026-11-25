@@ -110,6 +110,32 @@ async fn api(
         .map_err(to_error_view)
 }
 
+/// Pede (se preciso) e informa a permissão de notificação do sistema (ADR-0033).
+#[tauri::command]
+fn reminder_permission(app: tauri::AppHandle) -> bool {
+    use tauri_plugin_notification::{NotificationExt, PermissionState};
+    let notification = app.notification();
+    match notification.permission_state() {
+        Ok(PermissionState::Granted) => true,
+        _ => matches!(notification.request_permission(), Ok(PermissionState::Granted)),
+    }
+}
+
+/// Mostra o lembrete diário. Texto fixo: nenhum dado financeiro na notificação.
+#[tauri::command]
+fn reminder_notify(app: tauri::AppHandle) -> Result<(), ErrorView> {
+    use tauri_plugin_notification::NotificationExt;
+    app.notification()
+        .builder()
+        .title("Nenhum lançamento hoje")
+        .body("Abra o Verbas para registrar os gastos do dia.")
+        .show()
+        .map_err(|_| ErrorView {
+            message: "Não foi possível mostrar a notificação.".to_string(),
+            auth_required: false,
+        })
+}
+
 /// Tema do dispositivo (ADR-013). Não passa pela API em nenhum momento.
 #[tauri::command]
 fn theme_get(state: tauri::State<'_, AppState>) -> ThemeMode {
@@ -126,6 +152,7 @@ fn theme_set(state: tauri::State<'_, AppState>, mode: ThemeMode) -> Result<(), E
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let transport = ReqwestTransport::new(API_BASE_URL)
                 .map_err(|error| Box::<dyn std::error::Error>::from(error.to_string()))?;
@@ -147,7 +174,9 @@ pub fn run() {
             logout,
             api,
             theme_get,
-            theme_set
+            theme_set,
+            reminder_permission,
+            reminder_notify
         ])
         .run(tauri::generate_context!())
         .expect("falha ao iniciar a janela do Verbas");

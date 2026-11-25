@@ -37,6 +37,8 @@ public class TitularRightsService {
         payload.put("ledgerEntryRevisions", exportLedgerRevisions(userId));
         payload.put("recurringEntries", exportRecurringEntries(userId));
         payload.put("recurringOccurrences", exportRecurringOccurrences(userId));
+        payload.put("notificationPreferences", exportNotificationPreferences(userId));
+        payload.put("webPushSubscriptions", exportWebPushSubscriptions(userId));
         return payload;
     }
 
@@ -49,6 +51,8 @@ public class TitularRightsService {
 
     private void eraseFinancialData(UUID userId) {
         jdbc.update("DELETE FROM envelope WHERE owner_id = ?", userId);
+        jdbc.update("DELETE FROM notification_preference WHERE user_id = ?", userId);
+        jdbc.update("DELETE FROM web_push_subscription WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM envelope_participant WHERE user_id = ?", userId);
         jdbc.update("DELETE FROM income_revision WHERE owner_id = ?", userId);
         jdbc.update("DELETE FROM monthly_income WHERE owner_id = ?", userId);
@@ -124,6 +128,51 @@ public class TitularRightsService {
                     return row;
                 },
                 userId,
+                userId);
+    }
+
+    private Map<String, Object> exportNotificationPreferences(UUID userId) {
+        List<Map<String, Object>> rows = jdbc.query(
+                """
+                SELECT daily_reminder, negative_balance, shared_expense,
+                       to_char(reminder_time, 'HH24:MI') AS reminder_time, last_reminder_date, updated_at
+                FROM notification_preference
+                WHERE user_id = ?
+                """,
+                (rs, rowNum) -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("dailyReminder", rs.getBoolean("daily_reminder"));
+                    row.put("negativeBalance", rs.getBoolean("negative_balance"));
+                    row.put("sharedExpense", rs.getBoolean("shared_expense"));
+                    row.put("reminderTime", rs.getString("reminder_time"));
+                    row.put("lastReminderDate", rs.getDate("last_reminder_date") == null
+                            ? null
+                            : rs.getDate("last_reminder_date").toLocalDate().toString());
+                    row.put("updatedAt", rs.getTimestamp("updated_at").toInstant().toString());
+                    return row;
+                },
+                userId);
+        return rows.isEmpty() ? null : rows.getFirst();
+    }
+
+    /** Endpoint e datas; as chaves p256dh/auth ficam fora (ADR-0033). */
+    private List<Map<String, Object>> exportWebPushSubscriptions(UUID userId) {
+        return jdbc.query(
+                """
+                SELECT endpoint, created_at, last_success_at
+                FROM web_push_subscription
+                WHERE user_id = ?
+                ORDER BY created_at
+                """,
+                (rs, rowNum) -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("endpoint", rs.getString("endpoint"));
+                    row.put("createdAt", rs.getTimestamp("created_at").toInstant().toString());
+                    row.put("lastSuccessAt", rs.getTimestamp("last_success_at") == null
+                            ? null
+                            : rs.getTimestamp("last_success_at").toInstant().toString());
+                    return row;
+                },
                 userId);
     }
 

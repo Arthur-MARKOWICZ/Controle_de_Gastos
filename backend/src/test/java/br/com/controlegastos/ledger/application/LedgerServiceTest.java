@@ -22,7 +22,9 @@ import br.com.controlegastos.identity.application.AuthenticationService;
 import br.com.controlegastos.income.application.IncomeQuery;
 import br.com.controlegastos.ledger.infrastructure.LedgerEntryRepository;
 import br.com.controlegastos.ledger.infrastructure.LedgerEntryRevisionRepository;
-import br.com.controlegastos.notifications.application.AlertService;
+import org.springframework.context.ApplicationEventPublisher;
+import br.com.controlegastos.ledger.events.EnvelopeBalanceTransitioned;
+import br.com.controlegastos.ledger.events.ExpenseRecorded;
 import br.com.controlegastos.shared.money.Money;
 import java.time.Clock;
 import java.time.Instant;
@@ -44,12 +46,12 @@ class LedgerServiceTest {
     @Mock LedgerEntryRevisionRepository revisions;
     @Mock AuthenticationService authentication;
     @Mock IncomeQuery incomes;
-    @Mock AlertService alerts;
+    @Mock ApplicationEventPublisher events;
 
     @Test
     void returnsZeroAvailableAndGoalProgressWhenTheQueryMonthIsBeforeEnvelopeCreation() {
         Clock clock = Clock.fixed(CREATED_AT, ZoneOffset.UTC);
-        LedgerService ledger = new LedgerService(envelopes, entries, revisions, authentication, clock, incomes, alerts);
+        LedgerService ledger = new LedgerService(envelopes, entries, revisions, authentication, clock, incomes, events);
         Envelope envelope = Envelope.create(
                 UUID.randomUUID(), "Investimentos", EnvelopePurpose.GOAL, Money.brl("100.00"), clock.instant());
         YearMonth beforeCreation = YearMonth.of(2026, 8);
@@ -70,7 +72,7 @@ class LedgerServiceTest {
 
     private LedgerService ledger() {
         return new LedgerService(envelopes, entries, revisions, authentication,
-                Clock.fixed(CREATED_AT, ZoneOffset.UTC), incomes, alerts);
+                Clock.fixed(CREATED_AT, ZoneOffset.UTC), incomes, events);
     }
 
     private Envelope envelope(String base) {
@@ -160,7 +162,45 @@ class LedgerServiceTest {
 
         ledger().register(envelope.id(), LedgerKind.EXPENSE, Money.brl("100.01"), LocalDate.of(2026, 9, 15), null);
 
-        verify(alerts).onBalanceTransition(owner, envelope.id(), "Mercado", YearMonth.of(2026, 9), false, true, CREATED_AT);
+        verify(events).publishEvent(new EnvelopeBalanceTransitioned(
+                owner, envelope.id(), "Mercado", "LIMIT", YearMonth.of(2026, 9), false, true));
+    }
+
+    @Test
+    @DisplayName("gasto que não muda o sinal do saldo não publica transição")
+    void saldoSemTransicaoNaoPublica() {
+        Envelope envelope = envelope("100.00");
+        when(authentication.currentUserId()).thenReturn(owner);
+        when(entries.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ledger().register(envelope.id(), LedgerKind.EXPENSE, Money.brl("10.00"), LocalDate.of(2026, 9, 15), null);
+
+        verify(events, never()).publishEvent(any(EnvelopeBalanceTransitioned.class));
+    }
+
+    @Test
+    @DisplayName("todo gasto registrado publica ExpenseRecorded com autor e dono, sem valor")
+    void gastoPublicaExpenseRecorded() {
+        Envelope envelope = envelope("100.00");
+        when(authentication.currentUserId()).thenReturn(participant);
+        when(entries.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        LedgerEntry saved = ledger().register(envelope.id(), LedgerKind.EXPENSE, Money.brl("40.00"),
+                LocalDate.of(2026, 9, 15), "feira").entry();
+
+        verify(events).publishEvent(new ExpenseRecorded(saved.id(), envelope.id(), "Mercado", "LIMIT", YearMonth.of(2026, 9), owner, participant));
+    }
+
+    @Test
+    @DisplayName("aporte não publica ExpenseRecorded")
+    void aporteNaoPublicaExpenseRecorded() {
+        Envelope envelope = envelope("100.00");
+        when(authentication.currentUserId()).thenReturn(owner);
+        when(entries.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ledger().register(envelope.id(), LedgerKind.CONTRIBUTION, Money.brl("40.00"), LocalDate.of(2026, 9, 15), null);
+
+        verify(events, never()).publishEvent(any(ExpenseRecorded.class));
     }
 
     @Test

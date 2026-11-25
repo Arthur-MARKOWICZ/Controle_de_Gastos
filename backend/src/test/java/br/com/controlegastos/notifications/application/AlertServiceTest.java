@@ -33,6 +33,7 @@ class AlertServiceTest {
 
     @Mock InAppAlertRepository alerts;
     @Mock AuthenticationService authentication;
+    @Mock org.springframework.context.ApplicationEventPublisher events;
 
     private void authenticatedOwner() {
         when(authentication.currentUserId()).thenReturn(OWNER);
@@ -43,7 +44,7 @@ class AlertServiceTest {
         when(alerts.findActiveNegative(OWNER, ENVELOPE, MONTH.atDay(1))).thenReturn(Optional.empty());
         when(alerts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service().onBalanceTransition(OWNER, ENVELOPE, "Mercado", MONTH, false, true, NOW);
+        service().onBalanceTransition(OWNER, ENVELOPE, "Mercado", "LIMIT", MONTH, false, true, NOW);
 
         ArgumentCaptor<InAppAlert> captor = ArgumentCaptor.forClass(InAppAlert.class);
         verify(alerts).save(captor.capture());
@@ -53,6 +54,31 @@ class AlertServiceTest {
         assertThat(saved.envelopeName()).isEqualTo("Mercado");
         assertThat(saved.referenceMonth()).isEqualTo(MONTH.atDay(1));
         assertThat(saved.isActive()).isTrue();
+        verify(events).publishEvent(new AlertRaised(OWNER, br.com.controlegastos.notifications.domain.AlertType.NEGATIVE_BALANCE, "LIMIT"));
+    }
+
+    @Test
+    void createsSharedExpenseAlertForOwnerWhenParticipantRecordsExpense() {
+        when(alerts.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service().onExpenseRecorded(OWNER, OTHER, ENVELOPE, "Casa", "GOAL", MONTH, NOW);
+
+        ArgumentCaptor<InAppAlert> captor = ArgumentCaptor.forClass(InAppAlert.class);
+        verify(alerts).save(captor.capture());
+        InAppAlert saved = captor.getValue();
+        assertThat(saved.type()).isEqualTo(br.com.controlegastos.notifications.domain.AlertType.SHARED_EXPENSE);
+        assertThat(saved.ownerId()).isEqualTo(OWNER);
+        assertThat(saved.envelopeName()).isEqualTo("Casa");
+        assertThat(saved.isActive()).isTrue();
+        verify(events).publishEvent(new AlertRaised(OWNER, br.com.controlegastos.notifications.domain.AlertType.SHARED_EXPENSE, "GOAL"));
+    }
+
+    @Test
+    void ignoresExpenseRecordedByTheOwner() {
+        service().onExpenseRecorded(OWNER, OWNER, ENVELOPE, "Casa", "GOAL", MONTH, NOW);
+
+        verify(alerts, never()).save(any());
+        verify(events, never()).publishEvent(any());
     }
 
     @Test
@@ -60,9 +86,10 @@ class AlertServiceTest {
         InAppAlert existing = InAppAlert.negativeBalance(OWNER, ENVELOPE, "Mercado", MONTH, NOW);
         when(alerts.findActiveNegative(OWNER, ENVELOPE, MONTH.atDay(1))).thenReturn(Optional.of(existing));
 
-        service().onBalanceTransition(OWNER, ENVELOPE, "Mercado", MONTH, false, true, NOW);
+        service().onBalanceTransition(OWNER, ENVELOPE, "Mercado", "LIMIT", MONTH, false, true, NOW);
 
         verify(alerts, never()).save(any());
+        verify(events, never()).publishEvent(any());
     }
 
     @Test
@@ -70,11 +97,12 @@ class AlertServiceTest {
         InAppAlert existing = InAppAlert.negativeBalance(OWNER, ENVELOPE, "Mercado", MONTH, NOW);
         when(alerts.findActiveNegative(OWNER, ENVELOPE, MONTH.atDay(1))).thenReturn(Optional.of(existing));
 
-        service().onBalanceTransition(OWNER, ENVELOPE, "Mercado", MONTH, true, false, NOW.plusSeconds(60));
+        service().onBalanceTransition(OWNER, ENVELOPE, "Mercado", "LIMIT", MONTH, true, false, NOW.plusSeconds(60));
 
         assertThat(existing.isActive()).isFalse();
         assertThat(existing.resolvedAt()).isEqualTo(NOW.plusSeconds(60));
         verify(alerts).save(existing);
+        verify(events, never()).publishEvent(any());
     }
 
     @Test
@@ -113,6 +141,6 @@ class AlertServiceTest {
     }
 
     private AlertService service() {
-        return new AlertService(alerts, authentication);
+        return new AlertService(alerts, authentication, events);
     }
 }

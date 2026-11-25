@@ -102,6 +102,12 @@ class EndpointAuthorizationApiIntegrationTest {
                 Arguments.of("GET", "/api/v1/reports/goals-below-target?from=2026-09-01&to=2026-09-30&format=csv"),
                 Arguments.of("GET", "/api/v1/alerts"),
                 Arguments.of("POST", "/api/v1/alerts/" + ANY + "/dismiss"),
+                Arguments.of("GET", "/api/v1/notifications/preferences"),
+                Arguments.of("PUT", "/api/v1/notifications/preferences"),
+                Arguments.of("GET", "/api/v1/notifications/today"),
+                Arguments.of("GET", "/api/v1/notifications/web-push/public-key"),
+                Arguments.of("PUT", "/api/v1/notifications/web-push/subscriptions"),
+                Arguments.of("POST", "/api/v1/notifications/web-push/subscriptions/remove"),
                 Arguments.of("GET", "/api/v1/privacy/export"),
                 Arguments.of("DELETE", "/api/v1/privacy/account"));
     }

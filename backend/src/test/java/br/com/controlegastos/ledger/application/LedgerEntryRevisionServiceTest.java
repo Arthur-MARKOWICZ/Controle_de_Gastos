@@ -19,7 +19,7 @@ import br.com.controlegastos.ledger.domain.LedgerEntryRevision;
 import br.com.controlegastos.ledger.domain.LedgerRevisionAction;
 import br.com.controlegastos.ledger.infrastructure.LedgerEntryRepository;
 import br.com.controlegastos.ledger.infrastructure.LedgerEntryRevisionRepository;
-import br.com.controlegastos.notifications.application.AlertService;
+import org.springframework.context.ApplicationEventPublisher;
 import br.com.controlegastos.shared.money.Money;
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -51,7 +51,7 @@ class LedgerEntryRevisionServiceTest {
     @Mock LedgerEntryRevisionRepository revisions;
     @Mock AuthenticationService authentication;
     @Mock IncomeQuery incomes;
-    @Mock AlertService alerts;
+    @Mock ApplicationEventPublisher events;
 
     private Envelope envelope;
     private LedgerService ledger;
@@ -64,7 +64,7 @@ class LedgerEntryRevisionServiceTest {
         lenient().when(entries.sumAmountBetween(any(), any(String.class), any(), any())).thenReturn(BigDecimal.ZERO);
         lenient().when(entries.sumAmountUpTo(any(), any(String.class), any())).thenReturn(BigDecimal.ZERO);
         ledger = new LedgerService(
-                envelopes, entries, revisions, authentication, Clock.fixed(NOW, ZoneOffset.UTC), incomes, alerts);
+                envelopes, entries, revisions, authentication, Clock.fixed(NOW, ZoneOffset.UTC), incomes, events);
     }
 
     @Test

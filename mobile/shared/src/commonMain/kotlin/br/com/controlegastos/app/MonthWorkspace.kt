@@ -179,13 +179,22 @@ internal fun PersistentNegativeAlerts(
         alerts.forEach { alert ->
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                 Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val shared = alert.type == "SHARED_EXPENSE"
                     Text(
-                        "${alert.envelopeName} ficou negativa em ${alert.referenceMonth}",
+                        if (shared) {
+                            "Novo gasto em verba compartilhada: ${alert.envelopeName} (${alert.referenceMonth})"
+                        } else {
+                            "${alert.envelopeName} ficou negativa em ${alert.referenceMonth}"
+                        },
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onErrorContainer,
                     )
                     Text(
-                        "O gasto não foi bloqueado. Dispense quando já tiver tratado o estouro.",
+                        if (shared) {
+                            "Confira no histórico e dispense quando quiser."
+                        } else {
+                            "O gasto não foi bloqueado. Dispense quando já tiver tratado o estouro."
+                        },
                         color = MaterialTheme.colorScheme.onErrorContainer,
                         style = MaterialTheme.typography.bodySmall,
                     )

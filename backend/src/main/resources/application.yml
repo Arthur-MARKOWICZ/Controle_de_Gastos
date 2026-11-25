@@ -11,6 +11,15 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  modulith:
+    events:
+      # ADR-0033: eventos pendentes voltam a ser entregues no reinício; os
+      # concluídos são apagados para a tabela não crescer.
+      republish-outstanding-events-on-restart: true
+      completion-mode: delete
+      jdbc:
+        schema-initialization:
+          enabled: false
   mail:
     host: ${GMAIL_SMTP_HOST:}
     port: ${GMAIL_SMTP_PORT:587}
@@ -46,6 +55,12 @@ app:
       login-challenge-lifetime: ${AUTH_MFA_LOGIN_CHALLENGE_LIFETIME:5m}
       pending-setup-lifetime: ${AUTH_MFA_PENDING_SETUP_LIFETIME:10m}
       recovery-session-lifetime: ${AUTH_MFA_RECOVERY_SESSION_LIFETIME:10m}
+  notifications:
+    # Web Push (ADR-0033). Sem as chaves, o envio fica desligado e o resto funciona.
+    vapid:
+      public-key: ${NOTIFICATIONS_VAPID_PUBLIC_KEY:}
+      private-key: ${NOTIFICATIONS_VAPID_PRIVATE_KEY:}
+      subject: ${NOTIFICATIONS_VAPID_SUBJECT:}
   oauth:
     state-lifetime: ${AUTH_OAUTH_STATE_LIFETIME:10m}
     # Código de handoff do login social nativo (ADR-020). Vive pouco porque

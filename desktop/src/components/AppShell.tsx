@@ -25,6 +25,8 @@ export type AppShellProps = {
   current: ScreenId;
   onNavigate: (screen: ScreenId) => void;
   onLogout: () => void;
+  /** Abre o lembrete diário; fica no rodapé, fora da navegação do corte. */
+  onOpenReminder?: () => void;
   children: ReactNode;
 };
 
@@ -33,6 +35,7 @@ export function AppShell({
   current,
   onNavigate,
   onLogout,
+  onOpenReminder,
   children,
 }: AppShellProps) {
   const { mode, setMode } = useTheme();
@@ -86,6 +89,12 @@ export function AppShell({
               ))}
             </select>
           </div>
+
+          {onOpenReminder ? (
+            <button className={styles.logout} type="button" onClick={onOpenReminder}>
+              Lembrete diário
+            </button>
+          ) : null}
 
           <button className={styles.logout} type="button" onClick={onLogout}>
             Sair
