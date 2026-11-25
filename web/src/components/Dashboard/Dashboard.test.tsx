@@ -313,14 +313,14 @@ describe("Dashboard", () => {
 
     render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
 
-    const alerts = await screen.findByRole("region", { name: "Alertas persistentes de saldo negativo" });
+    const alerts = await screen.findByRole("region", { name: "Alertas persistentes" });
     expect(within(alerts).getByText("Combustível")).toBeDefined();
     expect(within(alerts).getByText(/2026-08/)).toBeDefined();
 
     fireEvent.click(within(alerts).getByRole("button", { name: /dispensar|fechar/i }));
 
     await waitFor(() =>
-      expect(screen.queryByRole("region", { name: "Alertas persistentes de saldo negativo" })).toBeNull(),
+      expect(screen.queryByRole("region", { name: "Alertas persistentes" })).toBeNull(),
     );
   });
 

@@ -35,6 +35,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation("org.springframework.modulith:spring-modulith-starter-core")
+    implementation("org.springframework.modulith:spring-modulith-starter-jpa")
     implementation("org.bouncycastle:bcprov-jdk18on:1.84")
     implementation("org.apache.poi:poi-ooxml:5.5.1")
     implementation("dev.samstevens.totp:totp:1.7.1")

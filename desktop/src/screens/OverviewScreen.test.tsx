@@ -43,6 +43,16 @@ function ipcCom(resumo: LedgerSummary, alertas = { items: [] as ReturnType<typeo
     .onApi(ALERTS_PATH, { status: 200, body: alertas });
 }
 
+describe("alerta de gasto em verba compartilhada", () => {
+  it("descreve o gasto de participante sem dizer quem nem quanto", async () => {
+    montar(ipcCom(summary(), { items: [alert({ type: "SHARED_EXPENSE", envelopeName: "Casa" })] }));
+
+    const item = await screen.findByText(/Novo gasto em verba compartilhada/);
+    expect(item.textContent).toContain("Casa");
+    expect(item.textContent).not.toContain("saldo negativo");
+  });
+});
+
 describe("7.1 resumo do mês", () => {
   it("mostra renda e não alocado como vieram da API", async () => {
     montar(ipcCom(summary()));

@@ -9,6 +9,7 @@
 import { apiCall, IpcError, type ApiMethod } from "./ipc";
 import type {
   Alert,
+  NotificationPreferences,
   LedgerSummary,
   PendingOccurrences,
   RecurringEntry,
@@ -65,6 +66,22 @@ export function getLedgerSummary(month: string): Promise<LedgerSummary> {
 
 export function listAlerts(): Promise<{ items: Alert[] }> {
   return request<{ items: Alert[] }>("GET", "/api/v1/alerts");
+}
+
+export const NOTIFICATION_PREFERENCES_PATH = "/api/v1/notifications/preferences";
+export const NOTIFICATIONS_TODAY_PATH = "/api/v1/notifications/today";
+
+export function getNotificationPreferences(): Promise<NotificationPreferences> {
+  return request<NotificationPreferences>("GET", NOTIFICATION_PREFERENCES_PATH);
+}
+
+export function updateNotificationPreferences(body: NotificationPreferences): Promise<NotificationPreferences> {
+  return request<NotificationPreferences>("PUT", NOTIFICATION_PREFERENCES_PATH, body);
+}
+
+/** "Lançou hoje?" na data de negócio do backend; sem valores nem verbas. */
+export async function hasExpenseToday(): Promise<boolean> {
+  return (await request<{ date: string; hasExpense: boolean }>("GET", NOTIFICATIONS_TODAY_PATH)).hasExpense;
 }
 
 export function dismissAlert(id: string): Promise<void> {

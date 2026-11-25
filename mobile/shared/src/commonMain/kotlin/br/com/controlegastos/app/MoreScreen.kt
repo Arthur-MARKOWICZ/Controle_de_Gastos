@@ -30,6 +30,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Switch
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import kotlinx.coroutines.launch
 
 @Composable
@@ -38,6 +45,7 @@ internal fun MoreScreen(
     themeMode: ThemeMode,
     onThemeSelected: (ThemeMode) -> Unit,
     onOpen: (Route) -> Unit,
+    reminder: ReminderSettingsController,
     onLogout: () -> Unit,
 ) {
     LazyColumn(
@@ -79,6 +87,7 @@ internal fun MoreScreen(
                 }
             }
         }
+        item { DailyReminderCard(reminder) }
         item {
             OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth().height(52.dp)) {
                 Text("Sair da conta")
@@ -104,6 +113,86 @@ private fun NavigationRow(title: String, subtitle: String, onClick: () -> Unit) 
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+/**
+ * Lembrete diário local (spec ui-mobile/lembrete-diario). Horário e consentimento
+ * ficam na API; os outros avisos aparecem só dentro do app neste canal.
+ */
+@Composable
+private fun DailyReminderCard(reminder: ReminderSettingsController) {
+    var state by remember(reminder) { mutableStateOf(reminder.state) }
+    var choosingTime by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    fun run(action: suspend () -> Unit) = scope.launch {
+        action()
+        state = reminder.state
+    }
+
+    LaunchedEffect(reminder) {
+        reminder.load()
+        state = reminder.state
+    }
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth().toggleable(
+                    value = state.enabled,
+                    enabled = state.preferences != null && !state.busy,
+                    role = Role.Switch,
+                    onValueChange = { enabled -> run { reminder.setEnabled(enabled) } },
+                ),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Lembrete diário", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Avisa no horário escolhido se você ainda não lançou nenhum gasto no dia.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(checked = state.enabled, onCheckedChange = null)
+            }
+            Box {
+                TextButton(
+                    onClick = { choosingTime = true },
+                    enabled = state.preferences != null && !state.busy,
+                    modifier = Modifier.height(TouchTarget),
+                ) { Text("Horário: ${state.time}") }
+                DropdownMenu(expanded = choosingTime, onDismissRequest = { choosingTime = false }) {
+                    REMINDER_TIMES.forEach { time ->
+                        DropdownMenuItem(
+                            text = { Text(time) },
+                            onClick = {
+                                choosingTime = false
+                                run { reminder.setTime(time) }
+                            },
+                        )
+                    }
+                }
+            }
+            Text(
+                "Horário de Brasília, o mesmo da web e do desktop. O aviso pode atrasar alguns minutos. " +
+                    "Alertas de verba negativa e de verba compartilhada aparecem dentro do app.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            if (state.permissionDenied) {
+                Text(
+                    "As notificações estão bloqueadas para o Verbas. Libere em Configurações do Android › Apps › " +
+                        "Verbas › Notificações; o lembrete fica salvo e passa a valer quando você liberar.",
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            state.error?.let { message ->
+                Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

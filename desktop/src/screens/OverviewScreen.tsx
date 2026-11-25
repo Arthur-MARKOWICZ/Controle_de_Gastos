@@ -19,7 +19,7 @@ export type ScreenProps = {
 };
 
 /**
- * Mapa do mês: renda, alocado, não alocado e alertas de saldo negativo.
+ * Mapa do mês: renda, alocado, não alocado e alertas (saldo negativo e verba compartilhada).
  *
  * Os totais vêm de `GET /api/v1/ledger/summary` como strings decimais; o
  * cliente não recalcula nada (ADR-006, ADR-0029).
@@ -132,7 +132,7 @@ export function OverviewScreen({
 
       <section aria-labelledby="titulo-alertas">
         <h2 className={styles.sectionTitle} id="titulo-alertas">
-          Alertas de saldo negativo
+          Alertas
         </h2>
 
         {alertError ? (
@@ -149,8 +149,16 @@ export function OverviewScreen({
               <li className={styles.alert} key={alert.id}>
                 <WarningCircle className={styles.alertIcon} size={20} aria-hidden />
                 <span className={styles.alertText}>
-                  A verba {alert.envelopeName} está com saldo negativo em{" "}
-                  {alert.referenceMonth}.
+                  {alert.type === "SHARED_EXPENSE" ? (
+                    <>
+                      Novo gasto em verba compartilhada: {alert.envelopeName} ({alert.referenceMonth}).
+                    </>
+                  ) : (
+                    <>
+                      A verba {alert.envelopeName} está com saldo negativo em{" "}
+                      {alert.referenceMonth}.
+                    </>
+                  )}
                 </span>
                 <button
                   className={styles.alertAction}

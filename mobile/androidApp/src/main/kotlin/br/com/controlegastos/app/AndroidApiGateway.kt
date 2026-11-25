@@ -15,7 +15,7 @@ class AndroidApiGateway(
     private val context: Context,
     private val client: AndroidApiClient,
 ) : AuthGateway, EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway,
-    RecurringGateway {
+    RecurringGateway, NotificationGateway {
 
     // ---------------------------------------------------------------- sessão
 
@@ -359,6 +359,26 @@ class AndroidApiGateway(
         client.request("POST", "/api/v1/alerts/$id/dismiss")
             .orThrow("Não foi possível dispensar o alerta")
     }
+
+    // ---------------------------------------------------------------- notificações (ADR-0033)
+
+    override suspend fun loadNotificationPreferences(): NotificationPreferencesView = readNotificationPreferences(
+        client.requestJson("GET", "/api/v1/notifications/preferences", failure = "Não foi possível carregar o lembrete"),
+    )
+
+    override suspend fun saveNotificationPreferences(preferences: NotificationPreferencesView): NotificationPreferencesView =
+        readNotificationPreferences(
+            client.requestJson(
+                "PUT",
+                "/api/v1/notifications/preferences",
+                jsonBody = notificationPreferencesJson(preferences),
+                failure = "Não foi possível salvar o lembrete",
+            ),
+        )
+
+    override suspend fun hasExpenseToday(): Boolean = readHasExpense(
+        client.requestJson("GET", "/api/v1/notifications/today", failure = "Não foi possível consultar os gastos de hoje"),
+    )
 
     // ------------------------------------------------------ compartilhamento
 

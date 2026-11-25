@@ -206,6 +206,9 @@ jobs:
           GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
           GITHUB_OAUTH_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
           GITHUB_OAUTH_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          NOTIFICATIONS_VAPID_PUBLIC_KEY: ${{ secrets.NOTIFICATIONS_VAPID_PUBLIC_KEY }}
+          NOTIFICATIONS_VAPID_PRIVATE_KEY: ${{ secrets.NOTIFICATIONS_VAPID_PRIVATE_KEY }}
+          NOTIFICATIONS_VAPID_SUBJECT: ${{ vars.NOTIFICATIONS_VAPID_SUBJECT }}
         run: |
           set -Eeuo pipefail
           set +x
@@ -220,6 +223,7 @@ jobs:
           test -n "$GMAIL_SMTP_APP_PASSWORD"
           # Login social é um método adicional, não obrigatório para o deploy: os quatro
           # valores abaixo podem ficar vazios até o Google/GitHub OAuth App ser configurado.
+          # Web Push (ADR-0033) também é opcional: sem as chaves VAPID, o envio fica desligado.
           case "$PUBLIC_APP_URL" in
             https://*) ;;
             *) echo "PUBLIC_APP_URL deve iniciar com https://" >&2; exit 1 ;;
@@ -234,7 +238,7 @@ jobs:
           case "$POSTGRES_USER" in
             *[!A-Za-z0-9_]*) echo "POSTGRES_USER aceita apenas letras, números e underscore" >&2; exit 1 ;;
           esac
-          for VALUE in "$PUBLIC_APP_URL" "$POSTGRES_DB" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$AUTH_JWT_SECRET" "$AUTH_ATTEMPT_HMAC_SECRET" "$AUTH_TOTP_ENCRYPTION_KEY" "$GMAIL_SMTP_USERNAME" "$GMAIL_SMTP_APP_PASSWORD" "$GOOGLE_OAUTH_CLIENT_ID" "$GOOGLE_OAUTH_CLIENT_SECRET" "$GITHUB_OAUTH_CLIENT_ID" "$GITHUB_OAUTH_CLIENT_SECRET"; do
+          for VALUE in "$PUBLIC_APP_URL" "$POSTGRES_DB" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$AUTH_JWT_SECRET" "$AUTH_ATTEMPT_HMAC_SECRET" "$AUTH_TOTP_ENCRYPTION_KEY" "$GMAIL_SMTP_USERNAME" "$GMAIL_SMTP_APP_PASSWORD" "$GOOGLE_OAUTH_CLIENT_ID" "$GOOGLE_OAUTH_CLIENT_SECRET" "$GITHUB_OAUTH_CLIENT_ID" "$GITHUB_OAUTH_CLIENT_SECRET" "$NOTIFICATIONS_VAPID_PUBLIC_KEY" "$NOTIFICATIONS_VAPID_PRIVATE_KEY" "$NOTIFICATIONS_VAPID_SUBJECT"; do
             case "$VALUE" in
               *$'\n'*) echo "Variáveis de produção não podem conter quebra de linha" >&2; exit 1 ;;
             esac
@@ -260,6 +264,9 @@ jobs:
             printf 'export GOOGLE_OAUTH_CLIENT_SECRET=%q\n' "$GOOGLE_OAUTH_CLIENT_SECRET"
             printf 'export GITHUB_OAUTH_CLIENT_ID=%q\n' "$GITHUB_OAUTH_CLIENT_ID"
             printf 'export GITHUB_OAUTH_CLIENT_SECRET=%q\n' "$GITHUB_OAUTH_CLIENT_SECRET"
+            printf 'export NOTIFICATIONS_VAPID_PUBLIC_KEY=%q\n' "$NOTIFICATIONS_VAPID_PUBLIC_KEY"
+            printf 'export NOTIFICATIONS_VAPID_PRIVATE_KEY=%q\n' "$NOTIFICATIONS_VAPID_PRIVATE_KEY"
+            printf 'export NOTIFICATIONS_VAPID_SUBJECT=%q\n' "$NOTIFICATIONS_VAPID_SUBJECT"
             cat <<'REMOTE_SCRIPT'
             set -Eeuo pipefail
             set +x

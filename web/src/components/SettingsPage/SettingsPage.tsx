@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AppShell } from "../AppShell/AppShell";
+import { NotificationSettingsSection } from "../NotificationSettings/NotificationSettingsSection";
 import { PageHeader } from "../ui/PageHeader";
 import styles from "./SettingsPage.module.css";
 
@@ -11,7 +12,7 @@ export function SettingsPage({ email, onLogout }: { email: string; onLogout(): v
       <PageHeader
         eyebrow="Conta"
         title="Configurações"
-        description="Preferências da sua conta e do painel."
+        description="Preferências da sua conta, do painel e das notificações."
       />
       <ul className={styles.list}>
         <li>
@@ -33,6 +34,7 @@ export function SettingsPage({ email, onLogout }: { email: string; onLogout(): v
           </Link>
         </li>
       </ul>
+      <NotificationSettingsSection />
     </AppShell>
   );
 }

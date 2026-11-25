@@ -17,7 +17,8 @@ Este documento é uma base de engenharia, não uma definição definitiva de bas
 | Participação em verba (`envelope_participant`: envelope_id, user_id, added_at, added_by) | Compartilhamento e autorização (participante visualiza e registra `EXPENSE`; só `owner` faz `CONTRIBUTION`, arquiva e convida) | API/PostgreSQL | Até remoção/encerramento | PK composta `(envelope_id, user_id)`; convite por e-mail de conta já verificada (ADR-0026); logs de convite usam só UUIDs, sem e-mail em claro; preserva `author_id` em `ledger_entry` para auditoria |
 | Recorrência (`recurring_entry`: id, envelope_id, kind, amount, day_of_month, description, active, first_competence, created_at, deleted_at, version) | Sugerir lançamentos mensais previsíveis ao proprietário da verba (ADR-0031) | API/PostgreSQL | Até exclusão da verba ou da conta (`ON DELETE CASCADE` com a verba); exclusão pelo usuário é lógica (`deleted_at`) | Só o owner da verba acessa; `amount NUMERIC(19,2) >0`; dia 1..31; `description VARCHAR(140)` opcional; incluída na exportação do titular |
 | Ocorrência de recorrência (`recurring_occurrence`: id, recurring_entry_id, envelope_id, competence, due_date, suggested_amount, status PENDING/CONFIRMED/DISCARDED, ledger_entry_id, resolved_at, created_at, version) | Pendência de confirmação por competência; métrica de lançamentos vindos de recorrência (ADR-0031) | API/PostgreSQL | Acompanha a recorrência e a verba (`ON DELETE CASCADE`) | Única por `(recurring_entry_id, competence)`; não afeta saldo até virar `ledger_entry`; logs da geração só com contagens e IDs; incluída na exportação do titular |
-| Token push | Entregar notificações | API/PostgreSQL | Até logout/revogação | Nunca registrar em logs |
+| Assinatura Web Push (`web_push_subscription`: id, user_id, endpoint, p256dh, auth, created_at, last_success_at) | Entregar avisos opt-in ao navegador do titular (ADR-0033) | API/PostgreSQL | Até a remoção pelo titular, o logout no navegador, resposta 404/410 do push service ou a exclusão da conta (`ON DELETE CASCADE`) | Endpoint único; endpoint e chaves nunca entram em logs; a exportação do titular traz endpoint e datas, sem `p256dh`/`auth`; o payload só leva categoria, `EnvelopePurpose` e caminho |
+| Preferências de notificação (`notification_preference`: user_id, daily_reminder, negative_balance, shared_expense, reminder_time, last_reminder_date, updated_at) | Registrar o consentimento por tipo e o horário do lembrete diário (ADR-0033) | API/PostgreSQL | Até a exclusão da conta (`ON DELETE CASCADE`) | Tudo desligado por padrão; horário em `America/Sao_Paulo`, passos de 15 minutos; incluída na exportação do titular |
 | Revisão de gasto (`ledger_entry_revision`: id, ledger_entry_id, owner_id, actor_user_id, action EDIT/DELETE, previous_envelope_id, previous_amount, previous_description, changed_at) | Trilha de edições e exclusões lógicas de `EXPENSE` (ADR-0027) | API/PostgreSQL | Acompanham o lançamento (`ON DELETE CASCADE`); UUID do ator preservado (RESTRICT) | Somente o owner lista; exportação inclui onde o titular é owner ou ator; logs só com IDs |
 | Eventos de auditoria transversais | Segurança e responsabilização futuras (módulo `audit`) | — | — | Reservado; não confundir com `ledger_entry_revision` |
 | Segredo TOTP cifrado (AES-256-GCM) + nonce + keyVersion | Validar o segundo fator de login (MFA) | API/PostgreSQL | Até desabilitar o MFA ou excluir a conta | Nunca sai em texto claro do backend após a configuração; nonce aleatório por segredo; keyVersion existe para uma futura rotação da chave de runtime |
@@ -59,6 +60,17 @@ credenciais digitadas no provedor. O aplicativo não recebe o código de
 autorização do provedor nem guarda `client_secret`; recebe apenas o código de
 handoff emitido pelo próprio backend. Ver
 [ADR-020](../decisions/0020-login-social-google-e-github.md).
+
+## Push service do navegador
+
+Quando o titular ativa o push num navegador, o serviço de push do fornecedor
+do navegador (Google para Chrome/Edge, Mozilla para Firefox, Apple para
+Safari) recebe da API o payload **cifrado ponta a ponta** (RFC 8291) e
+metadados de envio: endereço do servidor, horário, tamanho e TTL. O payload
+não contém nome de verba, valores, descrição nem identificação de pessoas
+(ADR-0033). Finalidade, contrato e região de cada operador continuam pendentes
+de registro pelo controlador antes da abertura pública, na mesma linha dos
+operadores acima.
 
 ## Regras
 

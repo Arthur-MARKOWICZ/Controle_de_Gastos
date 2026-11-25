@@ -49,6 +49,14 @@ export type LedgerSummary = {
   envelopes: SummaryEnvelope[];
 };
 
+/** Preferências de notificação (ADR-0033); horário `HH:mm` em Brasília. */
+export type NotificationPreferences = {
+  dailyReminder: boolean;
+  negativeBalance: boolean;
+  sharedExpense: boolean;
+  reminderTime: string;
+};
+
 export type Alert = {
   id: string;
   type: string;

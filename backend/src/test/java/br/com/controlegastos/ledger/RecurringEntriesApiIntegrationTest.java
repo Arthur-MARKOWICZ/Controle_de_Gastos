@@ -158,10 +158,12 @@ class RecurringEntriesApiIntegrationTest {
         confirm(owner, firstPendingId(owner), Map.of()).andExpect(status().isOk());
 
         expectAvailable(owner, "-50.00");
-        mockMvc.perform(get("/api/v1/alerts").header("Authorization", "Bearer " + owner))
-                .andExpect(jsonPath("$.items.length()").value(1))
-                .andExpect(jsonPath("$.items[0].type").value("NEGATIVE_BALANCE"))
-                .andExpect(jsonPath("$.items[0].envelopeName").value("Mercado"));
+        // O alerta nasce do evento do ledger, de forma assíncrona após o commit (ADR-0033).
+        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(10)).untilAsserted(() ->
+                mockMvc.perform(get("/api/v1/alerts").header("Authorization", "Bearer " + owner))
+                        .andExpect(jsonPath("$.items.length()").value(1))
+                        .andExpect(jsonPath("$.items[0].type").value("NEGATIVE_BALANCE"))
+                        .andExpect(jsonPath("$.items[0].envelopeName").value("Mercado")));
     }
 
     @Test

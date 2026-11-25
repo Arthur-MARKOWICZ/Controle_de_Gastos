@@ -1,6 +1,7 @@
 package br.com.controlegastos.notifications.application;
 
 import br.com.controlegastos.identity.application.AuthenticationService;
+import br.com.controlegastos.notifications.domain.AlertType;
 import br.com.controlegastos.notifications.domain.InAppAlert;
 import br.com.controlegastos.notifications.infrastructure.InAppAlertRepository;
 import java.time.Instant;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.modulith.NamedInterface;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +23,13 @@ public class AlertService {
 
     private final InAppAlertRepository alerts;
     private final AuthenticationService authentication;
+    private final ApplicationEventPublisher events;
 
-    public AlertService(InAppAlertRepository alerts, AuthenticationService authentication) {
+    public AlertService(InAppAlertRepository alerts, AuthenticationService authentication,
+                        ApplicationEventPublisher events) {
         this.alerts = alerts;
         this.authentication = authentication;
+        this.events = events;
     }
 
     /**
@@ -32,7 +37,8 @@ public class AlertService {
      * Chamado pelo módulo ledger após mutações; não usa o usuário da sessão.
      */
     @Transactional
-    public void onBalanceTransition(UUID ownerId, UUID envelopeId, String envelopeName, YearMonth month,
+    public void onBalanceTransition(UUID ownerId, UUID envelopeId, String envelopeName, String envelopePurpose,
+                                    YearMonth month,
                                     boolean wasNegative, boolean isNegative, Instant now) {
         if (wasNegative == isNegative) {
             return;
@@ -43,6 +49,7 @@ public class AlertService {
             }
             InAppAlert alert = InAppAlert.negativeBalance(ownerId, envelopeId, envelopeName, month, now);
             alerts.save(alert);
+            events.publishEvent(new AlertRaised(ownerId, AlertType.NEGATIVE_BALANCE, envelopePurpose));
             log.info("negative_balance_alert_created alertId={} envelopeId={} ownerId={}",
                     alert.id(), envelopeId, ownerId);
             return;
@@ -53,6 +60,21 @@ public class AlertService {
             log.info("negative_balance_alert_resolved alertId={} envelopeId={} ownerId={}",
                     alert.id(), envelopeId, ownerId);
         });
+    }
+
+    /**
+     * Avisa o dono quando um participante registra gasto em verba compartilhada.
+     * Não guarda valor, descrição nem quem lançou (ADR-0026, ADR-0033).
+     */
+    @Transactional
+    public void onExpenseRecorded(UUID ownerId, UUID authorId, UUID envelopeId, String envelopeName,
+                                  String envelopePurpose, YearMonth month, Instant now) {
+        if (ownerId.equals(authorId)) {
+            return;
+        }
+        InAppAlert alert = alerts.save(InAppAlert.sharedExpense(ownerId, envelopeId, envelopeName, month, now));
+        events.publishEvent(new AlertRaised(ownerId, AlertType.SHARED_EXPENSE, envelopePurpose));
+        log.info("shared_expense_alert_created alertId={} envelopeId={} ownerId={}", alert.id(), envelopeId, ownerId);
     }
 
     @Transactional(readOnly = true)

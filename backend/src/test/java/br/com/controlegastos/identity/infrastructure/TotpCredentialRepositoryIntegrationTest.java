@@ -17,7 +17,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest(properties = {"spring.flyway.target=9", "spring.jpa.hibernate.ddl-auto=none"})
+// O schema fica na V9, antes de event_publication (V19): sem a republicação de
+// eventos pendentes na inicialização, que consultaria essa tabela (ADR-0033).
+@SpringBootTest(properties = {"spring.flyway.target=9", "spring.jpa.hibernate.ddl-auto=none",
+        "spring.modulith.events.republish-outstanding-events-on-restart=false"})
 @Testcontainers
 class TotpCredentialRepositoryIntegrationTest {
 

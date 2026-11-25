@@ -101,5 +101,6 @@ Privacidade é requisito transversal: minimização, autorização por recurso, 
 
 - Nome público do produto.
 - Domínio e provedor de e-mail transacional.
-- Projeto Firebase/APNs para notificações remotas.
+- Projeto Firebase/APNs para notificações remotas nativas. A web usa Web Push
+  padrão, e Android/desktop usam lembrete local ([ADR-0033](../decisions/0033-notificacoes-web-push-e-lembrete-local.md)).
 - Acesso futuro a macOS e conta Apple Developer.

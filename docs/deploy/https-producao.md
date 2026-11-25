@@ -49,6 +49,9 @@ Environments**, crie `production` e cadastre:
 | `AUTH_TOTP_ENCRYPTION_KEY` | Secret | Sim | Base64 de exatamente 32 bytes; cifra os segredos TOTP do MFA |
 | `GMAIL_SMTP_USERNAME` | Secret | Sim | Conta Gmail remetente exclusiva do serviço |
 | `GMAIL_SMTP_APP_PASSWORD` | Secret | Sim | App password de 16 dígitos da conta remetente |
+| `NOTIFICATIONS_VAPID_PUBLIC_KEY` | Secret | Não | Chave pública VAPID (P-256, 65 bytes em Base64 URL-safe); sem ela o Web Push fica desligado ([ADR-0033](../decisions/0033-notificacoes-web-push-e-lembrete-local.md)) |
+| `NOTIFICATIONS_VAPID_PRIVATE_KEY` | Secret | Não | Chave privada VAPID (32 bytes em Base64 URL-safe); par da pública |
+| `NOTIFICATIONS_VAPID_SUBJECT` | Variable | Não | Contato do controlador para os push services, ex.: `mailto:privacidade@<DOMINIO>` |
 
 Gere valores diferentes para as quatro credenciais:
 
@@ -65,6 +68,17 @@ indecifráveis os segredos TOTP já cifrados no banco de todas as contas com
 MFA ativo (ver [`ADR-019`](../decisions/0019-mfa-totp.md)). Se for
 comprometido ou perdido, siga o procedimento de rotação em
 [`docs/privacy/operacao-de-autenticacao.md`](../privacy/operacao-de-autenticacao.md).
+
+As chaves VAPID são opcionais. Gere o par uma vez e não o troque: trocar a chave
+invalida todas as assinaturas de navegador existentes, e as pessoas precisam
+ativar o push de novo.
+
+```bash
+openssl ecparam -name prime256v1 -genkey -noout -out vapid.pem
+openssl ec -in vapid.pem -pubout -outform DER | tail -c 65 | base64 -w0 | tr '/+' '_-' | tr -d '='   # pública
+openssl ec -in vapid.pem -outform DER | tail -c +8 | head -c 32 | base64 -w0 | tr '/+' '_-' | tr -d '='   # privada
+shred -u vapid.pem
+```
 
 O workflow transmite os valores pelo `stdin` de uma sessão SSH, executa o
 Compose com `COMPOSE_DISABLE_ENV_FILE=1` e não cria `.env` na VPS. O Docker

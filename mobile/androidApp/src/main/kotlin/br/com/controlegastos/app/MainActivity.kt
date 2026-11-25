@@ -21,15 +21,21 @@ class MainActivity : ComponentActivity() {
     /** App Link do login social; a activity é singleTask e pode recebê-lo já aberta. */
     private var pendingOAuthCallback by mutableStateOf<OAuthCallback?>(null)
 
+    /** Toque no lembrete diário: abre o lançamento rápido. */
+    private var quickExpenseIntent by mutableStateOf(false)
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         oauthCallbackOf(intent)?.let { pendingOAuthCallback = it }
+        if (intent.getBooleanExtra(EXTRA_QUICK_EXPENSE, false)) quickExpenseIntent = true
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingOAuthCallback = oauthCallbackOf(intent)
-        val client = AndroidApiClient(applicationContext, BuildConfig.API_BASE_URL)
+        quickExpenseIntent = intent.getBooleanExtra(EXTRA_QUICK_EXPENSE, false)
+        val client = SharedApiClient.get(applicationContext)
+        val reminderScheduler = AndroidReminderScheduler(this)
         val gateway = AndroidApiGateway(applicationContext, client)
         val themeStore = AndroidThemePreferenceStore(applicationContext)
         setContent {
@@ -43,6 +49,7 @@ class MainActivity : ComponentActivity() {
                     alerts = gateway,
                     sharing = gateway,
                     recurring = gateway,
+                    notifications = gateway,
                 ),
                 // Data e mês de referência vêm da plataforma, no mesmo fuso que o
                 // backend usa para resolver o mês corrente.
@@ -62,7 +69,14 @@ class MainActivity : ComponentActivity() {
                 onOpenInBrowser = { url -> openOAuthInBrowser(url) },
                 oauthCallback = pendingOAuthCallback,
                 onOAuthCallbackHandled = { pendingOAuthCallback = null },
+                reminderScheduler = reminderScheduler,
+                quickExpenseIntent = quickExpenseIntent,
+                onQuickExpenseIntentHandled = { quickExpenseIntent = false },
             )
         }
+    }
+
+    companion object {
+        const val EXTRA_QUICK_EXPENSE = "br.com.controlegastos.QUICK_EXPENSE"
     }
 }

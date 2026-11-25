@@ -15,6 +15,7 @@ data class VerbasGateways(
     val alerts: AlertGateway,
     val sharing: SharingGateway,
     val recurring: RecurringGateway = UnavailableGateway,
+    val notifications: NotificationGateway = UnavailableGateway,
 ) {
     companion object {
         val Unavailable = VerbasGateways(
@@ -33,13 +34,18 @@ private const val UNAVAILABLE = "Dados financeiros não configurados para esta p
 
 /** Usado pelo iOS, que ainda não tem cliente HTTP (ADR-004). */
 object UnavailableGateway :
-    EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway, RecurringGateway {
+    EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway, RecurringGateway,
+    NotificationGateway {
     override suspend fun listEnvelopes(month: YearMonth?): List<EnvelopeView> = error(UNAVAILABLE)
     override suspend fun createEnvelope(envelope: NewEnvelope): EnvelopeView = error(UNAVAILABLE)
     override suspend fun updateEnvelope(id: String, edit: EnvelopeEdit): EnvelopeView = error(UNAVAILABLE)
     override suspend fun archiveEnvelope(id: String) = error(UNAVAILABLE)
 
     override suspend fun listActiveAlerts(): List<InAppAlertView> = error(UNAVAILABLE)
+    override suspend fun loadNotificationPreferences(): NotificationPreferencesView = error(UNAVAILABLE)
+    override suspend fun saveNotificationPreferences(preferences: NotificationPreferencesView): NotificationPreferencesView =
+        error(UNAVAILABLE)
+    override suspend fun hasExpenseToday(): Boolean = error(UNAVAILABLE)
     override suspend fun dismissAlert(id: String) = error(UNAVAILABLE)
 
     override suspend fun listParticipants(envelopeId: String): List<ParticipantView> = error(UNAVAILABLE)

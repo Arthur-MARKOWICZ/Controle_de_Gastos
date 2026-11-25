@@ -54,15 +54,24 @@ export function PersistentAlerts({ client, refreshKey = 0 }: Props) {
   if (items.length === 0) return null;
 
   return (
-    <section className={styles.list} aria-label="Alertas persistentes de saldo negativo">
+    <section className={styles.list} aria-label="Alertas persistentes">
       {items.map((alert) => (
         <Notice
           key={alert.id}
           tone="warning"
           onClose={busyId === alert.id ? undefined : () => void dismiss(alert.id)}
         >
-          <strong>{alert.envelopeName}</strong> ficou com saldo negativo em {alert.referenceMonth}.
-          O registro do gasto não foi bloqueado. Dispense este aviso quando já tiver tratado.
+          {alert.type === "SHARED_EXPENSE" ? (
+            <>
+              Novo gasto em verba compartilhada: <strong>{alert.envelopeName}</strong> ({alert.referenceMonth}).
+              Confira no histórico e dispense este aviso quando quiser.
+            </>
+          ) : (
+            <>
+              <strong>{alert.envelopeName}</strong> ficou com saldo negativo em {alert.referenceMonth}.
+              O registro do gasto não foi bloqueado. Dispense este aviso quando já tiver tratado.
+            </>
+          )}
         </Notice>
       ))}
     </section>

@@ -1,3 +1,5 @@
+import { currentEndpoint, unsubscribeThisBrowser } from "../lib/web-push";
+
 export type CurrentUser = {
   id: string;
   email: string;
@@ -251,6 +253,7 @@ export class AuthClient {
     const token = this.accessToken;
     try {
       if (token) {
+        await this.forgetPushSubscription(token);
         await fetch(`${this.apiUrl}/api/v1/auth/logout`, {
           method: "POST",
           credentials: "include",
@@ -259,6 +262,26 @@ export class AuthClient {
       }
     } finally {
       this.accessToken = undefined;
+    }
+  }
+
+  /**
+   * Este navegador deixa de receber avisos da conta que está saindo (ADR-0033).
+   * Falhas aqui nunca impedem o logout.
+   */
+  private async forgetPushSubscription(token: string): Promise<void> {
+    try {
+      const endpoint = await currentEndpoint();
+      if (!endpoint) return;
+      await fetch(`${this.apiUrl}/api/v1/notifications/web-push/subscriptions/remove`, {
+        method: "POST",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ endpoint }),
+      });
+      await unsubscribeThisBrowser();
+    } catch {
+      // Sem service worker ou sem rede: a assinatura expira sozinha (404/410) no próximo envio.
     }
   }
 

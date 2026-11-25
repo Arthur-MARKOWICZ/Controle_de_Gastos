@@ -112,6 +112,16 @@ export function apiCall(
   });
 }
 
+/** Pede (se preciso) a permissão de notificação do sistema; `true` se concedida. */
+export function reminderPermission(): Promise<boolean> {
+  return guarded<boolean>("reminder_permission");
+}
+
+/** Mostra o lembrete diário pelo processo nativo; o texto é fixo, sem dados financeiros. */
+export function reminderNotify(): Promise<void> {
+  return guarded<void>("reminder_notify");
+}
+
 export function themeGet(): Promise<ThemeMode> {
   return guarded<ThemeMode>("theme_get");
 }

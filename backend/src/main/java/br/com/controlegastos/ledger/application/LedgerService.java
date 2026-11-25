@@ -11,9 +11,10 @@ import br.com.controlegastos.ledger.domain.LedgerEntry;
 import br.com.controlegastos.ledger.domain.LedgerEntryRevision;
 import br.com.controlegastos.ledger.domain.LedgerKind;
 import br.com.controlegastos.ledger.domain.LedgerRevisionAction;
+import br.com.controlegastos.ledger.events.EnvelopeBalanceTransitioned;
+import br.com.controlegastos.ledger.events.ExpenseRecorded;
 import br.com.controlegastos.ledger.infrastructure.LedgerEntryRepository;
 import br.com.controlegastos.ledger.infrastructure.LedgerEntryRevisionRepository;
-import br.com.controlegastos.notifications.application.AlertService;
 import br.com.controlegastos.shared.money.Money;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -26,6 +27,7 @@ import java.util.UUID;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
@@ -43,19 +45,19 @@ public class LedgerService implements LedgerReportingQuery {
     private final AuthenticationService authentication;
     private final Clock clock;
     private final IncomeQuery incomes;
-    private final AlertService alerts;
+    private final ApplicationEventPublisher events;
 
     public LedgerService(EnvelopeService envelopes, LedgerEntryRepository entries,
                          LedgerEntryRevisionRepository revisions,
                          AuthenticationService authentication, Clock clock, IncomeQuery incomes,
-                         AlertService alerts) {
+                         ApplicationEventPublisher events) {
         this.envelopes = envelopes;
         this.entries = entries;
         this.revisions = revisions;
         this.authentication = authentication;
         this.clock = clock;
         this.incomes = incomes;
-        this.alerts = alerts;
+        this.events = events;
     }
 
     @Transactional
@@ -94,6 +96,10 @@ public class LedgerService implements LedgerReportingQuery {
             }
         }
         notifyBalanceTransition(envelope, balanceMonth, balanceBefore);
+        if (kind == LedgerKind.EXPENSE) {
+            events.publishEvent(new ExpenseRecorded(saved.id(), envelope.id(), envelope.name(),
+                    envelope.purpose().name(), balanceMonth, envelope.ownerId(), userId));
+        }
         return new Registration(saved, targetJustReached);
     }
 
@@ -363,15 +369,11 @@ public class LedgerService implements LedgerReportingQuery {
 
     private void notifyBalanceTransition(Envelope envelope, YearMonth month, Money before) {
         Money after = availableFor(envelope, month);
-        alerts.onBalanceTransition(
-                envelope.ownerId(),
-                envelope.id(),
-                envelope.name(),
-                month,
-                before.isNegative(),
-                after.isNegative(),
-                clock.instant()
-        );
+        if (before.isNegative() == after.isNegative()) {
+            return;
+        }
+        events.publishEvent(new EnvelopeBalanceTransitioned(envelope.ownerId(), envelope.id(), envelope.name(),
+                envelope.purpose().name(), month, before.isNegative(), after.isNegative()));
     }
 
     private void requireAuthorOrOwner(LedgerEntry entry, UUID userId, String message) {

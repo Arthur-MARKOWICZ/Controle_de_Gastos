@@ -5,7 +5,11 @@ import { ThemeProvider } from "./components/ThemeProvider";
 import { AuthScreen } from "./screens/AuthScreen";
 import { EnvelopesScreen } from "./screens/EnvelopesScreen";
 import { OverviewScreen } from "./screens/OverviewScreen";
-import { logout as logoutCommand, restore } from "./lib/ipc";
+import { logout as logoutCommand, reminderNotify, restore } from "./lib/ipc";
+import { getNotificationPreferences, hasExpenseToday } from "./lib/api";
+import { useDailyReminder } from "./lib/use-daily-reminder";
+import { ReminderDialog } from "./components/ReminderDialog";
+import type { NotificationPreferences } from "./lib/types";
 import type { SessionView } from "./lib/ipc";
 import { currentMonthSaoPaulo } from "./lib/dates";
 
@@ -88,9 +92,9 @@ function AuthenticatedApp() {
   }
 
   return (
-    <AppShell
+    <SignedIn
       email={status.session.email}
-      current={screen}
+      screen={screen}
       onNavigate={setScreen}
       onLogout={handleLogout}
     >
@@ -111,6 +115,61 @@ function AuthenticatedApp() {
           onAuthRequired={handleAuthRequired}
         />
       )}
+    </SignedIn>
+  );
+}
+
+const REMINDER_DEPS = { hasExpenseToday, notify: reminderNotify };
+
+/**
+ * Janela autenticada. O lembrete diário (ADR-0033) vive aqui: sair da conta
+ * desmonta este componente e cancela o agendamento.
+ */
+function SignedIn({
+  email,
+  screen,
+  onNavigate,
+  onLogout,
+  children,
+}: {
+  email: string;
+  screen: ScreenId;
+  onNavigate: (screen: ScreenId) => void;
+  onLogout: () => void;
+  children: React.ReactNode;
+}) {
+  const [reminder, setReminder] = useState<NotificationPreferences | null>(null);
+  const [reminderOpen, setReminderOpen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    getNotificationPreferences()
+      .then((preferences) => active && setReminder(preferences))
+      .catch(() => {
+        /* sem preferências, nenhum lembrete é agendado */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useDailyReminder(
+    { enabled: reminder?.dailyReminder === true, time: reminder?.reminderTime ?? "20:00" },
+    REMINDER_DEPS,
+  );
+
+  return (
+    <AppShell
+      email={email}
+      current={screen}
+      onNavigate={onNavigate}
+      onLogout={onLogout}
+      onOpenReminder={() => setReminderOpen(true)}
+    >
+      {children}
+      {reminderOpen ? (
+        <ReminderDialog onClose={() => setReminderOpen(false)} onSaved={setReminder} />
+      ) : null}
     </AppShell>
   );
 }

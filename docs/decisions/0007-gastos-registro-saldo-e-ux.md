@@ -259,6 +259,7 @@ src/hooks/
 
 * Atualizar `docs/privacy/inventario-de-dados.md` com `ledger_entry`.
 * Cada mutação publica `ApplicationEvent` consumido por `audit` e `notifications` (alerta de saldo negativo) — sem broker.
+  * Nota (2026-11-24): até a ADR-0033 o `ledger` chamava `AlertService` diretamente. Desde ela, os gastos publicam eventos persistidos pelo Event Publication Registry do Spring Modulith, consumidos pelo `notifications`.
 * TDD: `LedgerServiceTest` com `Testcontainers PostgreSQL` (igual a `backend/src/test`), `ExpenseForm.test.tsx` com `@testing-library/react` + `vitest`, `AuthSessionControllerTest` para mobile.
 
 ---

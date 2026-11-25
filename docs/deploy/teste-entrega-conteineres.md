@@ -93,6 +93,9 @@ Para reduzir o número de variáveis neste teste, a Action usa a tag fixa
 | `AUTH_MFA_LOGIN_CHALLENGE_LIFETIME` | Não | `5m` | Validade do desafio de login MFA |
 | `AUTH_MFA_PENDING_SETUP_LIFETIME` | Não | `10m` | Validade da configuração de MFA pendente |
 | `AUTH_MFA_RECOVERY_SESSION_LIFETIME` | Não | `10m` | Validade da sessão restrita de recuperação de MFA |
+| `NOTIFICATIONS_VAPID_PUBLIC_KEY` | Não | vazio | Chave pública VAPID; vazia desliga o Web Push (ADR-0033) |
+| `NOTIFICATIONS_VAPID_PRIVATE_KEY` | Não | vazio | Chave privada VAPID; gere o par como em `https-producao.md` |
+| `NOTIFICATIONS_VAPID_SUBJECT` | Não | vazio | Contato `mailto:` enviado aos push services |
 | `NEXT_PUBLIC_API_URL` | Não | `http://localhost:8080` | URL da API no runtime web; o valor de build vem de `TEST_API_URL` |
 
 Não há variável obrigatória no Compose para este teste: todas têm valores
