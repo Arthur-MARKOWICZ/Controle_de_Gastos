@@ -37,6 +37,23 @@ class MoneyTest {
     }
 
     @Test
+    void multipliesByPositiveWholeQuantityKeepingTwoDecimals() {
+        assertThat(Money.brl("38.47").multiply(100).toPlainString()).isEqualTo("3847.00");
+        assertThat(Money.brl("0.01").multiply(3).toPlainString()).isEqualTo("0.03");
+    }
+
+    @Test
+    void rejectsNonPositiveQuantityAndProductsBeyondDatabasePrecision() {
+        assertThatThrownBy(() -> Money.brl("10.00").multiply(0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Money.brl("10.00").multiply(-1))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Money.brl("99999999999999999.00").multiply(10))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("limite");
+    }
+
+    @Test
     void doesNotExposePrimitiveNumericFactoriesForMoney() {
         assertThat(Arrays.stream(Money.class.getDeclaredMethods())
                 .filter(method -> method.getName().equals("brl"))

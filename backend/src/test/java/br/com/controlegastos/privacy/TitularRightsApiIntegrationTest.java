@@ -227,4 +227,41 @@ class TitularRightsApiIntegrationTest {
         mockMvc.perform(get("/api/v1/privacy/export")).andExpect(status().isUnauthorized());
         erase(null, Map.of("password", PASSWORD)).andExpect(status().isUnauthorized());
     }
+
+    @Test
+    @DisplayName("exportação traz os lotes de ativos e a eliminação os apaga (ADR-0034)")
+    void lotesDeAtivosNaExportacaoENaEliminacao() throws Exception {
+        String token = tokenFor("titular-lotes@example.com");
+        UUID titularId = userId("titular-lotes@example.com");
+        createStockLot(token, "PETR4", 100, "38.47", "2026-09-03");
+        createStockLot(token, "VALE3", 2, "60.00", "2026-09-01");
+
+        mockMvc.perform(get("/api/v1/privacy/export").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.stockLots.length()").value(2))
+                .andExpect(jsonPath("$.stockLots[0].ticker").value("VALE3"))
+                .andExpect(jsonPath("$.stockLots[1].id").isNotEmpty())
+                .andExpect(jsonPath("$.stockLots[1].ticker").value("PETR4"))
+                .andExpect(jsonPath("$.stockLots[1].quantity").value(100))
+                .andExpect(jsonPath("$.stockLots[1].unitPrice").value("38.47"))
+                .andExpect(jsonPath("$.stockLots[1].currency").value("BRL"))
+                .andExpect(jsonPath("$.stockLots[1].purchaseDate").value("2026-09-03"))
+                .andExpect(jsonPath("$.stockLots[1].createdAt").isNotEmpty());
+
+        erase(token, Map.of("password", PASSWORD)).andExpect(status().isNoContent());
+
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM stock_lot WHERE owner_id = ?", Integer.class, titularId))
+                .isZero();
+    }
+
+    private void createStockLot(String token, String ticker, long quantity, String unitPrice, String purchaseDate)
+            throws Exception {
+        mockMvc.perform(post("/api/v1/investments/stocks")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "ticker", ticker, "quantity", quantity,
+                                "unitPrice", money(unitPrice), "purchaseDate", purchaseDate))))
+                .andExpect(status().isCreated());
+    }
 }
