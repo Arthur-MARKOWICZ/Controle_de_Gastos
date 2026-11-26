@@ -211,6 +211,55 @@ class StockLotApiIntegrationTest {
                 .andExpect(jsonPath("$.envelopes[0].available.amount").value("1000.00"));
     }
 
+    @Test
+    @DisplayName("listagem traz a cotação gravada e o valor atual, sem mudar o custo")
+    void listingShowsQuoteAndCurrentValue() throws Exception {
+        String titular = token("lote-cotado@example.com");
+        create(titular, lot("PETR4", 100, "38.47", "2026-09-03")).andExpect(status().isCreated());
+        quote("PETR4", "41.20", "2026-09-14T20:00:00Z");
+
+        list(titular)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].currentQuote.price.amount").value("41.20"))
+                .andExpect(jsonPath("$[0].currentQuote.price.currency").value("BRL"))
+                .andExpect(jsonPath("$[0].currentQuote.quotedAt").value("2026-09-14T20:00:00Z"))
+                .andExpect(jsonPath("$[0].currentValue.amount").value("4120.00"))
+                .andExpect(jsonPath("$[0].acquisitionCost.amount").value("3847.00"));
+    }
+
+    @Test
+    @DisplayName("lote sem cotação traz currentQuote e currentValue nulos explícitos, também no POST")
+    void lotWithoutQuoteHasExplicitNulls() throws Exception {
+        String titular = token("lote-sem-cotacao@example.com");
+        create(titular, lot("ABCD3", 5, "10.00", "2026-09-03"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.currentQuote").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.currentValue").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$.currentQuote").hasJsonPath())
+                .andExpect(jsonPath("$.currentValue").hasJsonPath());
+
+        list(titular)
+                .andExpect(jsonPath("$[0].currentQuote").hasJsonPath())
+                .andExpect(jsonPath("$[0].currentQuote").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$[0].currentValue").value(org.hamcrest.Matchers.nullValue()))
+                .andExpect(jsonPath("$[0].acquisitionCost.amount").value("50.00"));
+    }
+
+    @Test
+    @DisplayName("a cotação é compartilhada, mas cada titular vê só os próprios lotes")
+    void sharedQuoteOnlyOwnLots() throws Exception {
+        String a = token("lote-cot-a@example.com");
+        String b = token("lote-cot-b@example.com");
+        create(a, lot("VALE3", 10, "60.00", "2026-09-03")).andExpect(status().isCreated());
+        create(b, lot("VALE3", 2, "55.00", "2026-09-04")).andExpect(status().isCreated());
+        quote("VALE3", "62.10", "2026-09-14T20:00:00Z");
+
+        list(b)
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].quantity").value(2))
+                .andExpect(jsonPath("$[0].currentValue.amount").value("124.20"));
+    }
+
     private ResultActions create(String token, Map<String, Object> body) throws Exception {
         return createRaw(token, objectMapper.writeValueAsString(body));
     }
@@ -254,6 +303,11 @@ class StockLotApiIntegrationTest {
         String token = token(email);
         jdbc.update("UPDATE user_account SET email_verified_at = now() WHERE email_normalized = ?", email);
         return token;
+    }
+
+    private void quote(String ticker, String price, String quotedAt) {
+        jdbc.update("INSERT INTO stock_quote (ticker, price, quoted_at, fetched_at) VALUES (?, ?::numeric, ?::timestamptz, now()) "
+                + "ON CONFLICT (ticker) DO UPDATE SET price = EXCLUDED.price, quoted_at = EXCLUDED.quoted_at", ticker, price, quotedAt);
     }
 
     private String token(String email) throws Exception {

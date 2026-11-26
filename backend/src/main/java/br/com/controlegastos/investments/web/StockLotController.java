@@ -1,8 +1,11 @@
 package br.com.controlegastos.investments.web;
 
 import br.com.controlegastos.investments.application.StockLotService;
+import br.com.controlegastos.investments.application.StockLotView;
 import br.com.controlegastos.investments.domain.B3Ticker;
 import br.com.controlegastos.investments.domain.StockLot;
+import br.com.controlegastos.investments.domain.StockQuote;
+import br.com.controlegastos.shared.money.Money;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
@@ -63,11 +66,22 @@ class StockLotController {
                 MoneyJson.required(body, "unitPrice"), purchaseDate);
     }
 
+    /** {@code currentQuote} e {@code currentValue} vêm sempre, nulos quando o ticker ainda não tem cotação. */
     record StockLotResponse(UUID id, String ticker, long quantity, MoneyJson.Dto unitPrice,
-                            MoneyJson.Dto acquisitionCost, String purchaseDate, String createdAt) {
-        static StockLotResponse from(StockLot lot) {
+                            MoneyJson.Dto acquisitionCost, String purchaseDate, String createdAt,
+                            QuoteDto currentQuote, MoneyJson.Dto currentValue) {
+        static StockLotResponse from(StockLotView view) {
+            StockLot lot = view.lot();
+            Money currentValue = view.currentValue();
             return new StockLotResponse(lot.id(), lot.ticker(), lot.quantity(), MoneyJson.Dto.of(lot.unitPrice()),
-                    MoneyJson.Dto.of(lot.acquisitionCost()), lot.purchaseDate().toString(), lot.createdAt().toString());
+                    MoneyJson.Dto.of(lot.acquisitionCost()), lot.purchaseDate().toString(), lot.createdAt().toString(),
+                    QuoteDto.of(view.quote()), currentValue == null ? null : MoneyJson.Dto.of(currentValue));
+        }
+    }
+
+    record QuoteDto(MoneyJson.Dto price, String quotedAt) {
+        static QuoteDto of(StockQuote quote) {
+            return quote == null ? null : new QuoteDto(MoneyJson.Dto.of(quote.price()), quote.quotedAt().toString());
         }
     }
 }
