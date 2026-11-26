@@ -117,3 +117,91 @@ describe("SecuritySettings - MFA", () => {
     expect(client.disableMfa).toHaveBeenCalledWith("senha-correta-12");
   });
 });
+
+describe("SecuritySettings - erros e o que não pode acontecer", () => {
+  const enabled = { mfaStatus: vi.fn().mockResolvedValue({ status: "ENABLED", pendingExpiresAt: null } satisfies MfaStatus) };
+
+  it("senha errada ao desativar MFA mostra a mensagem e não encerra a sessão", async () => {
+    const onLoggedOut = vi.fn();
+    const client = fakeClient(
+      { hasPassword: true, linkedProviders: [] },
+      { ...enabled, disableMfa: vi.fn().mockRejectedValue(new Error("401")) },
+    );
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={onLoggedOut} onLogout={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Desativar MFA" }));
+    fireEvent.change(screen.getByLabelText("Senha atual"), { target: { value: "senha-errada-123" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Confirmar desativação" }).closest("form")!);
+
+    expect(await screen.findByText("Senha incorreta ou operação indisponível. Tente novamente.")).toBeDefined();
+    expect(onLoggedOut).not.toHaveBeenCalled();
+    expect((screen.getByLabelText("Senha atual") as HTMLInputElement).value).toBe("");
+  });
+
+  it("senha errada ao gerar novos códigos não mostra código nenhum", async () => {
+    const client = fakeClient(
+      { hasPassword: true, linkedProviders: [] },
+      { ...enabled, regenerateRecoveryCodes: vi.fn().mockRejectedValue(new Error("401")) },
+    );
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Gerar novos recovery codes" }));
+    fireEvent.change(screen.getByLabelText("Senha atual"), { target: { value: "senha-errada-123" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Gerar novos códigos" }).closest("form")!);
+
+    expect(await screen.findByText("Senha incorreta ou operação indisponível. Tente novamente.")).toBeDefined();
+    expect(screen.queryByText("AAAA-BBBB")).toBeNull();
+  });
+
+  it("falha ao desconectar mostra a mensagem da API e mantém o provedor conectado", async () => {
+    const client = fakeClient(
+      { hasPassword: true, linkedProviders: ["google"] },
+      { unlinkProvider: vi.fn().mockRejectedValue(new Error("Não é possível remover o último método de login.")) },
+    );
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Desconectar Google" }));
+
+    expect(await screen.findByText("Não é possível remover o último método de login.")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Desconectar Google" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Conectar Google" })).toBeNull();
+  });
+
+  it("falha ao iniciar a conexão mostra a mensagem genérica", async () => {
+    const client = fakeClient(
+      { hasPassword: true, linkedProviders: [] },
+      { connectOAuth: vi.fn().mockRejectedValue(new Error("rede")) },
+    );
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Conectar Google" }));
+
+    expect(await screen.findByText("Não foi possível iniciar a conexão. Tente novamente.")).toBeDefined();
+  });
+
+  it("senha recusada no cadastro mantém a conta sem senha e o desconectar bloqueado", async () => {
+    const client = fakeClient(
+      { hasPassword: false, linkedProviders: ["google"] },
+      { addPassword: vi.fn().mockRejectedValue(new Error("A senha deve ter entre 12 e 128 caracteres")) },
+    );
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Cadastrar senha" }));
+    fireEvent.change(screen.getByLabelText("Nova senha"), { target: { value: "curta" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Salvar senha" }).closest("form")!);
+
+    expect(await screen.findByText("A senha deve ter entre 12 e 128 caracteres")).toBeDefined();
+    expect(screen.getByRole("button", { name: "Desconectar Google" })).toHaveProperty("disabled", true);
+  });
+
+  it("falha ao consultar o status do MFA mostra a mensagem exata", async () => {
+    const client = fakeClient(
+      { hasPassword: true, linkedProviders: [] },
+      { mfaStatus: vi.fn().mockRejectedValue(new Error("rede")) },
+    );
+    render(<SecuritySettings client={client} email="ana@example.com" onLoggedOut={vi.fn()} onLogout={vi.fn()} />);
+
+    expect((await screen.findByRole("alert")).textContent)
+      .toContain("Não foi possível consultar o status da autenticação em duas etapas.");
+  });
+});

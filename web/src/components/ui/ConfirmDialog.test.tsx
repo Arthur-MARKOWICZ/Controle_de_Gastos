@@ -51,4 +51,45 @@ describe("ConfirmDialog", () => {
       expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancelar" }));
     });
   });
+
+  it("Cancelar chama só onCancel", () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(<ConfirmDialog open title="Excluir?" message="Sem volta." confirmLabel="Excluir" onConfirm={onConfirm} onCancel={onCancel} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it("ocupado bloqueia confirmar de novo e cancelar no meio da operação", () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(<ConfirmDialog open busy title="Excluir?" message="Sem volta." confirmLabel="Excluir" onConfirm={onConfirm} onCancel={onCancel} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Excluir" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it("fechado não mostra a mensagem nem a ação destrutiva", () => {
+    render(<ConfirmDialog open={false} title="Excluir?" message="Sem volta." confirmLabel="Excluir" onConfirm={vi.fn()} onCancel={vi.fn()} />);
+
+    expect(screen.queryByText("Sem volta.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Excluir", hidden: true })).toBeNull();
+  });
+
+  it("Esc cancela sem confirmar", () => {
+    const onConfirm = vi.fn();
+    const onCancel = vi.fn();
+    render(<ConfirmDialog open title="Excluir?" message="Sem volta." confirmLabel="Excluir" onConfirm={onConfirm} onCancel={onCancel} />);
+
+    screen.getByRole("dialog").dispatchEvent(new Event("cancel", { cancelable: true }));
+
+    expect(onCancel).toHaveBeenCalledOnce();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
 });

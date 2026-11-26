@@ -9,6 +9,12 @@ o caminho feliz, e nenhum módulo mede cobertura. Sem um padrão mínimo
 verificável, regressões de autorização, dinheiro e sessão passam pelo CI sem
 serem notadas.
 
+A issue #102 (2026-11-25) reforça o mesmo padrão e acrescenta um ponto: os
+testes do "que não pode acontecer" precisam provar que o efeito proibido não
+ocorreu (por exemplo, senha errada não abre sessão na conta), e não só que a
+API respondeu erro. O código do lembrete diário e Web Push (issue #85) entrou
+depois do mapeamento da #95 e já tem unidades abaixo do padrão.
+
 ## What Changes
 
 - Define um **padrão mínimo de testes** por unidade com comportamento: ≥ 1
@@ -16,7 +22,10 @@ serem notadas.
   verificado (tipo de exceção, status HTTP + `type` do `ProblemDetail`, ou
   mensagem renderizada). Endpoints sempre incluem 401 sem sessão e 403/404 para
   terceiro não proprietário/participante; unidades com dinheiro incluem um caso
-  de borda de `BigDecimal`.
+  de borda de `BigDecimal`. Situações indevidas afirmam a ausência do efeito
+  proibido (sessão, token, saldo, lançamento, dado de terceiro) — issue #102.
+  A unidade é o comportamento público: funções auxiliares internas são
+  cobertas pelos testes da unidade, sem sete testes próprios.
 - Adiciona **medição de cobertura** em todos os módulos: JaCoCo (backend),
   Kover (mobile `:shared`) e `@vitest/coverage-v8` (web, desktop, mcp), com
   relatório publicado no CI e limite mínimo que falha a verificação.
@@ -26,7 +35,8 @@ serem notadas.
   `cargo test` e a lógica testável do shell Tauri é isolada nele.
 - Escreve os testes que faltam para as unidades listadas na issue (backend,
   web, mobile `commonMain` e `androidApp`, desktop, MCP) e completa os arquivos
-  existentes abaixo do padrão.
+  existentes abaixo do padrão, incluindo as unidades do lembrete diário e Web
+  Push (issue #85).
 - Fixa em spec o contrato de autorização dos endpoints hoje sem teste de API:
   alertas, status/códigos de recuperação de MFA, *handoff* OAuth mobile e
   participantes de verba.

@@ -1,15 +1,21 @@
 package br.com.controlegastos.app
 
 import android.content.Context
+import android.content.SharedPreferences
 
-class AndroidThemePreferenceStore(context: Context) : ThemePreferenceStore {
-    private val preferences = context.getSharedPreferences("verbas_preferences", Context.MODE_PRIVATE)
+class AndroidThemePreferenceStore(private val preferences: SharedPreferences) : ThemePreferenceStore {
+
+    constructor(context: Context) : this(context.getSharedPreferences("verbas_preferences", Context.MODE_PRIVATE))
 
     override fun read(): ThemeMode = runCatching {
-        ThemeMode.valueOf(preferences.getString("theme_mode", ThemeMode.SYSTEM.name) ?: ThemeMode.SYSTEM.name)
+        ThemeMode.valueOf(preferences.getString(KEY, ThemeMode.SYSTEM.name) ?: ThemeMode.SYSTEM.name)
     }.getOrDefault(ThemeMode.SYSTEM)
 
     override fun write(mode: ThemeMode) {
-        preferences.edit().putString("theme_mode", mode.name).apply()
+        preferences.edit().putString(KEY, mode.name).apply()
+    }
+
+    private companion object {
+        const val KEY = "theme_mode"
     }
 }

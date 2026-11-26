@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import br.com.controlegastos.identity.infrastructure.AuthAttemptRepository;
@@ -20,6 +21,7 @@ import java.util.concurrent.CountDownLatch;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -148,6 +150,15 @@ class AuthenticationApiIntegrationTest {
 
         mockMvc.perform(post("/api/v1/auth/refresh").cookie(rotatedRefresh))
                 .andExpect(status().isUnauthorized());
+
+        String rotatedAccess = tokenFrom(refreshed);
+        mockMvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + rotatedAccess))
+                .andExpect(status().isUnauthorized());
+        Long active = jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM auth_session s JOIN user_account u ON u.id = s.user_id
+                WHERE u.email_normalized = ? AND s.revoked_at IS NULL
+                """, Long.class, "rotacao@example.com");
+        assertThat(active).isZero();
     }
 
     @Test
@@ -180,6 +191,42 @@ class AuthenticationApiIntegrationTest {
                 .isEqualTo(wrongPassword.getResponse().getContentAsString());
         assertThat(blockedAccount.getResponse().getContentAsString())
                 .isEqualTo(wrongPassword.getResponse().getContentAsString());
+        for (MvcResult refused : java.util.List.of(wrongPassword, unknownAccount, blockedAccount)) {
+            assertThat(refused.getResponse().getHeader(HttpHeaders.SET_COOKIE)).isNull();
+            assertThat(refused.getResponse().getContentAsString()).doesNotContain("accessToken");
+        }
+        assertThat(sessionsOf("existente@example.com")).isZero();
+        assertThat(sessionsOf("bloqueada@example.com")).isZero();
+    }
+
+    @Test
+    @DisplayName("senha errada não abre sessão: sem cookie, sem token, sem linha de sessão e /users/me continua 401")
+    void senhaErradaNaoAbreSessao() throws Exception {
+        register("conta-x@example.com", PASSWORD);
+
+        MvcResult refused = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(credentials("conta-x@example.com", "senha totalmente errada")))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_FAILED"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(cookie().doesNotExist("refresh_token"))
+                .andReturn();
+
+        assertThat(refused.getResponse().getHeader(HttpHeaders.SET_COOKIE)).isNull();
+        assertThat(sessionsOf("conta-x@example.com")).isZero();
+        mockMvc.perform(get("/api/v1/users/me")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer token-inventado"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/auth/refresh")).andExpect(status().isUnauthorized());
+    }
+
+    private long sessionsOf(String email) {
+        Long count = jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM auth_session s JOIN user_account u ON u.id = s.user_id
+                WHERE u.email_normalized = ?
+                """, Long.class, email);
+        return count == null ? 0 : count;
     }
 
     @Test

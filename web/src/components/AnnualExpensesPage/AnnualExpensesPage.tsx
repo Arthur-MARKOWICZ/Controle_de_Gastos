@@ -40,9 +40,13 @@ export function AnnualExpensesPage({ email, onLogout }: { email: string; onLogou
     if (!pendingArchive) return;
     const envelope = pendingArchive;
     setPendingArchive(null);
-    await createApiClient(client).archiveEnvelope(envelope.id);
-    setFeedback(`Gasto anual "${envelope.name}" encerrado.`);
-    void refresh();
+    try {
+      await createApiClient(client).archiveEnvelope(envelope.id);
+      setFeedback(`Gasto anual "${envelope.name}" encerrado.`);
+      void refresh();
+    } catch {
+      setFeedback("Não foi possível encerrar o gasto anual.");
+    }
   }
 
   async function toggleWealthAllocation(envelope: EnvelopeDTO) {

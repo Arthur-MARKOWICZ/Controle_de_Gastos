@@ -33,4 +33,11 @@ describe("SettingsPage", () => {
     expect(h1).toHaveLength(1);
     expect(h1[0].textContent).toBe("Configurações");
   });
+
+  it("oferece link para a página de segurança", () => {
+    render(<SettingsPage email="pessoa@example.com" onLogout={vi.fn()} />);
+
+    const link = screen.getByRole("link", { name: /Segurança/i });
+    expect(link).toHaveProperty("href", "http://localhost:3000/conta/seguranca");
+  });
 });

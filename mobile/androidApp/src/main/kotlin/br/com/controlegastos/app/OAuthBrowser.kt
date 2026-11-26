@@ -27,8 +27,18 @@ fun Context.openOAuthInBrowser(url: String) {
 
 /** Lê o App Link de retorno do login social, se for esse o intent recebido. */
 fun oauthCallbackOf(intent: Intent?): OAuthCallback? {
-    val data = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data ?: return null
-    if (data.path != "/app/oauth/callback") return null
-    val query = data.queryParameterNames.associateWith { data.getQueryParameter(it).orEmpty() }
-    return OAuthCallback.fromCallbackUri(query)
+    val data = intent?.data ?: return null
+    return oauthCallbackOf(
+        action = intent.action,
+        path = data.path,
+        query = { data.queryParameterNames.associateWith { data.getQueryParameter(it).orEmpty() } },
+    )
 }
+
+/** Regra do App Link sem tipos do Android: só `ACTION_VIEW` no caminho de retorno do login social. */
+internal fun oauthCallbackOf(action: String?, path: String?, query: () -> Map<String, String>): OAuthCallback? {
+    if (action != Intent.ACTION_VIEW || path != OAUTH_CALLBACK_PATH) return null
+    return OAuthCallback.fromCallbackUri(query())
+}
+
+internal const val OAUTH_CALLBACK_PATH = "/app/oauth/callback"

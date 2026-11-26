@@ -21,4 +21,20 @@ describe("ProgressBar", () => {
     expect(bar.getAttribute("data-negative")).toBe("true");
     expect(bar.getAttribute("data-purpose")).toBe("LIMIT");
   });
+
+  it("usa máximo 100 e estado não negativo por padrão", () => {
+    render(<ProgressBar label="Uso de Casa" value={40} />);
+
+    const bar = screen.getByRole("progressbar", { name: "Uso de Casa" });
+    expect(bar.getAttribute("max")).toBe("100");
+    expect(bar.getAttribute("value")).toBe("40");
+    expect(bar.getAttribute("data-negative")).toBe("false");
+    expect(bar.getAttribute("aria-valuetext")).toBeNull();
+  });
+
+  it("respeita máximo personalizado", () => {
+    render(<ProgressBar label="Meta" value={250} max={1000} />);
+
+    expect(screen.getByRole("progressbar", { name: "Meta" }).getAttribute("max")).toBe("1000");
+  });
 });

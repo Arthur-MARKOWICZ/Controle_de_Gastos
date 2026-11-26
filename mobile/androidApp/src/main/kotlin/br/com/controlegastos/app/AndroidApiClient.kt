@@ -20,10 +20,11 @@ import org.json.JSONObject
  * que a API o emite e o aceita.
  */
 class AndroidApiClient(
-    context: Context,
     private val baseUrl: String,
+    private val refreshStore: RefreshTokenStore,
 ) {
-    private val refreshStore = EncryptedRefreshTokenStore(context)
+    constructor(context: Context, baseUrl: String) : this(baseUrl, EncryptedRefreshTokenStore(context))
+
     private val refreshMutex = Mutex()
 
     @Volatile

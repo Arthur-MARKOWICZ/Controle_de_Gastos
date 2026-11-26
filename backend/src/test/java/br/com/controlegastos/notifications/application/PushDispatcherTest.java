@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import br.com.controlegastos.notifications.domain.AlertType;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -120,6 +122,64 @@ class PushDispatcherTest {
         dispatcher().alert(OWNER, AlertType.NEGATIVE_BALANCE, "LIMIT");
 
         verify(sender, never()).send(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("titular sem preferência gravada não recebe alerta")
+    void naoEnviaSemPreferenciaGravada() {
+        when(preferences.findById(OWNER)).thenReturn(Optional.empty());
+
+        dispatcher().alert(OWNER, AlertType.NEGATIVE_BALANCE, "LIMIT");
+
+        verifyNoInteractions(subscriptions);
+        verify(sender, never()).send(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("lembrete diário com push desligado não consulta assinaturas nem envia")
+    void lembreteNaoEnviaComPushDesligado() {
+        when(sender.isEnabled()).thenReturn(false);
+
+        dispatcher().dailyReminder(OWNER);
+
+        verifyNoInteractions(subscriptions);
+        verify(sender, never()).send(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("falha temporária no lembrete diário não lança erro e mantém a assinatura")
+    void falhaNoLembreteNaoLancaNemApagaAssinatura() {
+        when(subscriptions.findByUserId(OWNER)).thenReturn(List.of(first));
+        when(sender.send(any(), anyString())).thenReturn(WebPushSender.Outcome.FAILED);
+
+        dispatcher().dailyReminder(OWNER);
+
+        verify(subscriptions, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("alerta informa quantos envios falharam na mensagem da exceção")
+    void alertaInformaQuantidadeDeFalhas() {
+        enable(AlertType.NEGATIVE_BALANCE);
+        when(subscriptions.findByUserId(OWNER)).thenReturn(List.of(first, second));
+        when(sender.send(any(), anyString())).thenReturn(WebPushSender.Outcome.FAILED);
+
+        assertThatThrownBy(() -> dispatcher().alert(OWNER, AlertType.NEGATIVE_BALANCE, "LIMIT"))
+                .isInstanceOf(PushDeliveryException.class)
+                .hasMessage("Falha temporária em 2 envio(s) de push");
+    }
+
+    @Test
+    @DisplayName("erro inesperado do remetente interrompe o alerta sem apagar assinaturas")
+    void erroInesperadoDoRemetentePropaga() {
+        enable(AlertType.NEGATIVE_BALANCE);
+        when(subscriptions.findByUserId(OWNER)).thenReturn(List.of(first));
+        when(sender.send(any(), anyString())).thenThrow(new IllegalStateException("cliente HTTP fechado"));
+
+        assertThatThrownBy(() -> dispatcher().alert(OWNER, AlertType.NEGATIVE_BALANCE, "LIMIT"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("cliente HTTP fechado");
+        verify(subscriptions, never()).delete(any());
     }
 
     private void enable(AlertType type) {

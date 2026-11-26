@@ -9,8 +9,8 @@
 
 use std::sync::Arc;
 use tauri::Manager;
-use verbas_session::http::{Method, ReqwestTransport};
-use verbas_session::ipc::{ApiReplyView, AuthReply, ErrorView, RestoreReply, SessionView};
+use verbas_session::http::ReqwestTransport;
+use verbas_session::ipc::{api_request, ApiReplyView, AuthReply, ErrorView, RestoreReply, SessionView};
 use verbas_session::logger::StderrLogger;
 use verbas_session::session::{SessionAdapter, SessionError};
 use verbas_session::theme::{ThemeMode, ThemeStore};
@@ -26,14 +26,9 @@ struct AppState {
     theme: ThemeStore,
 }
 
-/// Traduz o erro do adapter para o que o webview mostra. Nunca inclui token,
-/// senha, código TOTP nem corpo de resposta de autenticação.
+/// Conversão única, testada no crate de sessão.
 fn to_error_view(error: SessionError) -> ErrorView {
-    let auth_required = matches!(error, SessionError::AuthRequired);
-    ErrorView {
-        message: error.to_string(),
-        auth_required,
-    }
+    ErrorView::from(error)
 }
 
 #[tauri::command]
@@ -90,18 +85,7 @@ async fn api(
     path: String,
     body: Option<String>,
 ) -> Result<ApiReplyView, ErrorView> {
-    let Some(method) = Method::parse(&method) else {
-        return Err(ErrorView {
-            message: format!("Método não suportado pelo cliente: {method}"),
-            auth_required: false,
-        });
-    };
-    if !path.starts_with("/api/v1/") {
-        return Err(ErrorView {
-            message: "Caminho fora de /api/v1.".to_string(),
-            auth_required: false,
-        });
-    }
+    let method = api_request(&method, &path)?;
     state
         .adapter
         .api(method, &path, body)

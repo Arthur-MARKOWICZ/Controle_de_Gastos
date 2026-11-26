@@ -1,6 +1,7 @@
 package br.com.controlegastos.notifications.infrastructure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import br.com.controlegastos.notifications.application.WebPushSender;
 import com.sun.net.httpserver.HttpServer;
@@ -26,7 +27,9 @@ import javax.crypto.Mac;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import java.util.concurrent.atomic.AtomicInteger;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -113,6 +116,92 @@ class JdkWebPushSenderTest {
 
         assertThat(sender.isEnabled()).isFalse();
         assertThat(sender.publicKey()).isNull();
+    }
+
+    @Test
+    @DisplayName("remetente desligado não faz nenhuma requisição ao push service")
+    void remetenteDesligadoNaoChamaOServico() throws Exception {
+        AtomicInteger requests = new AtomicInteger();
+        String endpoint = startServer(201, exchange -> requests.incrementAndGet());
+        JdkWebPushSender sender = new JdkWebPushSender("", "", "", Clock.fixed(NOW, ZoneOffset.UTC));
+
+        assertThat(sender.send(target(endpoint), "{}")).isEqualTo(WebPushSender.Outcome.FAILED);
+        assertThat(requests.get()).isZero();
+    }
+
+    @Test
+    @DisplayName("assinatura com chave do navegador inválida falha sem chamar o push service")
+    void chaveDoNavegadorInvalidaNaoChamaOServico() throws Exception {
+        AtomicInteger requests = new AtomicInteger();
+        String endpoint = startServer(201, exchange -> requests.incrementAndGet());
+        WebPushSender.Target broken = new WebPushSender.Target(endpoint, B64URL.encodeToString(new byte[10]),
+                B64URL.encodeToString(new byte[16]));
+
+        assertThat(sender(p256()).send(broken, "{}")).isEqualTo(WebPushSender.Outcome.FAILED);
+        assertThat(requests.get()).isZero();
+    }
+
+    @Test
+    @DisplayName("o corpo enviado ao push service nunca contém o payload em texto claro")
+    void corpoEnviadoNaoTemTextoClaro() throws Exception {
+        AtomicReference<byte[]> received = new AtomicReference<>();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/push", exchange -> {
+            received.set(exchange.getRequestBody().readAllBytes());
+            exchange.sendResponseHeaders(201, -1);
+            exchange.close();
+        });
+        server.start();
+        String endpoint = "http://127.0.0.1:" + server.getAddress().getPort() + "/push/abc";
+
+        sender(p256()).send(target(endpoint), "{\"category\":\"DAILY_REMINDER\"}");
+
+        assertThat(new String(received.get(), StandardCharsets.ISO_8859_1)).doesNotContain("DAILY_REMINDER");
+    }
+
+    @Test
+    @DisplayName("recusa chave privada VAPID com tamanho diferente de 32 bytes")
+    void recusaChavePrivadaComTamanhoErrado() throws Exception {
+        String publicKey = B64URL.encodeToString(rawPublic((ECPublicKey) p256().getPublic()));
+
+        assertThatThrownBy(() -> new JdkWebPushSender(publicKey, B64URL.encodeToString(new byte[31]),
+                "mailto:privacidade@example.com", Clock.fixed(NOW, ZoneOffset.UTC)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Chave privada VAPID deve ter 32 bytes");
+    }
+
+    @Test
+    @DisplayName("recusa chave pública VAPID que não é um ponto P-256 não comprimido")
+    void recusaChavePublicaInvalida() throws Exception {
+        KeyPair vapid = p256();
+        byte[] d = ((ECPrivateKey) vapid.getPrivate()).getS().toByteArray();
+        byte[] d32 = new byte[32];
+        System.arraycopy(d, Math.max(0, d.length - 32), d32, Math.max(0, 32 - d.length), Math.min(32, d.length));
+
+        assertThatThrownBy(() -> new JdkWebPushSender(B64URL.encodeToString(new byte[33]), B64URL.encodeToString(d32),
+                "mailto:privacidade@example.com", Clock.fixed(NOW, ZoneOffset.UTC)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Chave pública P-256 inválida");
+    }
+
+    @Test
+    @DisplayName("cifragem recusa chave do navegador fora do formato P-256")
+    void cifragemRecusaChaveDoNavegadorInvalida() {
+        JdkWebPushSender sender = sender(p256Unchecked());
+        byte[] notUncompressed = new byte[65];
+        notUncompressed[0] = 3;
+
+        assertThatThrownBy(() -> sender.encrypt("{}".getBytes(StandardCharsets.UTF_8), notUncompressed, new byte[16]))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Chave pública P-256 inválida");
+    }
+
+    private static KeyPair p256Unchecked() {
+        try {
+            return p256();
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private interface Inspector {
