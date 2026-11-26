@@ -66,3 +66,5 @@ Rejeitada neste corte: o resultado desejado é o orçamento honesto no resumo.
   (mudança semântica documentada do contrato).
 - Cotação, rentabilidade e carteira por ativo permanecem fora de escopo e
   exigiriam novo ADR.
+- O módulo de carteira foi decidido depois, à parte, no
+  [ADR-0034](0034-modulo-de-investimentos.md).

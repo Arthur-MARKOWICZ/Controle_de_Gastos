@@ -31,7 +31,7 @@ rules:
     - Cite os ADRs que restringem a mudança ou que precisariam ser atualizados.
     - Não proponha cache, filas ou microserviços sem um ADR no mesmo change.
   specs:
-    - Organize capacidades pelos módulos de negócio (identity, income, envelopes, ledger, sharing, notifications, audit, privacy, reporting) ou pelos prefixos ui-web / ui-mobile / ui-desktop / mcp para comportamento só de cliente.
+    - Organize capacidades pelos módulos de negócio (identity, income, envelopes, ledger, sharing, notifications, audit, privacy, reporting, investments) ou pelos prefixos ui-web / ui-mobile / ui-desktop / mcp para comportamento só de cliente.
     - Inclua cenários de autorização (proprietário, participante, terceiro).
     - Valores monetários nos cenários são strings decimais com duas casas.
   design:

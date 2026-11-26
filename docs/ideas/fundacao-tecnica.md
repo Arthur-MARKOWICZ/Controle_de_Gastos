@@ -49,7 +49,7 @@ Monorepo com aplicações separadas e um backend em monólito modular:
   Nginx central na VPS, HTTPS por subdomínio e serviços Docker em loopback,
   conforme o ADR-012.
 
-O backend é um único processo implantável, separado internamente nos módulos `identity`, `income`, `envelopes`, `ledger`, `sharing`, `notifications`, `audit`, `privacy` e `reporting`.
+O backend é um único processo implantável, separado internamente nos módulos `identity`, `income`, `envelopes`, `ledger`, `sharing`, `notifications`, `audit`, `privacy`, `reporting` e `investments`. O módulo `investments` (carteira de ações B3 e CDB) é isolado do orçamento ([ADR-0034](../decisions/0034-modulo-de-investimentos.md)).
 
 ## Por que esta direção
 

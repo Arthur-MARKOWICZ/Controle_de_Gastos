@@ -2,6 +2,8 @@
 
 Status: confirmado (entrevista 2026-11-10)
 
+Decisão de arquitetura: [ADR-0034](../decisions/0034-modulo-de-investimentos.md).
+
 ## Outcome
 
 Área de investimentos no mesmo app, com UX separada do orçamento, para ver o valor atual da carteira e por ativo.
