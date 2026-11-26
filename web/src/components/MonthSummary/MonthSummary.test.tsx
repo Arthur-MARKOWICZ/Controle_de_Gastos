@@ -61,4 +61,55 @@ describe("MonthSummary", () => {
 
     expect(screen.queryByRole("button", { name: /renda/i })).toBeNull();
   });
+
+  it("erro de carregamento aparece como alerta no lugar da vigência", () => {
+    render(<MonthSummary summary={null} income={null} month="2026-08" monthLabel="Agosto 2026" error="Não foi possível carregar o resumo." />);
+
+    expect(screen.getByRole("alert").textContent).toBe("Não foi possível carregar o resumo.");
+    expect(screen.queryByText(/sem renda efetiva/)).toBeNull();
+  });
+
+  it("erro com resumo antigo mantém o alerta visível", () => {
+    render(<MonthSummary summary={summary} income={income} month="2026-08" monthLabel="Agosto 2026" error="Sessão expirada." />);
+
+    expect(screen.getByRole("alert").textContent).toBe("Sessão expirada.");
+    expect(screen.queryByText(/Vigência 2026-08/)).toBeNull();
+  });
+
+  it("sem renda efetiva mostra o mês sem renda e traços nos indicadores", () => {
+    render(<MonthSummary summary={null} income={null} month="2026-08" monthLabel="Agosto 2026" />);
+
+    expect(screen.getByText("Agosto 2026 — sem renda efetiva")).toBeDefined();
+    expect(screen.getAllByText("—")).toHaveLength(3);
+    expect(screen.queryByText(/Atualizado em/)).toBeNull();
+  });
+
+  it("carregando não mostra valor de renda antigo", () => {
+    render(<MonthSummary summary={summary} income={income} month="2026-08" monthLabel="Agosto 2026" loading />);
+
+    expect(screen.getByText("Carregando…")).toBeDefined();
+    expect(screen.getByRole("region", { name: /Resumo do mês/i }).getAttribute("aria-busy")).toBe("true");
+  });
+
+  it("resumo sem renda não calcula percentual de uso", () => {
+    const withoutIncome = { ...summary, income: null, usagePct: 0 } as unknown as LedgerSummaryDTO;
+    render(<MonthSummary summary={withoutIncome} income={null} month="2026-08" monthLabel="Agosto 2026" />);
+
+    const region = screen.getByRole("region", { name: /Resumo do mês/i });
+    expect(within(region).queryByText("0%")).toBeNull();
+    expect(within(region).getByText("Renda não configurada")).toBeDefined();
+  });
+
+  it("valores zerados aparecem com duas casas", () => {
+    const zero = {
+      ...summary,
+      allocated: { amount: "0.00", currency: "BRL" },
+      unallocated: { amount: "0.00", currency: "BRL" },
+      usagePct: 0,
+    } as unknown as LedgerSummaryDTO;
+    render(<MonthSummary summary={zero} income={income} month="2026-08" monthLabel="Agosto 2026" />);
+
+    expect(screen.getAllByText(/R\$\s*0,00/)).toHaveLength(2);
+    expect(screen.getByText("0%")).toBeDefined();
+  });
 });

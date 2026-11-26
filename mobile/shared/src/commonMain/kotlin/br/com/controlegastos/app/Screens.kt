@@ -420,7 +420,7 @@ private fun NewEnvelopeButton(label: String, onClick: () -> Unit) {
 
 /** Convite e remoção de participantes — só o owner chega aqui. */
 @Composable
-private fun ParticipantsDialog(
+internal fun ParticipantsDialog(
     envelope: EnvelopeView,
     sharing: SharingGateway,
     onNotify: (String) -> Unit,

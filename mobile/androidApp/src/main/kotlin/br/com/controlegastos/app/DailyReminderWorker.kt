@@ -24,7 +24,7 @@ class DailyReminderWorker(context: Context, params: WorkerParameters) : Coroutin
         val client = SharedApiClient.get(applicationContext)
         if (!client.hasStoredSession) return Result.success()
 
-        val hasExpense = runCatching { AndroidApiGateway(applicationContext, client).hasExpenseToday() }.getOrNull()
+        val hasExpense = runCatching { AndroidApiGateway(client, applicationContext.cacheDir).hasExpenseToday() }.getOrNull()
         if (hasExpense == false && AndroidReminderScheduler.canNotify(applicationContext)) {
             notifyNoExpense()
         }

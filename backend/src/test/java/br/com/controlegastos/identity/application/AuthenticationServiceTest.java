@@ -151,6 +151,7 @@ class AuthenticationServiceTest {
 
         assertThatThrownBy(() -> service.login(EMAIL, PASSWORD, IP)).isInstanceOf(InvalidCredentialsException.class);
         verify(encoder).matches(PASSWORD, "dummy-hash");
+        verify(sessionService, never()).start(any());
     }
 
     @Test
@@ -163,6 +164,7 @@ class AuthenticationServiceTest {
         when(encoder.matches(PASSWORD, "hash")).thenReturn(true);
 
         assertThatThrownBy(() -> service.login(EMAIL, PASSWORD, IP)).isInstanceOf(InvalidCredentialsException.class);
+        verify(sessionService, never()).start(any());
     }
 
     @Test
@@ -173,6 +175,7 @@ class AuthenticationServiceTest {
 
         assertThatThrownBy(() -> service.login(EMAIL, PASSWORD, IP)).isInstanceOf(TooManyAttemptsException.class);
         verify(encoder, never()).matches(PASSWORD, "hash");
+        verify(sessionService, never()).start(any());
     }
 
     @Test

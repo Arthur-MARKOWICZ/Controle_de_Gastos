@@ -196,6 +196,98 @@ class PushDeliveryApiIntegrationTest {
         assertThat(RECEIVED).doesNotContain(path);
     }
 
+    @Test
+    @DisplayName("com NEGATIVE_BALANCE desligado o alerta aparece no app mas nenhum push sai")
+    void saldoNegativoDesligadoNaoEnviaPush() throws Exception {
+        String owner = token("push-e2e-sem-consentimento@example.com");
+        String envelopeId = createEnvelope(owner, "100.00");
+        String path = subscribe("push-e2e-sem-consentimento@example.com");
+        preferences(owner, false, false, true, "20:00");
+
+        expense(owner, envelopeId, "150.00");
+
+        awaitAlerts(owner, 1);
+        Thread.sleep(500);
+        assertThat(RECEIVED).doesNotContain(path);
+    }
+
+    @Test
+    @DisplayName("push de gasto compartilhado nunca chega à assinatura do participante que lançou")
+    void participanteNaoRecebePushDoProprioGasto() throws Exception {
+        String owner = verifiedToken("push-e2e-dono2@example.com");
+        String participant = verifiedToken("push-e2e-part2@example.com");
+        String envelopeId = createEnvelope(owner, "1000.00");
+        invite(owner, envelopeId, "push-e2e-part2@example.com");
+        String ownerPath = subscribe("push-e2e-dono2@example.com");
+        String participantPath = subscribe("push-e2e-part2@example.com");
+        preferences(owner, false, false, true, "20:00");
+        preferences(participant, false, false, true, "20:00");
+
+        expense(participant, envelopeId, "15.00");
+
+        await().atMost(WAIT).untilAsserted(() -> assertThat(RECEIVED).contains(ownerPath));
+        assertThat(RECEIVED).doesNotContain(participantPath);
+    }
+
+    @Test
+    @DisplayName("lembrete diário desligado não envia push mesmo no horário")
+    void lembreteDesligadoNaoEnvia() throws Exception {
+        String token = token("push-e2e-desligado@example.com");
+        String path = subscribe("push-e2e-desligado@example.com");
+        preferences(token, false, false, false, "20:00");
+        jdbc.update("""
+                UPDATE notification_preference SET reminder_time = '12:00', last_reminder_date = NULL
+                WHERE user_id = (SELECT id FROM user_account WHERE email_normalized = ?)
+                """, "push-e2e-desligado@example.com");
+
+        dailyReminder.sendDue();
+
+        assertThat(RECEIVED).doesNotContain(path);
+    }
+
+    @Test
+    @DisplayName("push service inalcançável deixa o envio do alerta pendente e mantém a assinatura")
+    void pushServiceInalcancavelFicaPendente() throws Exception {
+        String owner = token("push-e2e-inalcancavel@example.com");
+        String envelopeId = createEnvelope(owner, "100.00");
+        subscribe("push-e2e-inalcancavel@example.com");
+        jdbc.update("""
+                UPDATE web_push_subscription SET endpoint = 'http://127.0.0.1:1/push/fora'
+                WHERE user_id = (SELECT id FROM user_account WHERE email_normalized = ?)
+                """, "push-e2e-inalcancavel@example.com");
+        preferences(owner, false, true, false, "20:00");
+
+        expense(owner, envelopeId, "150.00");
+
+        awaitAlerts(owner, 1);
+        await().atMost(WAIT).untilAsserted(() -> assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM event_publication
+                WHERE completion_date IS NULL AND listener_id LIKE '%PushAlertListener%'
+                """, Integer.class)).isGreaterThanOrEqualTo(1));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM web_push_subscription WHERE endpoint = ?",
+                Integer.class, "http://127.0.0.1:1/push/fora")).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("lembrete recusado com 503 não é reenviado no mesmo dia e a assinatura continua")
+    void lembreteRecusadoNaoReenviaNoDia() throws Exception {
+        String token = token("push-e2e-lembrete-503@example.com");
+        String path = subscribe("push-e2e-lembrete-503@example.com");
+        STATUS_BY_PATH.put(path, new AtomicInteger(503));
+        preferences(token, true, false, false, "20:00");
+        jdbc.update("""
+                UPDATE notification_preference SET reminder_time = '12:00', last_reminder_date = NULL
+                WHERE user_id = (SELECT id FROM user_account WHERE email_normalized = ?)
+                """, "push-e2e-lembrete-503@example.com");
+
+        dailyReminder.sendDue();
+        dailyReminder.sendDue();
+
+        assertThat(RECEIVED).containsExactly(path);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM web_push_subscription WHERE endpoint LIKE ?",
+                Integer.class, "%" + path)).isEqualTo(1);
+    }
+
     private String subscribe(String email) {
         String path = "/push/" + UUID.randomUUID();
         jdbc.update("""

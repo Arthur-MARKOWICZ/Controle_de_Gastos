@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
         quickExpenseIntent = intent.getBooleanExtra(EXTRA_QUICK_EXPENSE, false)
         val client = SharedApiClient.get(applicationContext)
         val reminderScheduler = AndroidReminderScheduler(this)
-        val gateway = AndroidApiGateway(applicationContext, client)
+        val gateway = AndroidApiGateway(client, applicationContext.cacheDir)
         val themeStore = AndroidThemePreferenceStore(applicationContext)
         setContent {
             VerbasApp(

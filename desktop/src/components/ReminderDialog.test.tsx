@@ -64,7 +64,67 @@ describe("lembrete diário no desktop", () => {
     const toggle = await screen.findByRole("checkbox", { name: /Lembrar todo dia/i });
     await userEvent.click(toggle);
 
-    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect((await screen.findByRole("alert")).textContent).toBe("Não foi possível salvar o lembrete. Tente de novo.");
     expect((screen.getByRole("checkbox", { name: /Lembrar todo dia/i }) as HTMLInputElement).checked).toBe(false);
+  });
+
+  it("falha ao carregar mostra a mensagem e não oferece os controles", async () => {
+    installFakeIpc().onApi(NOTIFICATION_PREFERENCES_PATH, { status: 500, body: "" });
+    render(<ReminderDialog onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Não foi possível carregar o lembrete.");
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.queryByText("Carregando lembrete…")).toBeNull();
+  });
+
+  it("falha ao trocar o horário volta ao horário anterior sem avisar o app", async () => {
+    const onSaved = vi.fn();
+    installFakeIpc()
+      .onApi(NOTIFICATION_PREFERENCES_PATH, { status: 200, body: DESLIGADO })
+      .onApi(NOTIFICATION_PREFERENCES_PATH, { status: 400, body: { detail: "Horário inválido" } });
+    render(<ReminderDialog onClose={vi.fn()} onSaved={onSaved} />);
+
+    const select = (await screen.findByLabelText("Horário do lembrete")) as HTMLSelectElement;
+    await userEvent.selectOptions(select, "21:15");
+
+    expect((await screen.findByRole("alert")).textContent).toBe("Não foi possível salvar o lembrete. Tente de novo.");
+    expect(select.value).toBe("20:00");
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it("erro ao pedir a permissão conta como negada e ainda salva a escolha", async () => {
+    const ipc = installFakeIpc()
+      .on("reminder_permission", () => { throw { message: "plugin ausente" }; })
+      .onApi(NOTIFICATION_PREFERENCES_PATH, { status: 200, body: DESLIGADO })
+      .onApi(NOTIFICATION_PREFERENCES_PATH, { status: 200, body: { ...DESLIGADO, dailyReminder: true } });
+    render(<ReminderDialog onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: /Lembrar todo dia/i }));
+
+    expect(await screen.findByText(/notificações do sistema estão bloqueadas/i)).toBeTruthy();
+    expect(corpoDoPut(ipc)).toEqual({ ...DESLIGADO, dailyReminder: true });
+  });
+
+  it("desligar não pede permissão de notificação", async () => {
+    const ipc = installFakeIpc()
+      .onApi(NOTIFICATION_PREFERENCES_PATH, { status: 200, body: { ...DESLIGADO, dailyReminder: true } })
+      .onApi(NOTIFICATION_PREFERENCES_PATH, { status: 200, body: DESLIGADO });
+    render(<ReminderDialog onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: /Lembrar todo dia/i }));
+
+    await waitFor(() => expect(corpoDoPut(ipc)).toEqual(DESLIGADO));
+    expect(ipc.calls.some((call) => call.command === "reminder_permission")).toBe(false);
+  });
+
+  it("Esc fecha o diálogo", async () => {
+    const onClose = vi.fn();
+    installFakeIpc().onApi(NOTIFICATION_PREFERENCES_PATH, { status: 200, body: DESLIGADO });
+    render(<ReminderDialog onClose={onClose} onSaved={vi.fn()} />);
+    await screen.findByRole("checkbox");
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });

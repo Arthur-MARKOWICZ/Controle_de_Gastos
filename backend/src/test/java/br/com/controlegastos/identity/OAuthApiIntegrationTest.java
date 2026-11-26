@@ -3,6 +3,8 @@ package br.com.controlegastos.identity;
 import org.junit.jupiter.api.DisplayName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -22,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -61,6 +64,9 @@ class OAuthApiIntegrationTest {
 
     @Autowired
     IdentityProviderLinkRepository links;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     OAuthProviderClient googleOAuthClient;
@@ -146,7 +152,11 @@ class OAuthApiIntegrationTest {
                         .param("code", "valid-code")
                         .param("state", extractState(url)))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location", "https://app.example.com/oauth/callback?error=oauth_failed"));
+                .andExpect(header().string("Location", "https://app.example.com/oauth/callback?error=oauth_failed"))
+                .andExpect(cookie().doesNotExist("refresh_token"));
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT count(*) FROM identity_provider_link WHERE provider_user_id = ?", Long.class, "github-8"))
+                .isZero();
     }
 
     @Test
@@ -155,7 +165,9 @@ class OAuthApiIntegrationTest {
                         .param("code", "any-code")
                         .param("state", "invalid-state"))
                 .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location", "https://app.example.com/oauth/callback?error=oauth_failed"));
+                .andExpect(header().string("Location", "https://app.example.com/oauth/callback?error=oauth_failed"))
+                .andExpect(cookie().doesNotExist("refresh_token"));
+        verify(googleOAuthClient, never()).exchangeCode(any());
     }
 
     @Test
@@ -271,6 +283,11 @@ class OAuthApiIntegrationTest {
                 .andExpect(status().is3xxRedirection())
                 .andExpect(header().string("Location", "https://app.example.com/oauth/callback?error=oauth_failed"))
                 .andExpect(cookie().doesNotExist("refresh_token"));
+        Long sessions = jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM auth_session s JOIN user_account u ON u.id = s.user_id
+                WHERE u.email_normalized = ?
+                """, Long.class, "reuse@example.com");
+        assertThat(sessions).isEqualTo(1);
     }
 
     @Test

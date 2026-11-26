@@ -29,4 +29,17 @@ describe("PageHeader", () => {
     expect(headings[0].tagName).toBe("H1");
     expect(headings[0].textContent).toBe("Relatórios");
   });
+
+  it("sem sobretítulo, descrição e ações não cria elementos vazios", () => {
+    const { container } = render(<PageHeader title="Metas" />);
+
+    expect(container.querySelectorAll("p")).toHaveLength(0);
+    expect(container.querySelector("header")!.children).toHaveLength(1);
+  });
+
+  it("renderiza conteúdo extra abaixo do título", () => {
+    render(<PageHeader title="Verbas"><span>3 verbas ativas</span></PageHeader>);
+
+    expect(screen.getByText("3 verbas ativas")).toBeDefined();
+  });
 });

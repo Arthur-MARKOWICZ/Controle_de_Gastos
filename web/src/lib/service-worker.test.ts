@@ -80,4 +80,68 @@ describe("service worker", () => {
 
     expect(openWindow).toHaveBeenCalledWith("/");
   });
+
+  it("push sem dados usa o texto genérico e a etiqueta padrão", async () => {
+    const { listeners, showNotification } = loadWorker();
+
+    await dispatch(listeners.push, {});
+
+    expect(showNotification).toHaveBeenCalledWith("Controle de gastos", expect.objectContaining({
+      body: "Você tem um novo aviso",
+      tag: "aviso",
+      data: { path: "/" },
+    }));
+  });
+
+  it("nunca mostra nome de verba ou valor que venham por engano no payload", async () => {
+    const { listeners, showNotification } = loadWorker();
+
+    await dispatch(listeners.push, { data: { json: () => ({
+      category: "NEGATIVE_BALANCE", purpose: "LIMIT", path: "/", envelopeName: "Mercado", amount: "150.00",
+    }) } });
+
+    const options = showNotification.mock.calls[0][1] as { body: string };
+    expect(JSON.stringify(options)).not.toContain("Mercado");
+    expect(JSON.stringify(options)).not.toContain("150.00");
+  });
+
+  it("caminho javascript: no aviso vira a raiz ao clicar", async () => {
+    const { listeners, openWindow } = loadWorker();
+
+    await dispatch(listeners.notificationclick, { notification: { close: vi.fn(), data: { path: "javascript:alert(1)" } } });
+
+    expect(openWindow).toHaveBeenCalledWith("/");
+  });
+
+  it("janela de outra origem não é reaproveitada ao clicar", async () => {
+    const { listeners, windows, openWindow } = loadWorker();
+    const navigate = vi.fn().mockResolvedValue(undefined);
+    windows.push({ url: "https://outro.example.com/", focus: vi.fn(), navigate });
+
+    await dispatch(listeners.notificationclick, { notification: { close: vi.fn(), data: { path: "/metas" } } });
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(openWindow).toHaveBeenCalledWith("/metas");
+  });
+
+  it("falha ao navegar a janela aberta rejeita com o erro original sem abrir outra", async () => {
+    const { listeners, windows, openWindow } = loadWorker();
+    windows.push({
+      url: "https://gastos.example.com/",
+      focus: vi.fn(),
+      navigate: vi.fn().mockRejectedValue(new TypeError("navegação bloqueada")),
+    });
+
+    await expect(dispatch(listeners.notificationclick, { notification: { close: vi.fn(), data: { path: "/" } } }))
+      .rejects.toThrow("navegação bloqueada");
+    expect(openWindow).not.toHaveBeenCalled();
+  });
+
+  it("falha ao exibir a notificação rejeita com o erro original", async () => {
+    const { listeners, showNotification } = loadWorker();
+    showNotification.mockRejectedValueOnce(new DOMException("Permissão negada", "NotAllowedError"));
+
+    await expect(dispatch(listeners.push, { data: { json: () => ({ category: "DAILY_REMINDER", path: "/" }) } }))
+      .rejects.toThrow("Permissão negada");
+  });
 });

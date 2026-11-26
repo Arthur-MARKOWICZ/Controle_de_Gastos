@@ -4,6 +4,7 @@ import org.junit.jupiter.api.DisplayName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -92,7 +93,9 @@ class MfaLoginApiIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/mfa/verify")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(verifyBody(challengeId, "000000")))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
         assertThat(activeSessionCount(user.id())).isZero();
 
         String secondCode = codeFor(manualEntryKey);
@@ -229,7 +232,11 @@ class MfaLoginApiIntegrationTest {
 
         mockMvc.perform(post("/api/v1/auth/mfa/verify").contentType(MediaType.APPLICATION_JSON)
                         .content(verifyBody(challengeFor(email), codeFor(otherSecret))))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_FAILED"))
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+        assertThat(activeSessionCount(users.findByEmailNormalized(email).orElseThrow().id())).isZero();
     }
 
     @Test
@@ -240,7 +247,15 @@ class MfaLoginApiIntegrationTest {
         mockMvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
                         .content(credentials("mfa-login-wrong@example.com", "senha errada de teste")))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.challengeId").doesNotExist());
+                .andExpect(jsonPath("$.challengeId").doesNotExist())
+                .andExpect(jsonPath("$.accessToken").doesNotExist())
+                .andExpect(header().doesNotExist(HttpHeaders.SET_COOKIE));
+        assertThat(activeSessionCount(users.findByEmailNormalized("mfa-login-wrong@example.com").orElseThrow().id()))
+                .isZero();
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT count(*) FROM mfa_login_challenge c JOIN user_account u ON u.id = c.user_id
+                WHERE u.email_normalized = ?
+                """, Long.class, "mfa-login-wrong@example.com")).isZero();
     }
 
     @Test

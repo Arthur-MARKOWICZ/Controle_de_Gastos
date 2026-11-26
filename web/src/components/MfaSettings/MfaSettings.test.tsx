@@ -140,4 +140,69 @@ describe("MfaSettings", () => {
     expect(localSpy).not.toHaveBeenCalled();
     localSpy.mockRestore();
   });
+
+  it("senha recusada mostra a mensagem e não exibe QR Code nem chave manual", async () => {
+    const client = fakeClient({ startMfaEnrollment: vi.fn().mockRejectedValue(new Error("401")) });
+    render(<MfaSettings client={client} onComplete={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Senha atual"), { target: { value: "senha errada qualquer" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+
+    expect((await screen.findByRole("status")).textContent)
+      .toBe("Não foi possível iniciar a configuração. Confira a senha e tente novamente.");
+    expect(screen.queryByAltText("QR Code para configurar o aplicativo autenticador")).toBeNull();
+    expect(screen.queryByText("JBSWY3DPEHPK3PXP")).toBeNull();
+  });
+
+  it("código errado mostra a mensagem e não exibe códigos de recuperação", async () => {
+    const client = fakeClient({ confirmMfaEnrollment: vi.fn().mockRejectedValue(new Error("400")) });
+    const onComplete = vi.fn();
+    render(<MfaSettings client={client} onComplete={onComplete} />);
+
+    fireEvent.change(screen.getByLabelText("Senha atual"), { target: { value: "frase segura de teste" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    fireEvent.change(await screen.findByLabelText("Código de 6 dígitos"), { target: { value: "000000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ativar MFA" }));
+
+    expect(await screen.findByText("Código inválido ou expirado. Gere um novo QR Code e tente novamente.")).toBeDefined();
+    expect(screen.queryByText("CODE0-XXXXX")).toBeNull();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect((screen.getByLabelText("Código de 6 dígitos") as HTMLInputElement).value).toBe("");
+  });
+
+  it("falha ao gerar novo QR Code volta para a senha e descarta a chave anterior", async () => {
+    const start = vi.fn()
+      .mockResolvedValueOnce({
+        otpauthUri: "otpauth://totp/example",
+        qrImageDataUri: "data:image/png;base64,aGVsbG8=",
+        manualEntryKey: "JBSWY3DPEHPK3PXP",
+        pendingExpiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      })
+      .mockRejectedValueOnce(new Error("401"));
+    render(<MfaSettings client={fakeClient({ startMfaEnrollment: start })} onComplete={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Senha atual"), { target: { value: "frase segura de teste" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Gerar novo QR Code" }));
+
+    expect(await screen.findByText("Não foi possível gerar um novo QR Code. Confira a senha e tente novamente.")).toBeDefined();
+    expect(screen.queryByText("JBSWY3DPEHPK3PXP")).toBeNull();
+    expect((screen.getByLabelText("Senha atual") as HTMLInputElement).value).toBe("");
+  });
+
+  it("falha ao copiar orienta copiar manualmente", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error("negado")) },
+    });
+    render(<MfaSettings client={fakeClient()} onComplete={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("Senha atual"), { target: { value: "frase segura de teste" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    fireEvent.change(await screen.findByLabelText("Código de 6 dígitos"), { target: { value: "123456" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ativar MFA" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Copiar/ }));
+
+    expect(await screen.findByText("Não foi possível copiar. Selecione e copie manualmente.")).toBeDefined();
+  });
 });

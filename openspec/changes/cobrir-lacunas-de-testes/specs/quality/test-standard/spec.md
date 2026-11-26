@@ -29,6 +29,44 @@ situação indevida e ao menos três de erro esperado. Unidades sem lógica pró
 - **WHEN** a suíte é avaliada contra o padrão
 - **THEN** a unidade não exige testes próprios
 
+#### Scenario: Função auxiliar coberta pela unidade
+- **GIVEN** um service cuja regra usa um método privado ou uma função auxiliar interna
+- **WHEN** a suíte é avaliada contra o padrão
+- **THEN** a função auxiliar é considerada coberta pelos testes do comportamento público da unidade
+- **AND** ela não exige sete testes próprios
+
+### Requirement: Forbidden-outcome tests assert absence of effect
+Um teste de situação indevida SHALL afirmar que o efeito proibido não ocorreu,
+verificando o estado observável depois da tentativa: nenhuma sessão, cookie ou
+token emitido; recurso, saldo e lançamentos inalterados; nenhum dado de outro
+titular exposto. Afirmar apenas o status ou a mensagem de erro MUST NOT contar
+como teste de situação indevida.
+
+#### Scenario: Senha errada não abre sessão
+- **GIVEN** a conta do titular A com senha cadastrada
+- **WHEN** um teste tenta login na conta de A com senha errada
+- **THEN** a API responde `401`
+- **AND** a resposta não define cookie de sessão nem devolve token
+- **AND** nenhuma sessão nova é registrada para A
+- **AND** uma chamada seguinte a `GET /api/v1/users/me` sem credencial válida continua respondendo `401`
+
+#### Scenario: Terceiro não altera a verba
+- **GIVEN** uma verba do titular A com saldo `"500.00"`
+- **WHEN** o titular B, sem vínculo com a verba, tenta registrar um gasto de `"100.00"` nela
+- **THEN** a API responde `403` ou `404`
+- **AND** a verba continua com saldo `"500.00"` e sem lançamento novo
+
+#### Scenario: Valor inválido não grava lançamento
+- **GIVEN** uma verba do titular A com saldo `"500.00"`
+- **WHEN** A envia um gasto com valor `"10.5"`
+- **THEN** a API rejeita o pedido
+- **AND** nenhum lançamento é gravado e o saldo continua `"500.00"`
+
+#### Scenario: Asserção só de status não conta
+- **GIVEN** um teste de situação indevida que verifica apenas o status `401`
+- **WHEN** a unidade é avaliada contra o padrão
+- **THEN** esse teste não é contado entre as três situações indevidas
+
 ### Requirement: Error tests assert the exact error
 Um teste de erro esperado SHALL afirmar qual erro ocorreu: o tipo da exceção,
 o status HTTP com o `type` ou código do `ProblemDetail`, ou a mensagem exibida

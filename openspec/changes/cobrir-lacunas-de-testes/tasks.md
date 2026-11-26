@@ -1,7 +1,7 @@
 # Tasks
 
 > Padrão de cada unidade: spec `quality/test-standard` (1 feliz + 3 indevidos +
-> 3 erros com asserção exata; endpoints com 401 e terceiro; borda de
+> 3 erros com asserção exata; indevidos afirmam a ausência do efeito proibido; endpoints com 401 e terceiro; borda de
 > `BigDecimal` onde houver dinheiro; nomes em português). Testes que revelarem
 > defeito seguem TDD: teste falhando, correção mínima, refatoração (design D5).
 
@@ -11,7 +11,7 @@
 - [x] 1.2 Adicionar JaCoCo ao `backend/build.gradle.kts` (`jacocoTestReport` após `test`, verificação sem limite ainda, exclusões documentadas) e verificar que `./gradlew test jacocoTestReport` gera `build/reports/jacoco`
 - [x] 1.3 Adicionar Kover a `mobile/shared` e `mobile/androidApp` e verificar que `./gradlew koverHtmlReport` gera relatório dos dois módulos
 - [x] 1.4 Adicionar `@vitest/coverage-v8`, bloco `coverage` e script `test:coverage` em web, desktop e mcp e verificar que cada `pnpm test:coverage` gera `coverage/`
-- [ ] 1.5 Fazer `web-check`, `mcp-check`, `desktop-test` e `mobile-check` usarem as tarefas de cobertura, incluir `mobile-check` em `make check` e verificar com `make check` local
+- [x] 1.5 Fazer `web-check`, `mcp-check`, `desktop-test` e `mobile-check` usarem as tarefas de cobertura, incluir `mobile-check` em `make check` e verificar com `make check` local
 - [x] 1.6 Adicionar jobs `mcp` e `desktop` ao `.github/workflows/pull-request.yml` (actions fixadas por SHA, cache de pnpm/Cargo) e upload de cobertura em todos os jobs com `if: ${{ !cancelled() }}`; verificar com `pnpm exec lefthook validate` e com `actionlint` ou execução do workflow
 - [x] 1.7 Medir a linha de base de cada módulo e registrá-la no ADR-0030; verificar que os números citados batem com os relatórios gerados
 
@@ -38,34 +38,39 @@
 - [x] 4.4 Completar até o padrão os de integração abaixo do padrão: `AnnualExpenseApiIntegrationTest`, `EnvelopeEntrySoftDeleteApiIntegrationTest`, `SavingsTargetApiIntegrationTest`, `GoalProgressApiIntegrationTest`, `WealthAllocationHistorySummaryApiIntegrationTest`, `LedgerSummaryUsagePctApiIntegrationTest`, `MonthlyResetBalanceApiIntegrationTest`, `OAuthApiIntegrationTest`, `TotpCredentialRepositoryIntegrationTest`, `TitularRightsApiIntegrationTest`, `EnvelopeOptimisticLockApiIntegrationTest`, `AnnualDueDateValidationApiIntegrationTest`, `EnvelopeAllocationApiIntegrationTest`, `MfaLoginApiIntegrationTest`, `MfaRecoveryApiIntegrationTest`; verificar com `./gradlew test`
 - [x] 4.5 Varrer todos os controllers e confirmar que cada endpoint autenticado tem teste de 401 e de terceiro (criar os que faltarem) e verificar com `./gradlew test` e a lista anexada ao ADR-0030
 - [x] 4.6 Ativar o limite JaCoCo do backend conforme design D2 e verificar que `./gradlew check` passa e reprova ao remover um teste localmente
+- [x] 4.7 Levar ao padrão as unidades de backend do lembrete diário e Web Push (issue #85): `DailyReminderServiceTest`, `EventAlertsApiIntegrationTest`, `JdkWebPushSenderTest`, `PushDispatcherTest`, `PushDeliveryApiIntegrationTest` e `NotificationPreferenceTest`; verificar com `./gradlew test`
+- [x] 4.8 Revisar os testes de login e sessão (`AuthenticationServiceTest`, `AuthSessionTest`, `MfaLoginApiIntegrationTest`, `OAuthApiIntegrationTest`) e garantir que senha errada, código MFA inválido e refresh reutilizado afirmam que nenhuma sessão, cookie ou token foi emitido e que `GET /api/v1/users/me` continua `401` (requisito *Forbidden-outcome tests assert absence of effect*); verificar com `./gradlew test`
 
 ## 5. Web
 
 - [x] 5.1 Testar `lib/api.ts` diretamente (401, 403, 409, 422 com `ProblemDetail`, 5xx e falha de rede), `lib/form-errors.ts` e `lib/dates.ts` e verificar com `pnpm test`
 - [x] 5.2 Testar diretamente os hooks `useEnvelopes`, `useIncome` e `useLedgerSummary` (loading, erro, refetch, sessão expirada) e verificar com `pnpm test`
 - [x] 5.3 Criar testes de `MetasPage`, `BalanceSummary`, `Glossary`, `VerbasFilters`, `PurposeSection` e `ThemeSelector` afirmando a mensagem renderizada nos erros e verificar com `pnpm test`
-- [ ] 5.4 Completar até o padrão `ParticipantsPanel`, `ReportsPage`, `SettingsPage`, `PrivacyPolicy`, `auth-screen`, `AnnualExpensesPage`, `PersistentAlerts`, `MfaSettings`, `MfaLoginStep`, `MonthSummary`, `IncomeHistory`, `IncomeForm`, `SecuritySettings` e `ui/*` (`Button`, `ConfirmDialog`, `Dialog`, `PageHeader`, `ProgressBar`) e verificar com `pnpm test`
-- [ ] 5.5 Ativar o limite de cobertura do web e verificar que `make web-check` passa
+- [x] 5.4 Completar até o padrão `ParticipantsPanel`, `ReportsPage`, `SettingsPage`, `PrivacyPolicy`, `auth-screen`, `AnnualExpensesPage`, `PersistentAlerts`, `MfaSettings`, `MfaLoginStep`, `MonthSummary`, `IncomeHistory`, `IncomeForm`, `SecuritySettings` e `ui/*` (`Button`, `ConfirmDialog`, `Dialog`, `PageHeader`, `ProgressBar`) e verificar com `pnpm test`
+- [x] 5.6 Levar ao padrão os testes web do lembrete e Web Push: `lib/service-worker.test.ts`, `lib/api.notifications.test.ts`, `PersistentAlerts` e `SettingsPage`; verificar com `pnpm test`
+- [x] 5.5 Ativar o limite de cobertura do web e verificar que `make web-check` passa
 
 ## 6. Mobile
 
-- [ ] 6.1 Testar em `commonTest` `AlertGateway`, `SharingGateway`, `ReportGateway`, `EnvelopeGateway`, `IncomeGateway` e `describeFailure` com cliente HTTP falso (401, 403, 422, 5xx, falha de rede, corpo inválido) e verificar com `./gradlew :shared:jvmTest`
-- [ ] 6.2 Testar `Forms.kt` (`isIsoDate`, validações dos diálogos de verba e renda com valores `"0.00"`, `"10.5"` e vazio), `EntryDate.monthOf`, `EnvelopeCardActions.headlineAmount`/`isGoal` e `purposeColor` e verificar com `./gradlew :shared:jvmTest`
-- [ ] 6.3 Testar os controllers de tela de relatórios, segurança/senha, MFA, compartilhamento e histórico de renda e completar `ThemePreferenceControllerTest`, `IsoDateTest` e `LoginMethodActionsTest`; verificar com `./gradlew :shared:jvmTest`
-- [ ] 6.4 Criar `androidApp/src/test` com testes JVM de `AndroidApiClient`, `AndroidApiGateway`, `EncryptedRefreshTokenStore`, `OAuthBrowser`, `ReportSharing` e `AndroidThemePreferenceStore`, extraindo para interfaces o que depender de API Android, e verificar com `./gradlew :androidApp:testDebugUnitTest`
-- [ ] 6.5 Ativar o limite Kover e verificar que `make mobile-check` passa (iOS não validado: registrar no README)
+- [x] 6.1 Testar em `commonTest` o `describeFailure` (401, 403, 422, códigos conhecidos, detalhe em branco e falha que não é da API); os gateways HTTP de alerta, compartilhamento, relatório, verba e renda vivem no `androidApp` e são cobertos na 6.4 contra servidor HTTP local (401, 403, 422, 5xx, falha de rede, corpo inválido); verificar com `./gradlew :shared:jvmTest`
+- [x] 6.2 Testar `Forms.kt` (`isIsoDate`, validações dos diálogos de verba e renda com valores `"0.00"`, `"10.5"` e vazio), `EntryDate.monthOf`, `EnvelopeCardActions.headlineAmount`/`isGoal` e `purposeColor` e verificar com `./gradlew :shared:jvmTest`
+- [x] 6.3 Testar os controllers de tela de relatórios, segurança/senha, MFA, compartilhamento e histórico de renda e completar `ThemePreferenceControllerTest`, `IsoDateTest` e `LoginMethodActionsTest`; verificar com `./gradlew :shared:jvmTest`
+- [x] 6.4 Criar `androidApp/src/test` com testes JVM de `AndroidApiClient` e `AndroidApiGateway` (incluindo os gateways de alerta, compartilhamento, relatório, verba e renda) contra servidor HTTP local, `EncryptedRefreshTokenStore`, `OAuthBrowser`, `ReportSharing` e `AndroidThemePreferenceStore`, extraindo para interfaces o que depender de API Android, e verificar com `./gradlew :androidApp:testDebugUnitTest`
+- [x] 6.6 Levar ao padrão os testes mobile do lembrete: `NotificationJsonTest` (`androidApp`), `DailyReminderCardUiTest` e `ReminderTimesTest` (`shared`); verificar com `./gradlew :shared:jvmTest :androidApp:testDebugUnitTest`
+- [x] 6.5 Ativar o limite Kover e verificar que `make mobile-check` passa (iOS não validado: registrar no README)
 
 ## 7. Desktop
 
-- [ ] 7.1 Testar `Amount`, `MonthSelector`, `useExpenseCapture`, `lib/use-summary.ts`, `lib/api.ts` e `lib/dates.ts` e completar `ipc.test.ts` e `icons.test.ts`; verificar com `cd desktop && pnpm test`
-- [ ] 7.2 Revisar `src-tauri/src/lib.rs`, mover para o crate `desktop/session` a lógica pura que restar e cobri-la com `cargo test`; verificar com `cd desktop/session && cargo test`
-- [ ] 7.3 Ativar o limite de cobertura do frontend desktop e verificar que `make desktop-check` passa
+- [x] 7.1 Testar `Amount`, `MonthSelector`, `useExpenseCapture`, `lib/use-summary.ts`, `lib/api.ts` e `lib/dates.ts` e completar `ipc.test.ts` e `icons.test.ts`; verificar com `cd desktop && pnpm test`
+- [x] 7.2 Revisar `src-tauri/src/lib.rs`, mover para o crate `desktop/session` a lógica pura que restar e cobri-la com `cargo test`; verificar com `cd desktop/session && cargo test`
+- [x] 7.4 Levar ao padrão `use-daily-reminder.test.tsx` e `ReminderDialog.test.tsx`; verificar com `cd desktop && pnpm test`
+- [x] 7.3 Ativar o limite de cobertura do frontend desktop e verificar que `make desktop-check` passa
 
 ## 8. MCP
 
-- [ ] 8.1 Testar `login-cli.ts` (login feliz, MFA, credencial inválida, API indisponível, sessão salva corrompida) e completar `server.test.ts`, `cookies.test.ts`, `terminal-prompt.test.ts` e `session-store.test.ts`; verificar com `cd mcp && pnpm test`
-- [ ] 8.2 Ativar o limite de cobertura do MCP e verificar que `make mcp-check` passa
+- [x] 8.1 Testar `login-cli.ts` (login feliz, MFA, credencial inválida, API indisponível, sessão salva corrompida) e completar `server.test.ts`, `cookies.test.ts`, `terminal-prompt.test.ts` e `session-store.test.ts`; verificar com `cd mcp && pnpm test`
+- [x] 8.2 Ativar o limite de cobertura do MCP e verificar que `make mcp-check` passa
 
 ## 9. Verificação integrada
 
-- [ ] 9.1 Rodar `make check` completo e o workflow de PR, confirmar que todos os jobs passam e publicam cobertura, e atualizar a issue #95 marcando os itens entregues
+- [ ] 9.1 Rodar `make check` completo e o workflow de PR, confirmar que todos os jobs passam e publicam cobertura, e atualizar as issues #95 e #102 marcando os itens entregues

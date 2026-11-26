@@ -81,4 +81,43 @@ describe("Dialog", () => {
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Tab", shiftKey: true });
     expect(document.activeElement).toBe(last);
   });
+
+  it("fechado não renderiza o conteúdo", () => {
+    render(<Dialog open={false} onClose={vi.fn()} title="Oculto"><p>Conteúdo secreto</p></Dialog>);
+
+    expect(screen.queryByText("Conteúdo secreto")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Oculto", hidden: true })).toBeNull();
+  });
+
+  it("clique no fundo fecha, clique no conteúdo não fecha", () => {
+    const onClose = vi.fn();
+    render(<Dialog open onClose={onClose} title="Editar"><p>Corpo</p></Dialog>);
+
+    fireEvent.click(screen.getByText("Corpo"));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("dialog"));
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("Esc chama onClose e impede o fechamento nativo", () => {
+    const onClose = vi.fn();
+    render(<Dialog open onClose={onClose} title="Editar"><p>Corpo</p></Dialog>);
+
+    const event = new Event("cancel", { cancelable: true });
+    screen.getByRole("dialog").dispatchEvent(event);
+
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("teclas que não são Tab não mexem no foco", async () => {
+    render(<Dialog open onClose={vi.fn()} title="Formulário"><input aria-label="Primeiro" /></Dialog>);
+    const first = screen.getByLabelText("Primeiro");
+    await waitFor(() => expect(document.activeElement).toBe(first));
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Enter" });
+
+    expect(document.activeElement).toBe(first);
+  });
 });

@@ -58,7 +58,7 @@ describe("AuthScreen", () => {
     fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "frase segura de teste" } });
     fireEvent.submit(screen.getByRole("button", { name: "Concluir cadastro" }).closest("form")!);
 
-    expect((await screen.findByRole("alert")).textContent).toMatch(/revise os dados/i);
+    expect((await screen.findByRole("alert")).textContent).toBe("Revise os dados e tente novamente.");
   });
 
   it("não mostra login social quando nenhum manipulador é informado", () => {
@@ -86,5 +86,61 @@ describe("AuthScreen", () => {
 
     expect(screen.getByRole("heading", { name: "Crie sua conta" })).toBeDefined();
     expect(screen.queryByText(/Primeira vez por aqui/)).toBeNull();
+  });
+
+  it("senha errada no login não mostra sucesso, não troca de tela e libera nova tentativa", async () => {
+    const onLogin = vi.fn().mockRejectedValue(new Error("401"));
+    render(<AuthScreen onLogin={onLogin} onRegister={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "conta-x@example.com" } });
+    fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "senha totalmente errada" } });
+    const form = screen.getByLabelText("E-mail").closest("form")!;
+    fireEvent.submit(form);
+
+    await vi.waitFor(() => expect(onLogin).toHaveBeenCalledWith("conta-x@example.com", "senha totalmente errada"));
+    await vi.waitFor(() => expect(form.querySelector("button[type=submit]")).toHaveProperty("disabled", false));
+    expect(screen.getByRole("heading", { name: "Entre na sua conta" })).toBeDefined();
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("cadastro recusado permanece na tela de cadastro e não anuncia cadastro recebido", async () => {
+    render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn().mockRejectedValue(new Error("400"))} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Criar conta" }));
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "pessoa@example.com" } });
+    fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "frase segura de teste" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Concluir cadastro" }).closest("form")!);
+
+    await screen.findByRole("alert");
+    expect(screen.getByRole("button", { name: "Concluir cadastro" })).toBeDefined();
+    expect(screen.queryByText(/Agora você pode entrar/)).toBeNull();
+  });
+
+  it("trocar entre entrar e criar conta apaga e-mail, senha e mensagens anteriores", async () => {
+    render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn().mockRejectedValue(new Error("400"))} />);
+    fireEvent.click(screen.getByRole("button", { name: "Criar conta" }));
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "pessoa@example.com" } });
+    fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "frase segura de teste" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Concluir cadastro" }).closest("form")!);
+    await screen.findByRole("alert");
+
+    fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
+
+    expect((screen.getByLabelText("E-mail") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("Senha") as HTMLInputElement).value).toBe("");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("enquanto entra, o botão fica desabilitado e não envia duas vezes", async () => {
+    const onLogin = vi.fn(() => new Promise<void>(() => undefined));
+    render(<AuthScreen onLogin={onLogin} onRegister={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "pessoa@example.com" } });
+    fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "frase segura de teste" } });
+    const form = screen.getByLabelText("E-mail").closest("form")!;
+    fireEvent.submit(form);
+
+    await vi.waitFor(() => expect(form.querySelector("button[type=submit]")).toHaveProperty("disabled", true));
+    expect(onLogin).toHaveBeenCalledOnce();
   });
 });

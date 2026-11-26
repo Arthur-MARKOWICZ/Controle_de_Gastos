@@ -53,3 +53,61 @@ describe("FileSessionStore", () => {
     expect(store.load()).toBeNull();
   });
 });
+
+describe("FileSessionStore — o que não pode acontecer", () => {
+  let dir: string;
+
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("cria a pasta da sessão quando ela não existe", () => {
+    dir = mkdtempSync(join(tmpdir(), "cg-mcp-session-"));
+    const store = new FileSessionStore(join(dir, "a", "b", "session.json"));
+
+    store.save(sample);
+
+    expect(store.load()).toEqual(sample);
+  });
+
+  it("JSON inválido é tratado como sem sessão", () => {
+    dir = mkdtempSync(join(tmpdir(), "cg-mcp-session-"));
+    const path = join(dir, "session.json");
+    writeFileSync(path, "{ quebrado");
+
+    expect(new FileSessionStore(path).load()).toBeNull();
+  });
+
+  it("campo com tipo errado é tratado como sem sessão", () => {
+    dir = mkdtempSync(join(tmpdir(), "cg-mcp-session-"));
+    const path = join(dir, "session.json");
+    writeFileSync(path, JSON.stringify({ ...sample, refreshToken: 123 }));
+
+    expect(new FileSessionStore(path).load()).toBeNull();
+  });
+
+  it("campos extras no arquivo não vazam para a sessão carregada", () => {
+    dir = mkdtempSync(join(tmpdir(), "cg-mcp-session-"));
+    const path = join(dir, "session.json");
+    writeFileSync(path, JSON.stringify({ ...sample, password: "nunca" }));
+
+    expect(new FileSessionStore(path).load()).toEqual(sample);
+  });
+
+  it("apagar sessão inexistente não falha", () => {
+    dir = mkdtempSync(join(tmpdir(), "cg-mcp-session-"));
+
+    expect(() => new FileSessionStore(join(dir, "nada.json")).clear()).not.toThrow();
+  });
+
+  it("memória guarda cópia: mudar o objeto salvo não muda a sessão", () => {
+    const store = new MemorySessionStore();
+    const mutable = { ...sample };
+    store.save(mutable);
+
+    mutable.accessToken = "alterado";
+
+    expect(store.load()?.accessToken).toBe("access");
+  });
+});
+

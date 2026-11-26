@@ -1,6 +1,5 @@
 package br.com.controlegastos.app
 
-import android.content.Context
 import java.io.File
 import org.json.JSONArray
 import org.json.JSONObject
@@ -12,8 +11,9 @@ import org.json.JSONObject
  * carrega biblioteca de serialização e os corpos são pequenos e estáveis.
  */
 class AndroidApiGateway(
-    private val context: Context,
     private val client: AndroidApiClient,
+    /** Diretório privado onde os relatórios baixados ficam até serem compartilhados. */
+    private val cacheDir: File,
 ) : AuthGateway, EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway,
     RecurringGateway, NotificationGateway {
 
@@ -478,7 +478,7 @@ class AndroidApiGateway(
     ) { suggestedName, stream ->
         // Diretório privado do app: compartilhar por FileProvider dispensa
         // permissão de armazenamento, que o minSdk 24 ainda exigiria.
-        val directory = File(context.cacheDir, "relatorios").apply { mkdirs() }
+        val directory = File(cacheDir, "relatorios").apply { mkdirs() }
         val fileName = suggestedName ?: "${report.api}_${from}_$to.${format.extension}"
         val target = File(directory, fileName)
         target.outputStream().use(stream::copyTo)

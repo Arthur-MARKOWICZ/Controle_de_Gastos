@@ -63,4 +63,18 @@ describe("8.4 ícones do primeiro corte", () => {
       expect(uso[1]).toBe("20");
     }
   });
+
+  it("todo ícone desenhado é decorativo para o leitor de tela", () => {
+    const usos = sources.flatMap(({ code }) =>
+      Array.from(code.matchAll(/<(House|Wallet|Plus|WarningCircle)\b[^>]*>/g)).map((m) => m[0]),
+    );
+    expect(usos.length).toBeGreaterThan(0);
+    for (const uso of usos) expect(uso).toMatch(/aria-hidden/);
+  });
+
+  it("não troca o peso outline padrão do Phosphor", () => {
+    for (const { path, code } of sources) {
+      expect(/\bweight=/.test(code), `${path} muda o peso do ícone`).toBe(false);
+    }
+  });
 });

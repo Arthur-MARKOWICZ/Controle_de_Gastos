@@ -5,12 +5,14 @@ import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.controlegastos.identity.infrastructure.AuthAttemptRepository;
 import br.com.controlegastos.support.FixedClockTestConfiguration;
 import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -110,6 +112,94 @@ class EventAlertsApiIntegrationTest {
 
         Thread.sleep(500);
         assertThat(activeAlerts(owner, "SHARED_EXPENSE")).isZero();
+    }
+
+    @Test
+    @DisplayName("gasto que não deixa a verba negativa não gera alerta de saldo negativo")
+    void gastoDentroDoSaldoNaoAlerta() throws Exception {
+        String owner = token("evento-dentro@example.com");
+        String envelopeId = createEnvelope(owner, "Mercado", "100.00");
+
+        expense(owner, envelopeId, "100.00");
+
+        Thread.sleep(500);
+        assertThat(activeAlerts(owner, "NEGATIVE_BALANCE")).isZero();
+    }
+
+    @Test
+    @DisplayName("terceiro sem vínculo não lança na verba e o dono não recebe alerta nenhum")
+    void terceiroNaoLancaNemGeraAlerta() throws Exception {
+        String owner = verifiedToken("evento-dono3@example.com");
+        String stranger = verifiedToken("evento-terceiro3@example.com");
+        String envelopeId = createEnvelope(owner, "Casa", "10.00");
+
+        mockMvc.perform(post("/api/v1/envelopes/{id}/entries", envelopeId)
+                        .header("Authorization", "Bearer " + stranger)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(expenseBody("50.00")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ENVELOPE_NOT_FOUND"));
+
+        Thread.sleep(500);
+        assertThat(objectMapper.readTree(alertsJson(owner)).get("items").size()).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ledger_entry WHERE envelope_id = ?::uuid",
+                Integer.class, envelopeId)).isZero();
+    }
+
+    @Test
+    @DisplayName("alerta do dono não aparece na lista de alertas de outro titular")
+    void alertaDoDonoNaoVazaParaTerceiro() throws Exception {
+        String owner = token("evento-dono4@example.com");
+        String stranger = token("evento-terceiro4@example.com");
+        String envelopeId = createEnvelope(owner, "Mercado", "100.00");
+
+        expense(owner, envelopeId, "150.00");
+        awaitAlerts(owner, "NEGATIVE_BALANCE", 1);
+
+        String body = alertsJson(stranger);
+        assertThat(objectMapper.readTree(body).get("items").size()).isZero();
+        assertThat(body).doesNotContain(envelopeId);
+    }
+
+    @Test
+    @DisplayName("gasto com valor fora da escala de duas casas é recusado e não gera alerta")
+    void valorComEscalaInvalidaRecusado() throws Exception {
+        String owner = token("evento-escala@example.com");
+        String envelopeId = createEnvelope(owner, "Mercado", "1.00");
+
+        mockMvc.perform(post("/api/v1/envelopes/{id}/entries", envelopeId)
+                        .header("Authorization", "Bearer " + owner)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(expenseBody("10.5")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
+
+        Thread.sleep(500);
+        assertThat(activeAlerts(owner, "NEGATIVE_BALANCE")).isZero();
+    }
+
+    @Test
+    @DisplayName("gasto em verba inexistente responde 404 ENVELOPE_NOT_FOUND")
+    void gastoEmVerbaInexistente() throws Exception {
+        String owner = token("evento-inexistente@example.com");
+
+        mockMvc.perform(post("/api/v1/envelopes/{id}/entries", UUID.randomUUID())
+                        .header("Authorization", "Bearer " + owner)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(expenseBody("10.00")))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("ENVELOPE_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("listar alertas sem sessão responde 401")
+    void listarAlertasSemSessao() throws Exception {
+        mockMvc.perform(get("/api/v1/alerts")).andExpect(status().isUnauthorized());
+    }
+
+    private String expenseBody(String amount) throws Exception {
+        return objectMapper.writeValueAsString(Map.of(
+                "kind", "EXPENSE", "amount", money(amount), "occurredAt", "2026-09-15"));
     }
 
     private void awaitAlerts(String token, String type, int expected) {

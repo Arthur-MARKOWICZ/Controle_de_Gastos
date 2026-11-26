@@ -24,6 +24,7 @@ object ApiErrorCode {
     const val LAST_LOGIN_METHOD = "LAST_LOGIN_METHOD"
     const val PASSWORD_ALREADY_SET = "PASSWORD_ALREADY_SET"
     const val TOO_MANY_ATTEMPTS = "TOO_MANY_ATTEMPTS"
+    const val PASSWORD_REQUIRED_INVALID = "PASSWORD_REQUIRED_INVALID"
 }
 
 /** A sessão acabou: nem o access token nem o refresh valem mais. */
@@ -49,6 +50,8 @@ fun describeFailure(cause: Throwable, fallback: String): String = when {
     cause.code == ApiErrorCode.LEDGER_ENTRY_NOT_FOUND -> "Este lançamento não existe mais."
     cause.code == ApiErrorCode.FORBIDDEN -> "Só quem criou a verba pode fazer isso."
     cause.code == ApiErrorCode.TOO_MANY_ATTEMPTS -> "Tentativas demais. Espere um pouco e tente de novo."
+    // 401 por senha de confirmação errada não é sessão expirada: a sessão continua válida.
+    cause.code == ApiErrorCode.PASSWORD_REQUIRED_INVALID -> "Senha atual incorreta."
     cause.status == 401 -> "Sua sessão expirou. Entre novamente."
     cause.detail.isNotBlank() -> cause.detail
     else -> fallback

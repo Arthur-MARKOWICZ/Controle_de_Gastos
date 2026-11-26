@@ -31,7 +31,7 @@ fun Context.sharePlainText(text: String, title: String = "Compartilhar códigos"
     startActivity(Intent.createChooser(share, title).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
-private fun mimeTypeOf(fileName: String): String = when {
+internal fun mimeTypeOf(fileName: String): String = when {
     fileName.endsWith(".csv", ignoreCase = true) -> "text/csv"
     fileName.endsWith(".xlsx", ignoreCase = true) ->
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

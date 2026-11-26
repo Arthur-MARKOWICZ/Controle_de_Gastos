@@ -46,4 +46,34 @@ class LoginMethodActionsTest {
         assertFalse(github.canConnect)
         assertEquals(OAuthProvider.GITHUB, github.provider)
     }
+
+    @Test
+    fun `so com senha nao ha provedor para desconectar e a senha e o ultimo metodo`() {
+        val methods = LoginMethods(hasPassword = true, linkedProviders = emptyList())
+
+        assertTrue(methods.isLastMethod)
+        assertTrue(providerLoginActions(methods).none { it.canUnlink })
+    }
+
+    @Test
+    fun `dois provedores sem senha permitem desconectar qualquer um`() {
+        val methods = LoginMethods(hasPassword = false, linkedProviders = listOf(OAuthProvider.GOOGLE, OAuthProvider.GITHUB))
+
+        assertFalse(methods.isLastMethod)
+        assertTrue(providerLoginActions(methods).all { it.canUnlink && !it.canConnect })
+    }
+
+    @Test
+    fun `provedor desconhecido vindo da API e ignorado`() {
+        assertEquals(null, OAuthProvider.fromApiOrNull("orkut"))
+        assertEquals(null, OAuthProvider.fromApiOrNull(""))
+        assertEquals(OAuthProvider.GOOGLE, OAuthProvider.fromApiOrNull("google"))
+    }
+
+    @Test
+    fun `lista sempre os dois provedores na mesma ordem`() {
+        val actions = providerLoginActions(LoginMethods(hasPassword = true, linkedProviders = listOf(OAuthProvider.GITHUB)))
+
+        assertEquals(listOf(OAuthProvider.GOOGLE, OAuthProvider.GITHUB), actions.map { it.provider })
+    }
 }

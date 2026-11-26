@@ -5,32 +5,28 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import java.security.KeyStore
-import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 
-internal class EncryptedRefreshTokenStore(context: Context) {
+internal class EncryptedRefreshTokenStore(context: Context) : RefreshTokenStore {
     private val preferences = context.getSharedPreferences("auth_session", Context.MODE_PRIVATE)
+    private val cipher = RefreshCookieCipher(::key)
 
     @Synchronized
-    fun save(cookie: String) {
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, key())
+    override fun save(cookie: String) {
+        val sealed = cipher.seal(cookie)
         preferences.edit()
-            .putString(CIPHER_TEXT, Base64.encodeToString(cipher.doFinal(cookie.toByteArray(Charsets.UTF_8)), Base64.NO_WRAP))
-            .putString(IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+            .putString(CIPHER_TEXT, Base64.encodeToString(sealed.cipherText, Base64.NO_WRAP))
+            .putString(IV, Base64.encodeToString(sealed.iv, Base64.NO_WRAP))
             .apply()
     }
 
     @Synchronized
-    fun load(): String? {
+    override fun load(): String? {
         val encrypted = preferences.getString(CIPHER_TEXT, null) ?: return null
         val iv = preferences.getString(IV, null) ?: return null
         return runCatching {
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
-            cipher.doFinal(Base64.decode(encrypted, Base64.NO_WRAP)).toString(Charsets.UTF_8)
+            cipher.open(RefreshCookieCipher.Sealed(Base64.decode(encrypted, Base64.NO_WRAP), Base64.decode(iv, Base64.NO_WRAP)))
         }.getOrElse {
             clear()
             null
@@ -38,7 +34,7 @@ internal class EncryptedRefreshTokenStore(context: Context) {
     }
 
     @Synchronized
-    fun clear() {
+    override fun clear() {
         preferences.edit().clear().apply()
     }
 
@@ -58,7 +54,6 @@ internal class EncryptedRefreshTokenStore(context: Context) {
 
     private companion object {
         const val KEY_ALIAS = "controle_gastos_refresh_v1"
-        const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val CIPHER_TEXT = "refresh_ciphertext"
         const val IV = "refresh_iv"
     }
