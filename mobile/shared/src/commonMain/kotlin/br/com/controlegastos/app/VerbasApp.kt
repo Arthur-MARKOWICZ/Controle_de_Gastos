@@ -392,6 +392,10 @@ private fun SignedInApp(
                     onNotify = ::notify,
                 )
                 Route.IncomeHistory -> IncomeHistoryScreen(gateways.income)
+                Route.Carteira -> CarteiraScreen(
+                    gateway = gateways.investments,
+                    onNotify = ::notify,
+                )
                 Route.Security -> SecurityScreen(
                     gateway = gateways.auth,
                     qrImageContent = qrImageContent,

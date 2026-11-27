@@ -60,6 +60,9 @@ internal fun MoreScreen(
                     NavigationRow("Gastos anuais", "Provisões que vencem uma vez por ano") {
                         onOpen(Route.AnnualExpenses)
                     }
+                    NavigationRow("Carteira", "Ações B3 e CDBs separados do orçamento") {
+                        onOpen(Route.Carteira)
+                    }
                     NavigationRow("Relatórios", "Exportar o período em planilha") { onOpen(Route.Reports) }
                     NavigationRow("Histórico de renda", "Como a renda mudou ao longo do tempo") {
                         onOpen(Route.IncomeHistory)

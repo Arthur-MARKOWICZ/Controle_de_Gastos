@@ -41,14 +41,14 @@ class TitularRightsServiceTest {
     }
 
     @Test
-    @DisplayName("exporta as nove seções do titular atual na ordem do relatório")
+    @DisplayName("exporta as onze seções do titular atual na ordem do relatório")
     void exportaSecoesNaOrdem() {
         Map<String, Object> exported = service.exportCurrentTitular();
 
         assertThat(exported.keySet())
                 .containsExactly("identity", "income", "envelopes", "ledgerEntries", "ledgerEntryRevisions",
                         "recurringEntries", "recurringOccurrences", "notificationPreferences",
-                        "webPushSubscriptions");
+                        "webPushSubscriptions", "stockLots", "cdbPositions");
     }
 
     @Test
@@ -58,7 +58,7 @@ class TitularRightsServiceTest {
         service.exportCurrentTitular();
 
         ArgumentCaptor<Object[]> args = ArgumentCaptor.forClass(Object[].class);
-        verify(jdbc, org.mockito.Mockito.times(8)).query(anyString(), any(RowMapper.class), args.capture());
+        verify(jdbc, org.mockito.Mockito.times(10)).query(anyString(), any(RowMapper.class), args.capture());
         assertThat(args.getAllValues()).allSatisfy(params -> assertThat(params).containsOnly(me));
     }
 
@@ -69,11 +69,11 @@ class TitularRightsServiceTest {
         service.exportCurrentTitular();
 
         ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
-        verify(jdbc, org.mockito.Mockito.times(8)).query(sql.capture(), any(RowMapper.class), any(Object[].class));
+        verify(jdbc, org.mockito.Mockito.times(10)).query(sql.capture(), any(RowMapper.class), any(Object[].class));
         // Preferências de notificação não têm valor monetário; as demais seções têm.
         assertThat(sql.getAllValues())
                 .filteredOn(query -> !query.contains("notification_preference") && !query.contains("web_push_subscription"))
-                .hasSize(6)
+                .hasSize(8)
                 .allSatisfy(query -> assertThat(query).containsPattern("::text AS"));
     }
 
@@ -83,6 +83,8 @@ class TitularRightsServiceTest {
         service.eraseCurrentTitular("senha");
 
         InOrder order = inOrder(jdbc, closure);
+        order.verify(jdbc).update("DELETE FROM cdb_position WHERE owner_id = ?", me);
+        order.verify(jdbc).update("DELETE FROM stock_lot WHERE owner_id = ?", me);
         order.verify(jdbc).update("DELETE FROM envelope WHERE owner_id = ?", me);
         order.verify(jdbc).update("DELETE FROM notification_preference WHERE user_id = ?", me);
         order.verify(jdbc).update("DELETE FROM web_push_subscription WHERE user_id = ?", me);
@@ -116,7 +118,7 @@ class TitularRightsServiceTest {
         service.eraseCurrentTitular("senha");
 
         ArgumentCaptor<Object> param = ArgumentCaptor.forClass(Object.class);
-        verify(jdbc, org.mockito.Mockito.times(6)).update(anyString(), param.capture());
+        verify(jdbc, org.mockito.Mockito.times(8)).update(anyString(), param.capture());
         assertThat(param.getAllValues()).containsOnly(me);
     }
 

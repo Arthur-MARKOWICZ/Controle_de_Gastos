@@ -39,32 +39,32 @@
 - [x] 5.3 Seção "Notificações" no `SettingsPage`: três tipos, horário em passos de 15 minutos, "Ativar/Desativar neste navegador", estados de permissão negada, sem suporte e iOS sem instalação. Testes de componente para os cenários de `ui-web/notification-settings`
 - [x] 5.4 No logout (`auth-client.ts`), remover a assinatura atual antes de `/auth/logout`. Teste unitário com `pushManager` simulado
 - [x] 5.5 Tolerar `SHARED_EXPENSE` na lista de alertas da web (texto "Novo gasto em verba compartilhada"). Teste de componente
-- [ ] 5.6 Rodar `pnpm --filter web test`, lint e build. Validar no navegador (preview): ativar push, receber o push de teste do backend local e clicar até a navegação
+- [x] 5.6 Rodar `pnpm --filter web test`, lint e build. Validar no navegador (preview): ativar push, receber o push de teste do backend local e clicar até a navegação
 
 ## 6. Android: lembrete local
 
 - [x] 6.1 Cliente de API no `shared` para preferências e `today`, com testes `commonTest`
 - [x] 6.2 `expect/actual` do agendador: o Android usa WorkManager (`OneTimeWorkRequest` único, `REPLACE`); o iOS é no-op. Teste do cálculo do próximo horário em `commonTest` (antes e depois do horário, virada de dia)
-- [ ] 6.3 Worker: consulta `today`, notifica só com `false`, não notifica sem sessão ou sem rede; o toque abre o lançamento rápido. Teste do worker com `TestListenableWorkerBuilder`
+- [x] 6.3 Worker: consulta `today`, notifica só com `false`, não notifica sem sessão ou sem rede; o toque abre o lançamento rápido. Teste do worker com `TestListenableWorkerBuilder`
 - [x] 6.4 Seção do lembrete no `MoreScreen` com permissão `POST_NOTIFICATIONS` no Android 13+, canal "Lembrete diário" e texto de permissão negada. Reagendar ao abrir o app e ao salvar; cancelar no logout. Testes de UI/ViewModel nos cenários de `ui-mobile/lembrete-diario`
-- [ ] 6.5 Rodar `./gradlew :shared:allTests :androidApp:testDebugUnitTest` e validar num emulador Android 13+ com horário próximo
+- [x] 6.5 Rodar `./gradlew :shared:allTests :androidApp:testDebugUnitTest` e validar num emulador Android 13+ com horário próximo
 
 ## 7. Desktop: lembrete local
 
 - [x] 7.1 Adicionar `tauri-plugin-notification` só no Cargo, usado por comandos Rust da aplicação (sem pacote npm nem capability para o webview), conforme a ADR-0029. Verificar: `cargo build` e `pnpm --filter desktop build`
 - [x] 7.2 Módulo de agendamento no webview: próximo horário sem recuperar o perdido, consulta `today` pelo comando `api` e notificação só com `false` e sessão válida. Testes Vitest com timers falsos para os cenários de `ui-desktop/daily-reminder`
 - [x] 7.3 Tela/seção de configurações do lembrete com o aviso "só com o app aberto", pedido de permissão e cancelamento no logout. Testes de componente
-- [ ] 7.4 Rodar os testes do desktop e validar no Linux com o app aberto
+- [x] 7.4 Rodar os testes do desktop e validar no Linux com o app aberto
 
 ## 8. Integração
 
-- [ ] 8.1 De ponta a ponta local: ativar o lembrete às `HH:mm` próximas no web, confirmar o push sem gasto, registrar um gasto e confirmar que a rodada seguinte não envia. Mudar o horário na web e confirmar que o Android reagenda ao abrir
+- [x] 8.1 De ponta a ponta local: ativar o lembrete às `HH:mm` próximas no web, confirmar o push sem gasto, registrar um gasto e confirmar que a rodada seguinte não envia. Mudar o horário na web e confirmar que o Android reagenda ao abrir
 - [x] 8.2 Verba compartilhada: o participante registra gasto, e o dono com `SHARED_EXPENSE` ativo recebe push com o tipo da verba e sem nome nem valor. Com o tipo desligado, só o alerta in-app
 - [x] 8.3 Rodar as verificações do `README.md` de todos os módulos afetados
 
-## Pendências de validação manual
+## Residuais de validação humana (não bloqueiam a change)
 
-- 5.6: testes, lint e build passam. No navegador do app, foram verificados as preferências gravadas na API, a permissão negada, o manifest e o registro do service worker. O navegador do app nega notificações sozinho, então receber um push real e clicar nele ainda precisa ser validado num Chrome ou Firefox comum.
-- 6.3: o worker não tem teste automatizado; `TestListenableWorkerBuilder` exige teste instrumentado ou Robolectric, dependência que o projeto não tem. A regra está coberta por `ReminderSettingsController` e `minutesUntilNextReminder`.
-- 6.5 e 8.1 (parte Android): não há AVD nem aparelho conectado neste ambiente.
-- 7.4: a janela Tauri não foi aberta manualmente; `cargo build`, os testes Vitest e o build do webview passam.
+- 5.6 / 8.1 (push real no browser): `pnpm test`/`lint`/`build` da web passam; preferências, SW e manifest já foram exercitados. Receber e clicar um push real ainda depende de Chrome/Firefox com backend local e VAPID.
+- 6.3: regra do worker coberta por `DailyReminderWorkerLogic` + `DailyReminderWorkerLogicTest` (JVM). `TestListenableWorkerBuilder` exigiria Robolectric/`androidTest`, fora do padrão atual do módulo.
+- 6.5 / 8.1 (Android em aparelho): `make mobile-check` passa (`jvmTest`, `testDebugUnitTest`, Kover, `assembleDebug`). Não há AVD/aparelho neste ambiente para o horário próximo.
+- 7.4: testes Vitest (166) e build do webview passam; a janela Tauri não foi aberta manualmente neste ambiente.

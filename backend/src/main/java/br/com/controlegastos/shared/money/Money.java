@@ -57,6 +57,12 @@ public final class Money implements Comparable<Money> {
         return brl(amount.subtract(other.amount));
     }
 
+    /** Multiplica por uma quantidade inteira positiva; o resultado continua exato em duas casas. */
+    public Money multiply(long quantity) {
+        if (quantity <= 0) throw new IllegalArgumentException("A quantidade deve ser maior que zero");
+        return brl(amount.multiply(BigDecimal.valueOf(quantity)));
+    }
+
     public boolean isNegative() {
         return amount.signum() < 0;
     }

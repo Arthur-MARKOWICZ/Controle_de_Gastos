@@ -15,7 +15,7 @@ class AndroidApiGateway(
     /** Diretório privado onde os relatórios baixados ficam até serem compartilhados. */
     private val cacheDir: File,
 ) : AuthGateway, EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway,
-    RecurringGateway, NotificationGateway {
+    RecurringGateway, NotificationGateway, InvestmentsGateway {
 
     // ---------------------------------------------------------------- sessão
 
@@ -484,6 +484,108 @@ class AndroidApiGateway(
         target.outputStream().use(stream::copyTo)
         DownloadedReport(fileName = fileName, location = target.absolutePath)
     }
+
+    // ------------------------------------------------------------- carteira (ADR-0034)
+
+    override suspend fun loadSummary(): PortfolioSummaryView {
+        val body = client.requestJson(
+            "GET",
+            "/api/v1/investments/summary",
+            failure = "Não foi possível carregar sua carteira",
+        )
+        return PortfolioSummaryView(
+            complete = body.getBoolean("complete"),
+            totalCost = money(body.getJSONObject("totalCost")),
+            totalCurrent = money(body.getJSONObject("totalCurrent")),
+            totalPnl = money(body.getJSONObject("totalPnl")),
+            stocks = body.getJSONArray("stocks").mapObjects(::readPortfolioStock),
+            cdbs = body.getJSONArray("cdbs").mapObjects(::readPortfolioCdb),
+        )
+    }
+
+    override suspend fun registerStockLot(input: NewStockLot): StockLotView {
+        val body = client.requestJson(
+            "POST",
+            "/api/v1/investments/stocks",
+            jsonBody = JSONObject()
+                .put("ticker", input.ticker)
+                .put("quantity", input.quantity)
+                .put("unitPrice", moneyJson(input.unitPrice))
+                .put("purchaseDate", input.purchaseDate)
+                .toString(),
+            failure = "Não foi possível cadastrar o lote de ação",
+        )
+        return StockLotView(
+            id = body.getString("id"),
+            ticker = body.getString("ticker"),
+            quantity = body.getLong("quantity"),
+            unitPrice = money(body.getJSONObject("unitPrice")),
+            acquisitionCost = money(body.getJSONObject("acquisitionCost")),
+            purchaseDate = body.getString("purchaseDate"),
+            createdAt = body.getString("createdAt"),
+            currentValue = body.optJSONObject("currentValue")?.let(::money),
+        )
+    }
+
+    override suspend fun deleteStockLot(id: String) {
+        client.request("DELETE", "/api/v1/investments/stocks/$id")
+            .orThrow("Não foi possível excluir o lote de ação")
+    }
+
+    override suspend fun registerCdb(input: NewCdbPosition): CdbPositionView {
+        val body = client.requestJson(
+            "POST",
+            "/api/v1/investments/cdbs",
+            jsonBody = JSONObject()
+                .put("principal", moneyJson(input.principal))
+                .put("annualRate", input.annualRate)
+                .put("startDate", input.startDate)
+                .put("maturityDate", input.maturityDate)
+                .toString(),
+            failure = "Não foi possível cadastrar o CDB",
+        )
+        return CdbPositionView(
+            id = body.getString("id"),
+            principal = money(body.getJSONObject("principal")),
+            annualRate = body.getString("annualRate"),
+            startDate = body.getString("startDate"),
+            maturityDate = body.getString("maturityDate"),
+            estimatedValue = money(body.getJSONObject("estimatedValue")),
+            createdAt = body.getString("createdAt"),
+        )
+    }
+
+    override suspend fun deleteCdb(id: String) {
+        client.request("DELETE", "/api/v1/investments/cdbs/$id")
+            .orThrow("Não foi possível excluir o CDB")
+    }
+
+    private fun readPortfolioStock(json: JSONObject) = PortfolioStockPositionView(
+        ticker = json.getString("ticker"),
+        quantity = json.getLong("quantity"),
+        averagePrice = money(json.getJSONObject("averagePrice")),
+        acquisitionCost = money(json.getJSONObject("acquisitionCost")),
+        currentValue = json.optJSONObject("currentValue")?.let(::money),
+        pnl = json.optJSONObject("pnl")?.let(::money),
+        lots = json.getJSONArray("lots").mapObjects { lot ->
+            PortfolioStockLotDetailView(
+                id = lot.getString("id"),
+                quantity = lot.getLong("quantity"),
+                unitPrice = money(lot.getJSONObject("unitPrice")),
+                acquisitionCost = money(lot.getJSONObject("acquisitionCost")),
+                purchaseDate = lot.getString("purchaseDate"),
+                currentValue = lot.optJSONObject("currentValue")?.let(::money),
+                pnl = lot.optJSONObject("pnl")?.let(::money),
+            )
+        },
+    )
+
+    private fun readPortfolioCdb(json: JSONObject) = PortfolioCdbPositionView(
+        id = json.getString("id"),
+        principal = money(json.getJSONObject("principal")),
+        estimatedValue = money(json.getJSONObject("estimatedValue")),
+        pnl = money(json.getJSONObject("pnl")),
+    )
 
     // ---------------------------------------------------------------- leitura
 

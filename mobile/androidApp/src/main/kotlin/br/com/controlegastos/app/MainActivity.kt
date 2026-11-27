@@ -50,6 +50,7 @@ class MainActivity : ComponentActivity() {
                     sharing = gateway,
                     recurring = gateway,
                     notifications = gateway,
+                    investments = gateway,
                 ),
                 // Data e mês de referência vêm da plataforma, no mesmo fuso que o
                 // backend usa para resolver o mês corrente.

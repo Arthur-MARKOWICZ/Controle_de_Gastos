@@ -73,4 +73,4 @@
 
 ## 9. Verificação integrada
 
-- [ ] 9.1 Rodar `make check` completo e o workflow de PR, confirmar que todos os jobs passam e publicam cobertura, e atualizar as issues #95 e #102 marcando os itens entregues
+- [x] 9.1 Rodar `make check` completo e o workflow de PR, confirmar que todos os jobs passam e publicam cobertura, e atualizar as issues #95 e #102 marcando os itens entregues

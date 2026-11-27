@@ -55,6 +55,16 @@ app:
       login-challenge-lifetime: ${AUTH_MFA_LOGIN_CHALLENGE_LIFETIME:5m}
       pending-setup-lifetime: ${AUTH_MFA_PENDING_SETUP_LIFETIME:10m}
       recovery-session-lifetime: ${AUTH_MFA_RECOVERY_SESSION_LIFETIME:10m}
+  investments:
+    quotes:
+      # Cotação de ações da B3 pela brapi.dev (ADR-0035). Sem token, as rodadas
+      # ficam desligadas e a API responde com as cotações já gravadas ou nulas.
+      brapi-token: ${INVESTMENTS_QUOTES_BRAPI_TOKEN:}
+      brapi-base-url: ${INVESTMENTS_QUOTES_BRAPI_BASE_URL:https://brapi.dev}
+      # Acima disso o plano gratuito deixa de ter folga no mês (ADR-0035).
+      max-tickers: ${INVESTMENTS_QUOTES_MAX_TICKERS:30}
+      trading-cron: "0 0/30 10-17 * * MON-FRI"
+      missing-cron: "0 15 * * * *"
   notifications:
     # Web Push (ADR-0033). Sem as chaves, o envio fica desligado e o resto funciona.
     vapid:

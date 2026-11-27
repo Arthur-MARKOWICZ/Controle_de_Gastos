@@ -41,6 +41,7 @@ dependencies {
     implementation("dev.samstevens.totp:totp:1.7.1")
     implementation("com.google.zxing:core:3.5.4")
     implementation("com.google.zxing:javase:3.5.4")
+    implementation("ch.obermuhlner:big-math:2.3.2")
     runtimeOnly("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 

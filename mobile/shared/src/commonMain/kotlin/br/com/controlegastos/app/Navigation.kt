@@ -37,6 +37,7 @@ sealed interface Route {
     data object Reports : Route
     data object Security : Route
     data object IncomeHistory : Route
+    data object Carteira : Route
     data class EnvelopeEntries(val envelopeId: String, val envelopeName: String) : Route
 }
 
@@ -50,6 +51,7 @@ val Route.title: String
         Route.Reports -> "Relatórios"
         Route.Security -> "Segurança"
         Route.IncomeHistory -> "Histórico de renda"
+        Route.Carteira -> "Carteira"
         is Route.EnvelopeEntries -> envelopeName
     }
 
