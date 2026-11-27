@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ThemeSelector } from "../../theme/ThemeSelector";
 import styles from "./AppShell.module.css";
 
-type Destination = "overview" | "envelopes" | "goals" | "annual" | "expenses" | "reports" | "settings";
+type Destination = "overview" | "envelopes" | "goals" | "annual" | "expenses" | "reports" | "carteira" | "settings";
 
 const destinations: Array<{ id: Destination; href: string; index: string; label: string }> = [
   { id: "overview", href: "/", index: "01", label: "Visão geral" },
@@ -13,7 +13,8 @@ const destinations: Array<{ id: Destination; href: string; index: string; label:
   { id: "annual", href: "/gastos-anuais", index: "04", label: "Gastos anuais" },
   { id: "expenses", href: "/gastos", index: "05", label: "Histórico" },
   { id: "reports", href: "/relatorios", index: "06", label: "Relatórios" },
-  { id: "settings", href: "/configuracoes", index: "07", label: "Configurações" },
+  { id: "carteira", href: "/carteira", index: "07", label: "Carteira" },
+  { id: "settings", href: "/configuracoes", index: "08", label: "Configurações" },
 ];
 
 export function AppShell({ current, email, onLogout, children }: {

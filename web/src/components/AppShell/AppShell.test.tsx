@@ -40,4 +40,29 @@ describe("AppShell", () => {
     expect(historico.getAttribute("aria-current")).toBe("page");
     expect(anuais.getAttribute("aria-current")).toBeNull();
   });
+
+  it("exibe Carteira como destino distinto antes de Configurações e marca como página atual em /carteira", () => {
+    render(
+      <ThemeProvider>
+        <AppShell current="carteira" email="pessoa@example.com" onLogout={vi.fn()}>
+          <h1>Carteira</h1>
+        </AppShell>
+      </ThemeProvider>,
+    );
+
+    const carteira = screen.getByRole("link", { name: "Carteira" });
+    const verbas = screen.getByRole("link", { name: "Verbas" });
+    const metas = screen.getByRole("link", { name: "Metas" });
+    const historico = screen.getByRole("link", { name: "Histórico" });
+
+    expect(carteira.getAttribute("href")).toBe("/carteira");
+    expect(carteira.getAttribute("aria-current")).toBe("page");
+    expect(carteira.textContent).not.toBe(verbas.textContent);
+    expect(carteira.textContent).not.toBe(metas.textContent);
+    expect(carteira.textContent).not.toBe(historico.textContent);
+
+    const navLinks = screen.getByRole("navigation", { name: "Navegação principal" }).querySelectorAll("a");
+    const hrefs = Array.from(navLinks).map((link) => link.getAttribute("href"));
+    expect(hrefs.indexOf("/carteira")).toBeLessThan(hrefs.indexOf("/configuracoes"));
+  });
 });

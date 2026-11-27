@@ -16,6 +16,7 @@ data class VerbasGateways(
     val sharing: SharingGateway,
     val recurring: RecurringGateway = UnavailableGateway,
     val notifications: NotificationGateway = UnavailableGateway,
+    val investments: InvestmentsGateway = UnavailableGateway,
 ) {
     companion object {
         val Unavailable = VerbasGateways(
@@ -35,7 +36,7 @@ private const val UNAVAILABLE = "Dados financeiros não configurados para esta p
 /** Usado pelo iOS, que ainda não tem cliente HTTP (ADR-004). */
 object UnavailableGateway :
     EnvelopeGateway, LedgerGateway, IncomeGateway, ReportGateway, AlertGateway, SharingGateway, RecurringGateway,
-    NotificationGateway {
+    NotificationGateway, InvestmentsGateway {
     override suspend fun listEnvelopes(month: YearMonth?): List<EnvelopeView> = error(UNAVAILABLE)
     override suspend fun createEnvelope(envelope: NewEnvelope): EnvelopeView = error(UNAVAILABLE)
     override suspend fun updateEnvelope(id: String, edit: EnvelopeEdit): EnvelopeView = error(UNAVAILABLE)
@@ -86,4 +87,10 @@ object UnavailableGateway :
         to: String,
         format: ReportFormat,
     ): DownloadedReport = error(UNAVAILABLE)
+
+    override suspend fun loadSummary(): PortfolioSummaryView = error(UNAVAILABLE)
+    override suspend fun registerStockLot(input: NewStockLot): StockLotView = error(UNAVAILABLE)
+    override suspend fun deleteStockLot(id: String) = error(UNAVAILABLE)
+    override suspend fun registerCdb(input: NewCdbPosition): CdbPositionView = error(UNAVAILABLE)
+    override suspend fun deleteCdb(id: String) = error(UNAVAILABLE)
 }

@@ -199,6 +199,80 @@ export type ConfirmOccurrenceRequest = { amount?: MoneyDTO; occurredAt?: string 
 
 export type OccurrenceConfirmationDTO = { id: string; status: "CONFIRMED"; ledgerEntryId: string };
 
+export type PortfolioStockLotDetailDTO = {
+  id: string;
+  quantity: number;
+  unitPrice: MoneyDTO;
+  acquisitionCost: MoneyDTO;
+  purchaseDate: string;
+  currentValue: MoneyDTO | null;
+  pnl: MoneyDTO | null;
+};
+
+export type PortfolioStockPositionDTO = {
+  ticker: string;
+  quantity: number;
+  averagePrice: MoneyDTO;
+  acquisitionCost: MoneyDTO;
+  currentValue: MoneyDTO | null;
+  pnl: MoneyDTO | null;
+  lots: PortfolioStockLotDetailDTO[];
+};
+
+export type PortfolioCdbPositionDTO = {
+  id: string;
+  principal: MoneyDTO;
+  estimatedValue: MoneyDTO;
+  pnl: MoneyDTO;
+};
+
+export type PortfolioSummaryDTO = {
+  complete: boolean;
+  totalCost: MoneyDTO;
+  totalCurrent: MoneyDTO;
+  totalPnl: MoneyDTO;
+  stocks: PortfolioStockPositionDTO[];
+  cdbs: PortfolioCdbPositionDTO[];
+};
+
+export type RegisterStockLotRequest = {
+  ticker: string;
+  quantity: number;
+  unitPrice: MoneyDTO;
+  purchaseDate: string;
+};
+
+export type StockQuoteDTO = { price: MoneyDTO; quotedAt: string };
+
+export type StockLotDTO = {
+  id: string;
+  ticker: string;
+  quantity: number;
+  unitPrice: MoneyDTO;
+  acquisitionCost: MoneyDTO;
+  purchaseDate: string;
+  createdAt: string;
+  currentQuote: StockQuoteDTO | null;
+  currentValue: MoneyDTO | null;
+};
+
+export type RegisterCdbRequest = {
+  principal: MoneyDTO;
+  annualRate: string;
+  startDate: string;
+  maturityDate: string;
+};
+
+export type CdbPositionDTO = {
+  id: string;
+  principal: MoneyDTO;
+  annualRate: string;
+  startDate: string;
+  maturityDate: string;
+  estimatedValue: MoneyDTO;
+  createdAt: string;
+};
+
 export class ApiError extends Error {
   public readonly requiredMinimum?: string;
   public readonly shortfall?: string;
@@ -481,6 +555,37 @@ export function createApiClient(authClient: AuthClient) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ endpoint }),
         })
+        .then(handleResponse<void>);
+    },
+    getPortfolioSummary(): Promise<PortfolioSummaryDTO> {
+      return authClient.request("/api/v1/investments/summary").then(handleResponse<PortfolioSummaryDTO>);
+    },
+    registerStockLot(body: RegisterStockLotRequest): Promise<StockLotDTO> {
+      return authClient
+        .request("/api/v1/investments/stocks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        .then(handleResponse<StockLotDTO>);
+    },
+    deleteStockLot(id: string): Promise<void> {
+      return authClient
+        .request(`/api/v1/investments/stocks/${encodeURIComponent(id)}`, { method: "DELETE" })
+        .then(handleResponse<void>);
+    },
+    registerCdb(body: RegisterCdbRequest): Promise<CdbPositionDTO> {
+      return authClient
+        .request("/api/v1/investments/cdbs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        .then(handleResponse<CdbPositionDTO>);
+    },
+    deleteCdb(id: string): Promise<void> {
+      return authClient
+        .request(`/api/v1/investments/cdbs/${encodeURIComponent(id)}`, { method: "DELETE" })
         .then(handleResponse<void>);
     },
   };

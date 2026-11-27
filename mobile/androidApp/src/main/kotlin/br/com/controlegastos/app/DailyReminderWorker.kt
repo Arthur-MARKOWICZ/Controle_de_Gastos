@@ -20,15 +20,23 @@ import androidx.work.WorkerParameters
 class DailyReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val time = inputData.getString(AndroidReminderScheduler.KEY_TIME) ?: return Result.success()
+        val time = inputData.getString(AndroidReminderScheduler.KEY_TIME)
         val client = SharedApiClient.get(applicationContext)
-        if (!client.hasStoredSession) return Result.success()
-
-        val hasExpense = runCatching { AndroidApiGateway(client, applicationContext.cacheDir).hasExpenseToday() }.getOrNull()
-        if (hasExpense == false && AndroidReminderScheduler.canNotify(applicationContext)) {
-            notifyNoExpense()
+        val hasExpense = if (client.hasStoredSession) {
+            runCatching { AndroidApiGateway(client, applicationContext.cacheDir).hasExpenseToday() }.getOrNull()
+        } else {
+            null
         }
-        AndroidReminderScheduler.scheduleDailyReminder(applicationContext, time)
+        val plan = DailyReminderWorkerLogic.plan(
+            reminderTime = time,
+            hasStoredSession = client.hasStoredSession,
+            hasExpenseToday = hasExpense,
+            canNotify = AndroidReminderScheduler.canNotify(applicationContext),
+        )
+        if (plan.shouldNotify) notifyNoExpense()
+        if (plan.shouldReschedule && time != null) {
+            AndroidReminderScheduler.scheduleDailyReminder(applicationContext, time)
+        }
         return Result.success()
     }
 
@@ -43,7 +51,7 @@ class DailyReminderWorker(context: Context, params: WorkerParameters) : Coroutin
         }
         val open = Intent(applicationContext, MainActivity::class.java)
             .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            .putExtra(MainActivity.EXTRA_QUICK_EXPENSE, true)
+            .putExtra(DailyReminderWorkerLogic.QUICK_EXPENSE_EXTRA, true)
         val pending = PendingIntent.getActivity(
             applicationContext,
             0,

@@ -6,6 +6,7 @@ export const PAGE_TITLES = {
   gastos: "Histórico",
   gastosAnuais: "Gastos anuais",
   relatorios: "Relatórios",
+  carteira: "Carteira",
   configuracoes: "Configurações",
   seguranca: "Segurança",
   recuperarSenha: "Recuperar senha",

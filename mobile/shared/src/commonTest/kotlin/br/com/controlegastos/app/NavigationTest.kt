@@ -78,6 +78,18 @@ class NavigationTest {
         assertEquals("Relatórios", Route.Reports.title)
         assertEquals("Segurança", Route.Security.title)
         assertEquals("Histórico de renda", Route.IncomeHistory.title)
+        assertEquals("Carteira", Route.Carteira.title)
         assertEquals("Combustível", Route.EnvelopeEntries("e-1", "Combustível").title)
+    }
+
+    @Test
+    fun `pushes Carteira from More while keeping bottom bar with 5 items`() {
+        val opened = listOf<Route>(Route.More).push(Route.Carteira)
+
+        assertEquals(Route.Carteira, opened.current)
+        assertEquals(Route.More, opened.topLevel)
+        assertTrue(opened.canGoBack)
+        assertEquals(5, TOP_LEVEL_ROUTES.size)
+        assertEquals(Route.More, opened.pop().current)
     }
 }
