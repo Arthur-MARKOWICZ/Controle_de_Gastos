@@ -1,9 +1,10 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EnvelopeDTO } from "../../lib/api";
 import { QuickExpenseDialog } from "./QuickExpenseDialog";
 
 const createEntry = vi.fn();
+const getExpenseSuggestions = vi.fn();
 
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {
@@ -25,13 +26,19 @@ vi.mock("../../lib/api", async (importOriginal) => {
     createApiClient: () => ({
       createEntry,
       getLedgerSummary: vi.fn(),
+      getExpenseSuggestions,
     }),
   };
 });
 
+beforeEach(() => {
+  createEntry.mockReset();
+  getExpenseSuggestions.mockReset();
+  getExpenseSuggestions.mockResolvedValue({ asOf: "2026-11-27T12:00:00-03:00", items: [] });
+});
+
 afterEach(() => {
   cleanup();
-  createEntry.mockReset();
 });
 
 const envelopes: EnvelopeDTO[] = [
@@ -115,5 +122,52 @@ describe("QuickExpenseDialog", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Reserva/i }));
     expect(screen.getByRole("button", { name: "Registrar aporte" })).toBeDefined();
+  });
+
+  it("pré-seleciona verba e valor da primeira sugestão sem enviar gasto", async () => {
+    getExpenseSuggestions.mockResolvedValueOnce({
+      asOf: "2026-11-27T12:00:00-03:00",
+      items: [{ envelopeId: "env-1", name: "Mercado", suggestedAmount: { amount: "32.50", currency: "BRL" } }],
+    });
+    const onSuccess = vi.fn();
+
+    render(
+      <QuickExpenseDialog open envelopes={envelopes} onClose={vi.fn()} onSuccess={onSuccess} />,
+    );
+
+    await waitFor(() => {
+      expect((screen.getByLabelText("Verba") as HTMLSelectElement).value).toBe("env-1");
+      expect((screen.getByLabelText("Valor (BRL)") as HTMLInputElement).value).toBe("32,50");
+    });
+    expect(createEntry).not.toHaveBeenCalled();
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it("com suggestedAmount nulo seleciona a verba e deixa o valor vazio", async () => {
+    getExpenseSuggestions.mockResolvedValueOnce({
+      asOf: "2026-11-27T12:00:00-03:00",
+      items: [{ envelopeId: "env-1", name: "Mercado", suggestedAmount: null }],
+    });
+
+    render(
+      <QuickExpenseDialog open envelopes={envelopes} onClose={vi.fn()} onSuccess={vi.fn()} />,
+    );
+
+    await waitFor(() => {
+      expect((screen.getByLabelText("Verba") as HTMLSelectElement).value).toBe("env-1");
+    });
+    expect((screen.getByLabelText("Valor (BRL)") as HTMLInputElement).value).toBe("");
+  });
+
+  it("com lista vazia mantém a heurística da primeira verba spendable", async () => {
+    getExpenseSuggestions.mockResolvedValueOnce({ asOf: "2026-11-27T12:00:00-03:00", items: [] });
+
+    render(
+      <QuickExpenseDialog open envelopes={envelopes} onClose={vi.fn()} onSuccess={vi.fn()} />,
+    );
+
+    await waitFor(() => expect(getExpenseSuggestions).toHaveBeenCalled());
+    expect((screen.getByLabelText("Verba") as HTMLSelectElement).value).toBe("env-1");
+    expect((screen.getByLabelText("Valor (BRL)") as HTMLInputElement).value).toBe("");
   });
 });

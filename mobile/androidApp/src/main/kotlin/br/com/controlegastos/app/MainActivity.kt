@@ -21,19 +21,22 @@ class MainActivity : ComponentActivity() {
     /** App Link do login social; a activity é singleTask e pode recebê-lo já aberta. */
     private var pendingOAuthCallback by mutableStateOf<OAuthCallback?>(null)
 
-    /** Toque no lembrete diário: abre o lançamento rápido. */
+    /** Toque no lembrete diário / widget / tile: abre o lançamento rápido. */
     private var quickExpenseIntent by mutableStateOf(false)
+
+    /** Verba forçada pelo widget (UUID); nulo no atalho genérico. */
+    private var quickExpenseEnvelopeId by mutableStateOf<String?>(null)
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         oauthCallbackOf(intent)?.let { pendingOAuthCallback = it }
-        if (intent.getBooleanExtra(EXTRA_QUICK_EXPENSE, false)) quickExpenseIntent = true
+        applyQuickExpenseExtras(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         pendingOAuthCallback = oauthCallbackOf(intent)
-        quickExpenseIntent = intent.getBooleanExtra(EXTRA_QUICK_EXPENSE, false)
+        applyQuickExpenseExtras(intent)
         val client = SharedApiClient.get(applicationContext)
         val reminderScheduler = AndroidReminderScheduler(this)
         val gateway = AndroidApiGateway(client, applicationContext.cacheDir)
@@ -72,12 +75,23 @@ class MainActivity : ComponentActivity() {
                 onOAuthCallbackHandled = { pendingOAuthCallback = null },
                 reminderScheduler = reminderScheduler,
                 quickExpenseIntent = quickExpenseIntent,
-                onQuickExpenseIntentHandled = { quickExpenseIntent = false },
+                quickExpenseEnvelopeId = quickExpenseEnvelopeId,
+                onQuickExpenseIntentHandled = {
+                    quickExpenseIntent = false
+                    quickExpenseEnvelopeId = null
+                },
             )
         }
     }
 
+    private fun applyQuickExpenseExtras(intent: Intent) {
+        if (!intent.getBooleanExtra(EXTRA_QUICK_EXPENSE, false)) return
+        quickExpenseIntent = true
+        quickExpenseEnvelopeId = intent.getStringExtra(EXTRA_ENVELOPE_ID)?.takeIf { it.isNotBlank() }
+    }
+
     companion object {
         const val EXTRA_QUICK_EXPENSE = "br.com.controlegastos.QUICK_EXPENSE"
+        const val EXTRA_ENVELOPE_ID = "br.com.controlegastos.ENVELOPE_ID"
     }
 }

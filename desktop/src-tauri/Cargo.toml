@@ -18,10 +18,13 @@ tauri-build = { version = "2", features = [] }
 # A sessão e o HTTP autenticado vivem num crate sem Tauri, para `cargo test`
 # rodar sem o toolchain de GUI (WebKitGTK no Linux).
 verbas-session = { path = "../session" }
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["tray-icon"] }
 # Lembrete diário com o app aberto (ADR-0033). Usado só pelo lado Rust, por
 # comandos da aplicação: o webview não recebe permissão direta do plugin.
 tauri-plugin-notification = "2"
+# Atalho global de SO e autostart (ADR-0029 emendado; Linux validável).
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-autostart = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", default-features = false, features = ["rt-multi-thread", "sync"] }

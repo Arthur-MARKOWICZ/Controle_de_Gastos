@@ -62,12 +62,13 @@ internal fun EntrySheet(
     today: String,
     onSubmit: (envelopeId: String, entry: NewLedgerEntry, result: FormResult) -> Unit,
     onDismiss: () -> Unit,
+    initialAmountDigits: String = "",
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var envelopeId by remember {
         mutableStateOf(initialEnvelopeId ?: envelopes.singleOrNull()?.id)
     }
-    var digits by remember { mutableStateOf("") }
+    var digits by remember { mutableStateOf(AmountInput.sanitize(initialAmountDigits)) }
     var occurredAt by remember { mutableStateOf(defaultOccurredAt(month, today).orEmpty()) }
     var description by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }

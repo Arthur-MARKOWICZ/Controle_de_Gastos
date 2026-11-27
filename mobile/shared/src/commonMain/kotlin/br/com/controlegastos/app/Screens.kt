@@ -38,6 +38,7 @@ private sealed interface MonthDialog {
         val envelopes: List<EnvelopeView>,
         val initialEnvelopeId: String?,
         val kind: LedgerKind,
+        val initialAmountDigits: String = "",
     ) : MonthDialog
     data class Edit(val envelope: EnvelopeView) : MonthDialog
     data class Archive(val envelope: EnvelopeView) : MonthDialog
@@ -77,6 +78,7 @@ internal fun MonthWorkspaceScreen(
     onSessionExpired: () -> Unit = {},
     onMonthChanged: (YearMonth) -> Unit = {},
     quickExpenseRequested: Boolean = false,
+    quickExpenseEnvelopeId: String? = null,
     onQuickExpenseHandled: () -> Unit = {},
     /** Incrementado pela casca após Desfazer, para espelhar o controller no estado local. */
     panelSyncToken: Int = 0,
@@ -92,12 +94,20 @@ internal fun MonthWorkspaceScreen(
     var pendingError by remember(recurring) { mutableStateOf<String?>(null) }
     var pendingBusyId by remember(recurring) { mutableStateOf<String?>(null) }
 
-    androidx.compose.runtime.LaunchedEffect(quickExpenseRequested) {
+    androidx.compose.runtime.LaunchedEffect(quickExpenseRequested, quickExpenseEnvelopeId) {
         if (quickExpenseRequested) {
+            val envelopes = controller.expenseEnvelopes
+            val suggestions = runCatching { controller.loadExpenseSuggestions() }.getOrNull()
+            val prefill = resolveExpensePrefill(
+                suggestions = suggestions,
+                forcedEnvelopeId = quickExpenseEnvelopeId,
+                spendableIds = envelopes.map { it.id }.toSet(),
+            )
             dialog = MonthDialog.Entry(
-                envelopes = controller.expenseEnvelopes,
-                initialEnvelopeId = null,
+                envelopes = envelopes,
+                initialEnvelopeId = prefill.envelopeId,
                 kind = LedgerKind.EXPENSE,
+                initialAmountDigits = prefill.amountDigits,
             )
             onQuickExpenseHandled()
         }
@@ -353,6 +363,7 @@ internal fun MonthWorkspaceScreen(
         is MonthDialog.Entry -> EntrySheet(
             envelopes = open.envelopes,
             initialEnvelopeId = open.initialEnvelopeId,
+            initialAmountDigits = open.initialAmountDigits,
             kind = open.kind,
             month = controller.month,
             today = today,

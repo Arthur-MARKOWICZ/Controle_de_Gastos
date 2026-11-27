@@ -95,6 +95,7 @@ class EndpointAuthorizationApiIntegrationTest {
                 Arguments.of("DELETE", "/api/v1/ledger/entries/" + ANY),
                 Arguments.of("GET", "/api/v1/ledger/entries/" + ANY + "/revisions"),
                 Arguments.of("GET", "/api/v1/ledger/summary"),
+                Arguments.of("GET", "/api/v1/ledger/expense-suggestions"),
                 Arguments.of("GET", "/api/v1/history?from=2026-09-01&to=2026-09-30"),
                 Arguments.of("GET", "/api/v1/history/summary?from=2026-09-01&to=2026-09-30"),
                 Arguments.of("GET", "/api/v1/reports/expenses-by-purpose?from=2026-09-01&to=2026-09-30&format=csv"),

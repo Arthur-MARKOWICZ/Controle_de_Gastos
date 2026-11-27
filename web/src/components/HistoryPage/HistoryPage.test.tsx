@@ -119,6 +119,7 @@ vi.mock("../../lib/api", async (importOriginal) => {
         }),
       ),
       getEnvelopes: vi.fn().mockImplementation(() => Promise.resolve(apiState.envelopes)),
+      getExpenseSuggestions: vi.fn().mockResolvedValue({ asOf: "2026-11-27T12:00:00-03:00", items: [] }),
       updateHistoryEntry,
       deleteHistoryEntry,
       createEntry,

@@ -88,6 +88,7 @@ function QuickExpenseForm({
   }, [envelopes, initialEnvelopeId]);
 
   const [chosenId, setChosenId] = useState<string | null>(null);
+  const [suggestionApplied, setSuggestionApplied] = useState(false);
   const selectedId = chosenId && envelopes.some((e) => e.id === chosenId) ? chosenId : defaultSelectedId;
 
   const [amountMask, setAmountMask] = useState("");
@@ -115,6 +116,29 @@ function QuickExpenseForm({
       cancelled = true;
     };
   }, [providedEnvelopes, month, api]);
+
+  useEffect(() => {
+    if (initialEnvelopeId || suggestionApplied || envelopes.length === 0) return;
+    let cancelled = false;
+    api
+      .getExpenseSuggestions()
+      .then((reply) => {
+        if (cancelled || reply.items.length === 0) return;
+        const first = reply.items[0];
+        if (!envelopes.some((e) => e.id === first.envelopeId)) return;
+        setChosenId(first.envelopeId);
+        if (first.suggestedAmount) {
+          setAmountMask(formatBRLInputMask(first.suggestedAmount.amount.replace(".", "")));
+        }
+        setSuggestionApplied(true);
+      })
+      .catch(() => {
+        /* fallback: heurística defaultSelectedId / valor vazio */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, envelopes, initialEnvelopeId, suggestionApplied]);
 
   const selected = envelopes.find((e) => e.id === selectedId) ?? null;
   const kind: "EXPENSE" | "CONTRIBUTION" =

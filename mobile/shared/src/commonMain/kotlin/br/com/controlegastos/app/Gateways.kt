@@ -70,6 +70,7 @@ object UnavailableGateway :
     override suspend fun loadDashboard(month: YearMonth?): FinancialDashboard = error(UNAVAILABLE)
     override suspend fun listEntries(envelopeId: String, month: YearMonth?): List<LedgerEntryView> = error(UNAVAILABLE)
     override suspend fun createEntry(envelopeId: String, entry: NewLedgerEntry): LedgerEntryView = error(UNAVAILABLE)
+    override suspend fun loadExpenseSuggestions(): ExpenseSuggestions = error(UNAVAILABLE)
     override suspend fun loadHistory(
         from: String,
         to: String,

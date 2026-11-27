@@ -86,6 +86,8 @@ class FinanceDashboardController(
     val expenseEnvelopes: List<EnvelopeView>
         get() = dashboard?.envelopes.orEmpty().expenseEnvelopes()
 
+    suspend fun loadExpenseSuggestions(): ExpenseSuggestions = ledger.loadExpenseSuggestions()
+
     /**
      * @param envelopeName nome conhecido por quem chamou, para o lançamento feito
      * de uma tela cujo mês não é o do painel ainda ser confirmado pelo nome certo.

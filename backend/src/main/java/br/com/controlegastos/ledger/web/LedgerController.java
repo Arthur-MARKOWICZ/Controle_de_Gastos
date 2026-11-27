@@ -4,6 +4,7 @@ import br.com.controlegastos.envelopes.application.EnvelopeService;
 import br.com.controlegastos.envelopes.domain.Envelope;
 import br.com.controlegastos.identity.application.AuthenticationService;
 import br.com.controlegastos.income.application.IncomeQuery;
+import br.com.controlegastos.ledger.application.ExpenseSuggestionService;
 import br.com.controlegastos.ledger.application.LedgerService;
 import br.com.controlegastos.shared.money.Money;
 import java.math.BigDecimal;
@@ -24,15 +25,30 @@ public class LedgerController {
 
     private final EnvelopeService envelopes;
     private final LedgerService ledger;
+    private final ExpenseSuggestionService suggestions;
     private final IncomeQuery incomes;
     private final AuthenticationService authentication;
 
     LedgerController(EnvelopeService envelopes, LedgerService ledger,
+                     ExpenseSuggestionService suggestions,
                      IncomeQuery incomes, AuthenticationService authentication) {
         this.envelopes = envelopes;
         this.ledger = ledger;
+        this.suggestions = suggestions;
         this.incomes = incomes;
         this.authentication = authentication;
+    }
+
+    @GetMapping("/expense-suggestions")
+    ExpenseSuggestionsResponse expenseSuggestions() {
+        ExpenseSuggestionService.SuggestionResult result = suggestions.suggest();
+        List<ExpenseSuggestionItem> items = result.items().stream()
+                .map(item -> new ExpenseSuggestionItem(
+                        item.envelopeId(),
+                        item.name(),
+                        item.suggestedAmount() == null ? null : MoneyJson.Dto.of(item.suggestedAmount())))
+                .toList();
+        return new ExpenseSuggestionsResponse(result.asOf().toOffsetDateTime().toString(), items);
     }
 
     @GetMapping("/summary")
@@ -106,4 +122,6 @@ public class LedgerController {
     record IncomeDTO(String amount, String currency, String effectiveFrom, Instant changedAt) {}
     record SummaryEnvelope(UUID id, UUID ownerId, String name, String purpose, MoneyDTO baseAmount, MoneyDTO targetAmount, Instant targetReachedAt, AnnualExpenseDTO annualExpense, GoalProgressDTO goalProgress, MoneyDTO available, boolean isNegative, String role, boolean wealthAllocation, Instant createdAt, Instant archivedAt, long version) {}
     record SummaryResponse(IncomeDTO income, MoneyDTO allocated, MoneyDTO unallocated, BigDecimal usagePct, List<SummaryEnvelope> envelopes) {}
+    record ExpenseSuggestionItem(UUID envelopeId, String name, MoneyJson.Dto suggestedAmount) {}
+    record ExpenseSuggestionsResponse(String asOf, List<ExpenseSuggestionItem> items) {}
 }

@@ -651,6 +651,21 @@ paths:
         '404':
           description: Alerta inexistente ou de outro titular
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /ledger/expense-suggestions:
+     get:
+       summary: Sugestões de verba e valor para lançamento rápido de gasto
+       description: >
+         Ordena até três verbas em que a pessoa pode registrar EXPENSE, com base na
+         frequência do próprio histórico (dia da semana e faixa horária em
+         America/Sao_Paulo). Sem ML e sem cache. suggestedAmount pode ser nulo.
+       security: [{ bearerAuth: [] }]
+       responses:
+         '200':
+           description: Sugestões no momento da consulta
+           content:
+             application/json:
+               schema: { $ref: '#/components/schemas/ExpenseSuggestions' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
   /ledger/summary:
      get:
        summary: Resumo financeiro do mês (renda, alocado, não alocado, verbas com saldo)
@@ -1417,6 +1432,24 @@ components:
         page: { type: integer, minimum: 0 }
         size: { type: integer, minimum: 1, maximum: 100 }
         hasNext: { type: boolean }
+    ExpenseSuggestionItem:
+      type: object
+      required: [envelopeId, name, suggestedAmount]
+      properties:
+        envelopeId: { type: string, format: uuid }
+        name: { type: string }
+        suggestedAmount:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/Money' }]
+    ExpenseSuggestions:
+      type: object
+      required: [asOf, items]
+      properties:
+        asOf: { type: string, format: date-time, description: Instantâneo da consulta em America/Sao_Paulo }
+        items:
+          type: array
+          maxItems: 3
+          items: { $ref: '#/components/schemas/ExpenseSuggestionItem' }
     LedgerSummary:
       type: object
       required: [income, allocated, unallocated, usagePct, envelopes]

@@ -37,6 +37,29 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".ExpenseSuggestionsWidgetReceiver"
+            android:exported="true"
+            android:label="Verbas — lançamento rápido">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/expense_suggestions_widget_info" />
+        </receiver>
+
+        <service
+            android:name=".QuickExpenseTileService"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/quick_expense_tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.relatorios"

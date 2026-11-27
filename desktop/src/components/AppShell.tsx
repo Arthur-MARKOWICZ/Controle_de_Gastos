@@ -1,8 +1,8 @@
 import { House, Wallet } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { BrandMark } from "./BrandMark";
 import { useTheme } from "./ThemeProvider";
-import type { ThemeMode } from "../lib/ipc";
+import { autostartGet, autostartSet, type ThemeMode } from "../lib/ipc";
 import styles from "./AppShell.module.css";
 
 /** Ícones Phosphor outline a 20px. `Envelope` não entra: é e-mail. */
@@ -40,6 +40,28 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const { mode, setMode } = useTheme();
+  const [autostart, setAutostart] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    autostartGet()
+      .then((enabled) => {
+        if (active) setAutostart(enabled);
+      })
+      .catch(() => {
+        /* fora do Tauri ou plugin indisponível: permanece desligado */
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function toggleAutostart(next: boolean) {
+    setAutostart(next);
+    void autostartSet(next).catch(() => {
+      setAutostart(!next);
+    });
+  }
 
   return (
     <div className={styles.shell}>
@@ -91,6 +113,22 @@ export function AppShell({
               ))}
             </select>
           </div>
+
+          <div className={styles.themeRow}>
+            <label className={styles.themeLabel} htmlFor="autostart">
+              Iniciar com o sistema
+            </label>
+            <input
+              id="autostart"
+              type="checkbox"
+              checked={autostart}
+              onChange={(event) => toggleAutostart(event.target.checked)}
+              aria-describedby="autostart-hint"
+            />
+          </div>
+          <p id="autostart-hint" className={styles.account}>
+            Preferência só neste computador. Desligado por padrão.
+          </p>
 
           {onOpenReminder ? (
             <button className={styles.logout} type="button" onClick={onOpenReminder}>

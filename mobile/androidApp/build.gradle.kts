@@ -117,6 +117,9 @@ dependencies {
     implementation(libs.androidx.browser)
     // Lembrete diário local (ADR-0033).
     implementation(libs.androidx.work.runtime)
+    // Widget Glance + material3 (lançamento 1 toque).
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
     implementation(libs.kotlinx.coroutines.core)
     implementation("org.jetbrains.compose.foundation:foundation:1.12.0")
     implementation("org.jetbrains.compose.ui:ui:1.12.0")
