@@ -290,6 +290,12 @@ internal fun previousIsoDay(iso: String): String {
     return previous.lastDay()
 }
 
+/** Desloca uma data ISO por [delta] dias (negativo = passado). */
+internal fun shiftIsoDays(iso: String, delta: Int): String {
+    if (delta == 0) return iso
+    return utcMillisToIsoDate(isoDateToUtcMillis(iso) + delta.toLong() * MILLIS_PER_DAY)
+}
+
 internal fun isoDateToUtcMillis(iso: String): Long {
     val year = iso.substring(0, 4).toInt()
     val month = iso.substring(5, 7).toInt()

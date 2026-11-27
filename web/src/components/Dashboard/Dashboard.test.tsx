@@ -281,21 +281,22 @@ describe("Dashboard", () => {
     expect(screen.getByRole("button", { name: /glossário/i })).toBeDefined();
   });
 
-  it("limita a prévia a quatro verbas e mantém o link para ver todas", () => {
+  it("limita a prévia a cinco verbas prioritárias e mantém o link para ver todas", () => {
     ledgerHook.summary = {
       ...happyLedgerSummary(),
       envelopes: [
         ...summaryEnvelopes(),
         { id: "4", name: "Lazer", purpose: "LIMIT", baseAmount: { amount: "200.00", currency: "BRL" }, available: { amount: "100.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
         { id: "5", name: "Farmácia", purpose: "LIMIT", baseAmount: { amount: "150.00", currency: "BRL" }, available: { amount: "150.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
+        { id: "6", name: "Viagem", purpose: "LIMIT", baseAmount: { amount: "300.00", currency: "BRL" }, available: { amount: "300.00", currency: "BRL" }, isNegative: false, role: "OWNER", wealthAllocation: false, createdAt: new Date().toISOString(), archivedAt: null, version: 0 },
       ],
     };
 
     render(<Dashboard email="pessoa@example.com" onLogout={vi.fn()} />);
 
-    const preview = screen.getByRole("region", { name: "Suas verbas" });
-    expect(within(preview).getAllByRole("progressbar")).toHaveLength(4);
-    expect(within(preview).queryByRole("heading", { name: "Farmácia" })).toBeNull();
+    const preview = screen.getByRole("region", { name: "Verbas prioritárias" });
+    expect(within(preview).getAllByRole("progressbar")).toHaveLength(5);
+    expect(within(preview).queryByRole("heading", { name: "Viagem" })).toBeNull();
     expect(within(preview).getByRole("link", { name: /Ver todas/ })).toBeDefined();
   });
 

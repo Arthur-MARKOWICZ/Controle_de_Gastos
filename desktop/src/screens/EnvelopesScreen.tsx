@@ -25,7 +25,7 @@ export function EnvelopesScreen({
 }: ScreenProps) {
   const { state } = useSummary(month, revision, onAuthRequired);
   const envelopes = state.kind === "ready" ? state.summary.envelopes : [];
-  const { openFor, dialog } = useExpenseCapture(envelopes, onRegistered);
+  const { openFor, dialog, toast } = useExpenseCapture(envelopes, onRegistered);
   const [recurringOpen, setRecurringOpen] = useState<string | null>(null);
 
   return (
@@ -114,6 +114,7 @@ export function EnvelopesScreen({
       ) : null}
 
       {dialog}
+      {toast}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { House, Wallet } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
+import { BrandMark } from "./BrandMark";
 import { useTheme } from "./ThemeProvider";
 import type { ThemeMode } from "../lib/ipc";
 import styles from "./AppShell.module.css";
@@ -49,6 +50,7 @@ export function AppShell({
       <div className={styles.sidebar}>
         {/* `data-tauri-drag-region` arrasta a janela sem decoração nativa. */}
         <div className={styles.titlebar} data-tauri-drag-region>
+          <span className={styles.brandIcon}><BrandMark size={20} /></span>
           Verbas
         </div>
 

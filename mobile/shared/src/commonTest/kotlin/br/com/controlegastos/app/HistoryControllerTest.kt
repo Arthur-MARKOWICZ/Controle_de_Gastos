@@ -120,14 +120,83 @@ class HistoryControllerTest {
         val state = controller.state as HistoryState.Error
         assertTrue(state.message.contains("criou a verba"), state.message)
     }
+
+    @Test
+    fun `period chips switch from to ranges`() = runSuspend {
+        val gateway = FakeHistoryGateway()
+        val controller = HistoryController(gateway, YearMonth(2026, 9))
+        val today = "2026-09-15"
+
+        assertEquals(HistoryPeriodPreset.THIS_MONTH, controller.periodPreset(today))
+
+        controller.showLast7Days(today)
+        assertEquals("2026-09-09" to "2026-09-15", gateway.lastPeriod)
+        assertEquals(HistoryPeriodPreset.LAST_7, controller.periodPreset(today))
+
+        controller.showPreviousCalendarMonth()
+        assertEquals("2026-08-01" to "2026-08-31", gateway.lastPeriod)
+        assertEquals(HistoryPeriodPreset.PREV_MONTH, controller.periodPreset(today))
+
+        controller.showThisMonth(today)
+        assertEquals("2026-09-01" to "2026-09-15", gateway.lastPeriod)
+        assertEquals(HistoryPeriodPreset.THIS_MONTH, controller.periodPreset(today))
+    }
+
+    @Test
+    fun `custom period and next previous paging keep content on soft failure`() = runSuspend {
+        val gateway = FakeHistoryGateway(hasNext = true)
+        val controller = HistoryController(gateway, YearMonth(2026, 9))
+        controller.refresh()
+        assertEquals(HistoryPeriodPreset.THIS_MONTH, controller.periodPreset("2026-09-30"))
+
+        controller.showNextMonth()
+        assertEquals(YearMonth(2026, 10), controller.month)
+        assertEquals(HistoryPeriodPreset.CUSTOM, controller.periodPreset("2026-09-15"))
+
+        controller.nextPage()
+        assertEquals(1, controller.page)
+        controller.previousPage()
+        assertEquals(0, controller.page)
+        controller.previousPage()
+        assertEquals(0, controller.page)
+
+        gateway.failure = ApiException(500, "INTERNAL", "")
+        controller.refresh()
+        assertTrue(controller.state is HistoryState.Content)
+        assertTrue(controller.lastFailure is ApiException)
+    }
+
+    @Test
+    fun `includes deleted entries edits and lists revisions`() = runSuspend {
+        val gateway = FakeHistoryGateway()
+        val controller = HistoryController(gateway, YearMonth(2026, 9))
+        controller.refresh()
+        assertTrue(!controller.refreshing)
+
+        controller.showDeleted(true)
+        assertTrue(controller.includeDeleted)
+        assertEquals(true, gateway.lastIncludeDeleted)
+
+        controller.editEntry(
+            "entry-1",
+            LedgerEntryEdit(envelopeId = "env-1", amount = Money(200), description = "x"),
+        )
+        assertEquals(listOf("entry-1"), gateway.updated)
+
+        val revisions = controller.listRevisions("entry-1")
+        assertEquals(1, revisions.size)
+        assertEquals("UPDATE", revisions[0].action)
+    }
 }
 
 private class FakeHistoryGateway(private val hasNext: Boolean = false) : LedgerGateway {
     var lastPeriod: Pair<String, String>? = null
     var lastFilter: HistoryFilter? = null
+    var lastIncludeDeleted: Boolean? = null
     var loads = 0
     var failure: Throwable? = null
     val deleted = mutableListOf<String>()
+    val updated = mutableListOf<String>()
 
     override suspend fun loadHistory(
         from: String,
@@ -135,10 +204,12 @@ private class FakeHistoryGateway(private val hasNext: Boolean = false) : LedgerG
         page: Int,
         includeDeleted: Boolean,
         filter: HistoryFilter,
+        size: Int,
     ): HistoryPageView {
         failure?.let { throw it }
         lastPeriod = from to to
         lastFilter = filter
+        lastIncludeDeleted = includeDeleted
         loads++
         return HistoryPageView(emptyList(), page, hasNext)
     }
@@ -155,7 +226,30 @@ private class FakeHistoryGateway(private val hasNext: Boolean = false) : LedgerG
     override suspend fun loadDashboard(month: YearMonth?): FinancialDashboard = error("não usado")
     override suspend fun listEntries(envelopeId: String, month: YearMonth?): List<LedgerEntryView> = error("não usado")
     override suspend fun createEntry(envelopeId: String, entry: NewLedgerEntry): LedgerEntryView = error("não usado")
-    override suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView = error("não usado")
+    override suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView {
+        updated += id
+        return LedgerEntryView(
+            id = id,
+            envelopeId = edit.envelopeId,
+            kind = LedgerKind.EXPENSE,
+            amount = edit.amount,
+            occurredAt = "2026-09-10",
+            description = edit.description,
+        )
+    }
+
     override suspend fun listEntryRevisions(id: String, page: Int) =
-        LedgerEntryRevisionPageView(emptyList(), false)
+        LedgerEntryRevisionPageView(
+            items = listOf(
+                LedgerEntryRevisionView(
+                    id = "rev-1",
+                    action = "UPDATE",
+                    previousAmount = Money(100),
+                    previousDescription = null,
+                    previousEnvelopeId = "env-1",
+                    changedAt = "2026-09-10T12:00:00Z",
+                ),
+            ),
+            hasNext = false,
+        )
 }

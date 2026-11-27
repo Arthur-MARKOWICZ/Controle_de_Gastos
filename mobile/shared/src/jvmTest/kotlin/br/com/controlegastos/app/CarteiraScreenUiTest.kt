@@ -203,7 +203,7 @@ class CarteiraScreenUiTest {
         waitForIdle()
 
         onNodeWithText("Valor aplicado").performTextReplacement("1000000")
-        onNodeWithText("Taxa anual decimal").performTextInput("0.1250")
+        onNodeWithText("Taxa anual (% a.a.)").performTextInput("12,50")
         onNodeWithText("Data de início").performTextInput("2026-01-01")
         onNodeWithText("Data de vencimento").performTextInput("2027-01-01")
         onNodeWithText("Salvar CDB").performClick()

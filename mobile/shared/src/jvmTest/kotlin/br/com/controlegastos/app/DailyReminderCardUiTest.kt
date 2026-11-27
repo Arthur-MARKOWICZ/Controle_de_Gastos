@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
 
-/** Cartão do lembrete na tela Mais (spec ui-mobile/lembrete-diario). */
+/** Cartão do lembrete (spec ui-mobile/lembrete-diario); isolado da tela Mais. */
 @OptIn(ExperimentalTestApi::class)
 class DailyReminderCardUiTest {
 
@@ -37,9 +37,7 @@ class DailyReminderCardUiTest {
         val scheduler = Scheduler(granted = false)
         val controller = ReminderSettingsController(gateway, scheduler)
         setContent {
-            VerbasTheme(darkTheme = false) {
-                MoreScreen("pessoa@example.com", ThemeMode.SYSTEM, {}, {}, controller, {})
-            }
+            VerbasTheme(darkTheme = false) { DailyReminderCard(controller) }
         }
         waitForIdle()
 
@@ -56,9 +54,7 @@ class DailyReminderCardUiTest {
         val gateway = Notifications().apply { stored = NotificationPreferencesView(true, false, false, "21:45") }
         val controller = ReminderSettingsController(gateway, Scheduler(granted = true))
         setContent {
-            VerbasTheme(darkTheme = false) {
-                MoreScreen("pessoa@example.com", ThemeMode.SYSTEM, {}, {}, controller, {})
-            }
+            VerbasTheme(darkTheme = false) { DailyReminderCard(controller) }
         }
         waitForIdle()
 
@@ -90,9 +86,9 @@ class DailyReminderCardUiTest {
         override fun cancel() { cancels++ }
     }
 
-    private fun androidx.compose.ui.test.ComposeUiTest.showMore(controller: ReminderSettingsController) {
+    private fun androidx.compose.ui.test.ComposeUiTest.showCard(controller: ReminderSettingsController) {
         setContent {
-            VerbasTheme(darkTheme = false) { MoreScreen("pessoa@example.com", ThemeMode.SYSTEM, {}, {}, controller, {}) }
+            VerbasTheme(darkTheme = false) { DailyReminderCard(controller) }
         }
         waitForIdle()
     }
@@ -101,7 +97,7 @@ class DailyReminderCardUiTest {
     fun `ativar com permissao salva na API e agenda no horario escolhido`() = runComposeUiTest {
         val gateway = ConfigurableNotifications()
         val scheduler = AllowedScheduler()
-        showMore(ReminderSettingsController(gateway, scheduler))
+        showCard(ReminderSettingsController(gateway, scheduler))
 
         onNodeWithText("Lembrete diário").performClick()
         waitForIdle()
@@ -114,7 +110,7 @@ class DailyReminderCardUiTest {
     fun `trocar o horario reagenda o lembrete ativo`() = runComposeUiTest {
         val gateway = ConfigurableNotifications(NotificationPreferencesView(true, false, false, "20:00"))
         val scheduler = AllowedScheduler()
-        showMore(ReminderSettingsController(gateway, scheduler))
+        showCard(ReminderSettingsController(gateway, scheduler))
 
         onNodeWithText("Horário: 20:00").performClick()
         // O item fica fora da área visível do menu; a ação semântica não depende da posição.
@@ -130,7 +126,7 @@ class DailyReminderCardUiTest {
     fun `desativar cancela o agendamento no aparelho`() = runComposeUiTest {
         val gateway = ConfigurableNotifications(NotificationPreferencesView(true, false, false, "20:00"))
         val scheduler = AllowedScheduler()
-        showMore(ReminderSettingsController(gateway, scheduler))
+        showCard(ReminderSettingsController(gateway, scheduler))
 
         onNodeWithText("Lembrete diário").performClick()
         waitForIdle()
@@ -144,7 +140,7 @@ class DailyReminderCardUiTest {
     fun `falha ao carregar bloqueia o interruptor e nao agenda nada`() = runComposeUiTest {
         val gateway = ConfigurableNotifications(loadFailure = IllegalStateException("rede"))
         val scheduler = AllowedScheduler()
-        showMore(ReminderSettingsController(gateway, scheduler))
+        showCard(ReminderSettingsController(gateway, scheduler))
 
         onNodeWithText("Não foi possível carregar o lembrete.").assertExists()
         onNodeWithText("Horário: 20:00").assertIsNotEnabled()
@@ -157,7 +153,7 @@ class DailyReminderCardUiTest {
         val gateway = ConfigurableNotifications(saveFailure = IllegalStateException("500"))
         val scheduler = AllowedScheduler()
         val controller = ReminderSettingsController(gateway, scheduler)
-        showMore(controller)
+        showCard(controller)
 
         onNodeWithText("Lembrete diário").performClick()
         waitForIdle()
@@ -169,7 +165,7 @@ class DailyReminderCardUiTest {
 
     @Test
     fun `sessao expirada ao carregar pede para entrar de novo`() = runComposeUiTest {
-        showMore(ReminderSettingsController(ConfigurableNotifications(loadFailure = ApiException(401, "", "")), AllowedScheduler()))
+        showCard(ReminderSettingsController(ConfigurableNotifications(loadFailure = ApiException(401, "", "")), AllowedScheduler()))
 
         onNodeWithText("Sua sessão expirou. Entre novamente.").assertExists()
     }

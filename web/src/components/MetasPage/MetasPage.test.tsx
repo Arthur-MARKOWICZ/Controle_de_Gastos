@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EnvelopeDTO } from "../../lib/api";
+import { ToastProvider } from "../ui/ToastProvider";
 import { MetasPage } from "./MetasPage";
 
 const state = vi.hoisted(() => ({
@@ -22,7 +23,22 @@ vi.mock("../ui/Dialog", () => ({
     open ? <div role="dialog" aria-label={title}>{children}</div> : null,
 }));
 vi.mock("../EnvelopeForm/EnvelopeForm", () => ({ EnvelopeForm: () => <form aria-label="Formulário de meta" /> }));
-vi.mock("../ExpenseForm/ExpenseForm", () => ({ ExpenseForm: () => <form aria-label="Formulário de aporte" /> }));
+vi.mock("../ExpenseForm/ExpenseForm", () => ({
+  ExpenseForm: ({
+    onSuccess,
+  }: {
+    onSuccess(result: { entryId: string; targetJustReached: boolean; balanceAfter: string | null }): void;
+  }) => (
+    <form aria-label="Formulário de aporte">
+      <button
+        type="button"
+        onClick={() => onSuccess({ entryId: "entry-1", targetJustReached: false, balanceAfter: null })}
+      >
+        Confirmar aporte mock
+      </button>
+    </form>
+  ),
+}));
 vi.mock("../ParticipantsPanel/ParticipantsPanel", () => ({ ParticipantsPanel: () => <div /> }));
 vi.mock("../EnvelopeCard/EnvelopeCard", () => ({
   EnvelopeCard: ({ envelope, onArchive, onToggleWealthAllocation, onRegisterExpense }: {
@@ -54,6 +70,14 @@ function problem(status: number, detail: string) {
   return new Response(JSON.stringify({ status, code: "X", detail, title: "x" }), { status, headers: { "Content-Type": "application/json" } });
 }
 
+function renderPage() {
+  return render(
+    <ToastProvider>
+      <MetasPage email="p@example.com" onLogout={vi.fn()} />
+    </ToastProvider>,
+  );
+}
+
 beforeEach(() => {
   state.request.mockReset();
   state.refresh.mockReset();
@@ -66,7 +90,7 @@ afterEach(cleanup);
 describe("MetasPage", () => {
   it("separa metas de aporte e de acumulação, ignorando outras verbas", () => {
     withEnvelopes(envelope("aporte", "GOAL"), envelope("alvo", "SAVINGS_TARGET"), envelope("mercado", "LIMIT"));
-    render(<MetasPage email="p@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     expect(screen.getByRole("region", { name: "Metas de aporte" }).textContent).toContain("Meta aporte");
     expect(screen.getByRole("region", { name: "Metas de acumulação" }).textContent).toContain("Meta alvo");
@@ -76,7 +100,7 @@ describe("MetasPage", () => {
   it("encerrar uma meta pede confirmação, arquiva e recarrega", async () => {
     withEnvelopes(envelope("aporte", "GOAL"));
     state.request.mockResolvedValueOnce(new Response(null, { status: 204 }));
-    render(<MetasPage email="p@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     fireEvent.click(screen.getByText("Encerrar Meta aporte"));
     fireEvent.click(screen.getByRole("button", { name: "Encerrar" }));
@@ -88,7 +112,7 @@ describe("MetasPage", () => {
 
   it("participante abre o formulário como gasto, não como aporte", () => {
     withEnvelopes(envelope("compartilhada", "GOAL", "PARTICIPANT"));
-    render(<MetasPage email="p@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     fireEvent.click(screen.getByText("Aportar Meta compartilhada"));
 
@@ -96,14 +120,14 @@ describe("MetasPage", () => {
   });
 
   it("sem metas mostra o estado vazio nas duas seções", () => {
-    render(<MetasPage email="p@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     expect(screen.getAllByText("Nenhuma meta criada ainda.")).toHaveLength(2);
   });
 
   it("erro ao carregar mostra a mensagem e permite tentar de novo", () => {
     state.error = "Sessão expirada";
-    render(<MetasPage email="p@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     expect(screen.getByText(/Sessão expirada/)).toBeDefined();
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
@@ -113,7 +137,7 @@ describe("MetasPage", () => {
   it("falha ao encerrar a meta mostra o erro da API e não anuncia sucesso", async () => {
     withEnvelopes(envelope("aporte", "GOAL"));
     state.request.mockResolvedValueOnce(problem(403, "Somente o proprietário pode arquivar a verba"));
-    render(<MetasPage email="p@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     fireEvent.click(screen.getByText("Encerrar Meta aporte"));
     fireEvent.click(screen.getByRole("button", { name: "Encerrar" }));
@@ -125,7 +149,7 @@ describe("MetasPage", () => {
   it("conflito ao marcar patrimônio mostra mensagem de falha", async () => {
     withEnvelopes(envelope("aporte", "GOAL"));
     state.request.mockResolvedValueOnce(problem(409, "A verba foi alterada em outra requisição"));
-    render(<MetasPage email="p@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     fireEvent.click(screen.getByText("Patrimônio Meta aporte"));
 
@@ -136,12 +160,33 @@ describe("MetasPage", () => {
   it("falha de rede ao encerrar não deixa a confirmação aberta nem quebra a página", async () => {
     withEnvelopes(envelope("aporte", "GOAL"));
     state.request.mockRejectedValueOnce(new TypeError("Failed to fetch"));
-    render(<MetasPage email="p@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     fireEvent.click(screen.getByText("Encerrar Meta aporte"));
     fireEvent.click(screen.getByRole("button", { name: "Encerrar" }));
 
     await waitFor(() => expect(screen.getByText("Failed to fetch")).toBeDefined());
     expect(screen.queryByRole("button", { name: "Encerrar" })).toBeNull();
+  });
+
+  it("ao registrar aporte mostra toast com Desfazer e remove o lançamento", async () => {
+    withEnvelopes(envelope("aporte", "GOAL"));
+    state.request.mockResolvedValue(new Response(null, { status: 204 }));
+    renderPage();
+
+    fireEvent.click(screen.getByText("Aportar Meta aporte"));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar aporte mock" }));
+
+    expect(await screen.findByRole("button", { name: "Desfazer" })).toBeDefined();
+    expect(screen.getAllByText("Aporte registrado.").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    await waitFor(() =>
+      expect(state.request).toHaveBeenCalledWith(
+        "/api/v1/ledger/entries/entry-1",
+        expect.objectContaining({ method: "DELETE" }),
+      ),
+    );
+    expect(await screen.findByText("Lançamento desfeito.")).toBeDefined();
   });
 });

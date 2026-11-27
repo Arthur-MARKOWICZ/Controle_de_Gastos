@@ -6,6 +6,14 @@ sealed interface HistoryState {
     data class Error(val message: String) : HistoryState
 }
 
+/** Presets de período alinhados ao Histórico web (DESIGN 5A). */
+enum class HistoryPeriodPreset {
+    THIS_MONTH,
+    PREV_MONTH,
+    LAST_7,
+    CUSTOM,
+}
+
 /**
  * Histórico de lançamentos de um período.
  *
@@ -15,9 +23,15 @@ sealed interface HistoryState {
  */
 class HistoryController(
     private val gateway: LedgerGateway,
-    currentMonth: YearMonth,
+    private val referenceMonth: YearMonth,
 ) {
-    var month: YearMonth = currentMonth
+    var month: YearMonth = referenceMonth
+        private set
+
+    var from: String = referenceMonth.firstDay()
+        private set
+
+    var to: String = referenceMonth.lastDay()
         private set
 
     var page: Int = 0
@@ -47,14 +61,26 @@ class HistoryController(
     var lastFailure: Throwable? = null
         private set
 
+    fun periodPreset(today: String): HistoryPeriodPreset {
+        val thisMonthFrom = referenceMonth.firstDay()
+        val previous = referenceMonth.previous()
+        val lastSevenFrom = shiftIsoDays(today, -6)
+        return when {
+            from == thisMonthFrom && (to == today || to == referenceMonth.lastDay()) -> HistoryPeriodPreset.THIS_MONTH
+            from == previous.firstDay() && to == previous.lastDay() -> HistoryPeriodPreset.PREV_MONTH
+            from == lastSevenFrom && to == today -> HistoryPeriodPreset.LAST_7
+            else -> HistoryPeriodPreset.CUSTOM
+        }
+    }
+
     suspend fun refresh() {
         val keepContent = state is HistoryState.Content
         if (keepContent) refreshing = true else state = HistoryState.Loading
         try {
             lastFailure = null
             state = HistoryState.Content(
-                summary = gateway.loadHistorySummary(month.firstDay(), month.lastDay()),
-                page = gateway.loadHistory(month.firstDay(), month.lastDay(), page, includeDeleted, filter()),
+                summary = gateway.loadHistorySummary(from, to),
+                page = gateway.loadHistory(from, to, page, includeDeleted, filter()),
             )
         } catch (failure: Throwable) {
             lastFailure = failure
@@ -66,8 +92,38 @@ class HistoryController(
         }
     }
 
+    suspend fun showThisMonth(today: String) {
+        month = referenceMonth
+        from = referenceMonth.firstDay()
+        to = today
+        page = 0
+        state = HistoryState.Loading
+        refresh()
+    }
+
+    suspend fun showPreviousCalendarMonth() {
+        val previous = referenceMonth.previous()
+        month = previous
+        from = previous.firstDay()
+        to = previous.lastDay()
+        page = 0
+        state = HistoryState.Loading
+        refresh()
+    }
+
+    suspend fun showLast7Days(today: String) {
+        from = shiftIsoDays(today, -6)
+        to = today
+        month = YearMonth.parse(today.substring(0, 7))
+        page = 0
+        state = HistoryState.Loading
+        refresh()
+    }
+
     suspend fun showPreviousMonth() {
         month = month.previous()
+        from = month.firstDay()
+        to = month.lastDay()
         page = 0
         state = HistoryState.Loading
         refresh()
@@ -75,6 +131,8 @@ class HistoryController(
 
     suspend fun showNextMonth() {
         month = month.next()
+        from = month.firstDay()
+        to = month.lastDay()
         page = 0
         state = HistoryState.Loading
         refresh()
@@ -160,4 +218,18 @@ internal fun historyListContent(page: HistoryPageView, filtersActive: Boolean): 
         else -> HistoryEmptyState("Nenhum lançamento neste período.", offerClearFilters = false)
     }
     return HistoryListContent(total, empty)
+}
+
+/** Agrupa lançamentos por dia, mais recentes primeiro. */
+internal fun groupHistoryByDay(items: List<HistoryItemView>): List<Pair<String, List<HistoryItemView>>> =
+    items
+        .groupBy { it.entry.occurredAt }
+        .toList()
+        .sortedByDescending { it.first }
+
+/** Cabeçalho de dia: Hoje / Ontem / data pt-BR. */
+internal fun formatHistoryDayHeading(isoDate: String, today: String): String = when (isoDate) {
+    today -> "Hoje · ${formatIsoDateBr(isoDate)}"
+    previousIsoDay(today) -> "Ontem · ${formatIsoDateBr(isoDate)}"
+    else -> formatIsoDateBr(isoDate)
 }

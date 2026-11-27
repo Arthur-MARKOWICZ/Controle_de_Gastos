@@ -47,7 +47,9 @@ describe("ExpenseForm", () => {
 
     fireEvent.submit(screen.getByLabelText("Valor (BRL)").closest("form")!);
 
-    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith({ targetJustReached: false, balanceAfter: "-60.50" }));
+    await waitFor(() =>
+      expect(onSuccess).toHaveBeenCalledWith({ entryId: "e1", targetJustReached: false, balanceAfter: "-60.50" }),
+    );
   });
 
   it("não mostra prévia de saldo para aporte", async () => {
@@ -60,7 +62,9 @@ describe("ExpenseForm", () => {
 
     fireEvent.submit(screen.getByLabelText("Valor (BRL)").closest("form")!);
 
-    await waitFor(() => expect(onSuccess).toHaveBeenCalledWith({ targetJustReached: true, balanceAfter: null }));
+    await waitFor(() =>
+      expect(onSuccess).toHaveBeenCalledWith({ entryId: "e1", targetJustReached: true, balanceAfter: null }),
+    );
   });
 
   it("liga o erro de valor ao próprio campo e move o foco para ele", async () => {

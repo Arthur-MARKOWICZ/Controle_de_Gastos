@@ -227,6 +227,7 @@ class AndroidApiGateway(
         page: Int,
         includeDeleted: Boolean,
         filter: HistoryFilter,
+        size: Int,
     ): HistoryPageView {
         val body = client.requestJson(
             "GET", "/api/v1/history",
@@ -234,7 +235,7 @@ class AndroidApiGateway(
                 "from" to from,
                 "to" to to,
                 "page" to page.toString(),
-                "size" to "20",
+                "size" to size.toString(),
                 "includeDeleted" to includeDeleted.takeIf { it }?.toString(),
                 "q" to filter.query.trim().takeIf { it.isNotEmpty() },
                 "envelopeId" to filter.envelopeId,

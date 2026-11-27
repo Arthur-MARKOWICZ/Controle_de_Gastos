@@ -9,7 +9,9 @@ import { AppShell } from "../AppShell/AppShell";
 import { Dialog } from "../ui/Dialog";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Notice } from "../ui/Notice";
+import { useToast } from "../ui/ToastProvider";
 import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
 import { PageHeader } from "../ui/PageHeader";
 import { EnvelopeCard } from "../EnvelopeCard/EnvelopeCard";
 import { EnvelopeForm } from "../EnvelopeForm/EnvelopeForm";
@@ -24,6 +26,7 @@ const ARCHIVE_MESSAGE =
 export function AnnualExpensesPage({ email, onLogout }: { email: string; onLogout(): void }) {
   const { summary, loading, busy, error, refresh } = useLedgerSummary();
   const { client } = useAuth();
+  const { showToast } = useToast();
   const api = useMemo(() => createApiClient(client), [client]);
   const [creating, setCreating] = useState(false);
   const [expense, setExpense] = useState<EnvelopeDTO | null>(null);
@@ -168,7 +171,25 @@ export function AnnualExpensesPage({ email, onLogout }: { email: string; onLogou
             onCancel={() => setExpense(null)}
             onSuccess={(result) => {
               setExpense(null);
-              setFeedback(`Gasto registrado${overdraftNotice(result)}.`);
+              const message = `Gasto registrado${overdraftNotice(result)}.`;
+              setFeedback(message);
+              showToast({
+                message,
+                action: {
+                  label: "Desfazer",
+                  onClick: () => {
+                    void createApiClient(client)
+                      .deleteHistoryEntry(result.entryId)
+                      .then(() => {
+                        setFeedback("Lançamento desfeito.");
+                        void refresh();
+                      })
+                      .catch(() => {
+                        setFeedback("Não foi possível desfazer o lançamento.");
+                      });
+                  },
+                },
+              });
               void refresh();
             }}
           />
@@ -254,46 +275,46 @@ function AnnualExpenseEditForm({
     }
   }
   return (
-    <form className={styles.filtersBar} onSubmit={submit}>
+    <form className={styles.dialogForm} onSubmit={submit}>
       {error && <Notice tone="danger">{error}</Notice>}
-      <label htmlFor="annual-edit-amount">Valor anual (BRL)</label>
-      <input
-        id="annual-edit-amount"
-        inputMode="decimal"
-        value={amount}
-        onChange={(event) => setAmount(formatBRLInputMask(event.target.value))}
-        required
-      />
-      <label htmlFor="annual-edit-month">Mês</label>
-      <input
-        id="annual-edit-month"
-        type="number"
-        min="1"
-        max="12"
-        value={dueMonth}
-        onChange={(event) => setDueMonth(event.target.value)}
-        required
-      />
-      <label htmlFor="annual-edit-day">Dia</label>
-      <input
-        id="annual-edit-day"
-        type="number"
-        min="1"
-        max="31"
-        value={dueDay}
-        onChange={(event) => setDueDay(event.target.value)}
-        required
-      />
-      <label htmlFor="annual-edit-mode">Reserva</label>
-      <select
-        id="annual-edit-mode"
-        value={fundingMode}
-        onChange={(event) => setFundingMode(event.target.value as "MONTHLY" | "ONE_TIME")}
-      >
-        <option value="MONTHLY">Mensal</option>
-        <option value="ONE_TIME">Pagamento único</option>
-      </select>
-      <div>
+      <Field id="annual-edit-amount" label="Valor anual (BRL)">
+        <input
+          inputMode="decimal"
+          value={amount}
+          onChange={(event) => setAmount(formatBRLInputMask(event.target.value))}
+          required
+        />
+      </Field>
+      <Field id="annual-edit-month" label="Mês">
+        <input
+          type="number"
+          min="1"
+          max="12"
+          value={dueMonth}
+          onChange={(event) => setDueMonth(event.target.value)}
+          required
+        />
+      </Field>
+      <Field id="annual-edit-day" label="Dia">
+        <input
+          type="number"
+          min="1"
+          max="31"
+          value={dueDay}
+          onChange={(event) => setDueDay(event.target.value)}
+          required
+        />
+      </Field>
+      <Field id="annual-edit-mode" label="Reserva">
+        <select
+          value={fundingMode}
+          onChange={(event) => setFundingMode(event.target.value as "MONTHLY" | "ONE_TIME")}
+        >
+          <option value="MONTHLY">Mensal</option>
+          <option value="ONE_TIME">Pagamento único</option>
+        </select>
+      </Field>
+      <div className={styles.dialogFormActions}>
         <Button variant="secondary" onClick={onCancel}>
           Cancelar
         </Button>

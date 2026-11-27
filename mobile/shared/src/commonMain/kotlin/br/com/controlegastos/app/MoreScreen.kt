@@ -57,17 +57,47 @@ internal fun MoreScreen(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Text(
+                        "Planejamento",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                    NavigationRow("Metas", "Acompanhe o quanto já foi guardado") {
+                        onOpen(Route.Goals)
+                    }
                     NavigationRow("Gastos anuais", "Provisões que vencem uma vez por ano") {
                         onOpen(Route.AnnualExpenses)
                     }
+                    NavigationRow("Relatórios", "Exportar o período em planilha") { onOpen(Route.Reports) }
+                }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Text(
+                        "Patrimônio",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
                     NavigationRow("Carteira", "Ações B3 e CDBs separados do orçamento") {
                         onOpen(Route.Carteira)
                     }
-                    NavigationRow("Relatórios", "Exportar o período em planilha") { onOpen(Route.Reports) }
+                }
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Text(
+                        "Conta",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                    NavigationRow("Segurança", "Senha, MFA e contas conectadas") { onOpen(Route.Security) }
                     NavigationRow("Histórico de renda", "Como a renda mudou ao longo do tempo") {
                         onOpen(Route.IncomeHistory)
                     }
-                    NavigationRow("Segurança", "Senha, MFA e contas conectadas") { onOpen(Route.Security) }
                 }
             }
         }
@@ -125,7 +155,7 @@ private fun NavigationRow(title: String, subtitle: String, onClick: () -> Unit) 
  * ficam na API; os outros avisos aparecem só dentro do app neste canal.
  */
 @Composable
-private fun DailyReminderCard(reminder: ReminderSettingsController) {
+internal fun DailyReminderCard(reminder: ReminderSettingsController) {
     var state by remember(reminder) { mutableStateOf(reminder.state) }
     var choosingTime by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()

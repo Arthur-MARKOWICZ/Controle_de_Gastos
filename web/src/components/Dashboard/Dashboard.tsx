@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import styles from "./Dashboard.module.css";
 import { useEnvelopes } from "../../hooks/useEnvelopes";
 import { useLedgerSummary } from "../../hooks/useLedgerSummary";
 import { useIncome, useIncomeHistory } from "../../hooks/useIncome";
-import { currentMonthSaoPaulo, formatMonthLabel, parseMonthParam } from "../../lib/dates";
+import { currentMonthSaoPaulo, formatDateLabel, formatMonthLabel, parseMonthParam } from "../../lib/dates";
+import { formatBRL } from "../../lib/money";
 import { MonthSummary } from "../MonthSummary/MonthSummary";
 import { IncomeForm } from "../IncomeForm/IncomeForm";
 import { IncomeHistory } from "../IncomeHistory/IncomeHistory";
@@ -17,10 +18,12 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Button } from "../ui/Button";
 import { Notice } from "../ui/Notice";
 import { PageHeader } from "../ui/PageHeader";
+import { useToast, type ToastAction } from "../ui/ToastProvider";
 import { EnvelopeForm } from "../EnvelopeForm/EnvelopeForm";
 import { ExpenseForm, overdraftNotice, type ExpenseResult } from "../ExpenseForm/ExpenseForm";
+import { QuickExpenseDialog } from "../QuickExpenseDialog/QuickExpenseDialog";
 import { Glossary } from "../Glossary/Glossary";
-import type { EnvelopeDTO } from "../../lib/api";
+import type { EnvelopeDTO, HistoryItemDTO } from "../../lib/api";
 import { createApiClient } from "../../lib/api";
 import { useAuth } from "../../auth/auth-context";
 import { AppShell } from "../AppShell/AppShell";
@@ -32,10 +35,32 @@ import { PersistentAlerts } from "../PersistentAlerts/PersistentAlerts";
 const ARCHIVE_MESSAGE =
   "A verba deixa de aparecer nos próximos meses. Os lançamentos já registrados continuam no histórico.";
 
+function monthRange(month: string): { from: string; to: string } {
+  const [y, m] = month.split("-").map(Number);
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return {
+    from: `${month}-01`,
+    to: `${month}-${String(lastDay).padStart(2, "0")}`,
+  };
+}
+
+function prioritizeEnvelopes(envelopes: EnvelopeDTO[]): EnvelopeDTO[] {
+  return [...envelopes].sort((a, b) => {
+    if (a.isNegative !== b.isNegative) return a.isNegative ? -1 : 1;
+    const baseA = Number(a.baseAmount.amount);
+    const baseB = Number(b.baseAmount.amount);
+    const ratioA = baseA > 0 ? Number(a.available.amount) / baseA : 1;
+    const ratioB = baseB > 0 ? Number(b.available.amount) / baseB : 1;
+    if (ratioA !== ratioB) return ratioA - ratioB;
+    return a.name.localeCompare(b.name, "pt-BR");
+  });
+}
+
 export function Dashboard({ email, onLogout }: { email: string; onLogout(): void }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { client } = useAuth();
+  const { showToast } = useToast();
   const rawMonth = parseMonthParam(searchParams.get("month"));
   const month = rawMonth ?? currentMonthSaoPaulo();
   const monthLabel = formatMonthLabel(month);
@@ -72,6 +97,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
 
   const [showNewEnvelope, setShowNewEnvelope] = useState(false);
   const [showIncomeForm, setShowIncomeForm] = useState(false);
+  const [showQuickExpense, setShowQuickExpense] = useState(false);
   const [expenseTarget, setExpenseTarget] = useState<EnvelopeDTO | null>(null);
   const [participantsTarget, setParticipantsTarget] = useState<EnvelopeDTO | null>(null);
   const [recurringTarget, setRecurringTarget] = useState<EnvelopeDTO | null>(null);
@@ -79,11 +105,33 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
   const [pendingArchive, setPendingArchive] = useState<EnvelopeDTO | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [alertsRefreshKey, setAlertsRefreshKey] = useState(0);
+  const [recentEntries, setRecentEntries] = useState<HistoryItemDTO[]>([]);
+  const [recentLoading, setRecentLoading] = useState(false);
   const api = useMemo(() => createApiClient(client), [client]);
+
+  const loadRecent = useCallback(() => {
+    const { from, to } = monthRange(month);
+    setRecentLoading(true);
+    void Promise.resolve()
+      .then(() => api.getHistory(from, to, 0, 5, false))
+      .then((page) => setRecentEntries(page?.items ?? []))
+      .catch(() => setRecentEntries([]))
+      .finally(() => setRecentLoading(false));
+  }, [api, month]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => loadRecent(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadRecent, alertsRefreshKey]);
 
   const loading = envelopesLoading || summaryLoading || incomeLoading;
   const busy = envelopesBusy || summaryBusy || incomeBusy || historyBusy;
   const error = envelopesError || summaryError;
+
+  function notifySuccess(message: string, action?: ToastAction) {
+    setFeedback(message);
+    showToast(action ? { message, action } : message);
+  }
 
   function clearFeedback() {
     setFeedback(null);
@@ -101,7 +149,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
     setPendingArchive(null);
     try {
       await createApiClient(client).archiveEnvelope(envelope.id);
-      setFeedback(`Verba "${envelope.name}" encerrada`);
+      notifySuccess(`Verba "${envelope.name}" encerrada`);
       void refreshEnvelopes();
       void refreshSummary();
     } catch {
@@ -111,12 +159,14 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
 
   function handleEnvelopeSuccess() {
     setShowNewEnvelope(false);
-    setFeedback("Verba criada com sucesso");
+    notifySuccess("Verba criada com sucesso");
     void refreshEnvelopes();
     void refreshSummary();
   }
 
-  const balanceEnvelopes = summary?.envelopes ?? [];
+  const balanceEnvelopes = useMemo(() => summary?.envelopes ?? [], [summary]);
+  const priorityEnvelopes = useMemo(() => prioritizeEnvelopes(balanceEnvelopes), [balanceEnvelopes]);
+
   const expenseKind = expenseTarget
     && expenseTarget.role === "OWNER"
     && isContributionPurpose(expenseTarget.purpose)
@@ -126,7 +176,25 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
   function handleExpenseSuccess(result: ExpenseResult) {
     const name = expenseTarget?.name ?? "verba";
     setExpenseTarget(null);
-    setFeedback(`${expenseKind === "CONTRIBUTION" ? "Aporte" : "Gasto"} registrado em "${name}"${overdraftNotice(result)}`);
+    notifySuccess(
+      `${expenseKind === "CONTRIBUTION" ? "Aporte" : "Gasto"} registrado em "${name}"${overdraftNotice(result)}`,
+      {
+        label: "Desfazer",
+        onClick: () => {
+          void createApiClient(client)
+            .deleteHistoryEntry(result.entryId)
+            .then(() => {
+              setFeedback("Lançamento desfeito.");
+              setAlertsRefreshKey((key) => key + 1);
+              void refreshEnvelopes();
+              void refreshSummary();
+            })
+            .catch(() => {
+              setFeedback("Não foi possível desfazer o lançamento.");
+            });
+        },
+      },
+    );
     setAlertsRefreshKey((key) => key + 1);
     void refreshEnvelopes();
     void refreshSummary();
@@ -134,14 +202,20 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
 
   function handleIncomeSuccess() {
     setShowIncomeForm(false);
-    setFeedback("Renda salva com sucesso");
+    notifySuccess("Renda salva com sucesso");
     void refreshIncome();
     void refreshSummary();
     void refreshHistory();
   }
 
   return (
-    <AppShell current="overview" email={email} onLogout={onLogout}>
+    <AppShell
+      current="overview"
+      email={email}
+      month={month}
+      onLogout={onLogout}
+      onQuickExpense={() => { clearFeedback(); setShowQuickExpense(true); }}
+    >
         {feedback && (
           <Notice tone="success" onClose={() => setFeedback(null)}>{feedback}</Notice>
         )}
@@ -156,7 +230,18 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
               </Button>
             </>
           }
-          actions={<Button onClick={() => { clearFeedback(); setShowNewEnvelope(true); }}>Nova verba</Button>}
+          actions={
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              {balanceEnvelopes.length > 0 && (
+                <Button onClick={() => { clearFeedback(); setShowQuickExpense(true); }}>
+                  Registrar gasto
+                </Button>
+              )}
+              <Button variant={balanceEnvelopes.length > 0 ? "secondary" : "primary"} onClick={() => { clearFeedback(); setShowNewEnvelope(true); }}>
+                Nova verba
+              </Button>
+            </div>
+          }
         >
           <div className={styles.monthControl}>
             <label htmlFor="month-picker">Mês</label>
@@ -210,20 +295,23 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
 
         <div className={styles.contentGrid} aria-busy={busy || undefined}>
           <section id="verbas" className={styles.panel} aria-label="Suas verbas" aria-labelledby="verbas-titulo">
-            <div className={styles.panelHeader}><div><h2 id="verbas-titulo">Suas verbas</h2><p>Valores disponíveis neste mês</p></div><Link href="/verbas">Ver todas →</Link></div>
+            <div className={styles.panelHeader}>
+              <div><h2 id="verbas-titulo">Verbas prioritárias</h2><p>Negativas e mais próximas do limite primeiro</p></div>
+              <Link href={`/verbas?month=${month}`}>Ver todas →</Link>
+            </div>
             {loading ? (
               <div role="status" aria-busy="true" className={styles.loadingState}>
                 <div className={styles.skeleton} />
                 <div className={styles.skeleton} />
               </div>
-            ) : !summary ? null : balanceEnvelopes.length === 0 ? (
+            ) : !summary ? null : priorityEnvelopes.length === 0 ? (
               <div className={styles.emptyState}>
                 <p>Nenhuma verba neste mês — crie a primeira para começar a reservar.</p>
                 <Button onClick={() => { clearFeedback(); setShowNewEnvelope(true); }}>Criar primeira verba</Button>
               </div>
             ) : (
               <ul className={styles.envelopeList}>
-                {balanceEnvelopes.slice(0, 4).map((envelope) => (
+                {priorityEnvelopes.slice(0, 5).map((envelope) => (
                   <EnvelopeCard
                     key={envelope.id}
                     envelope={envelope}
@@ -236,9 +324,95 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
               </ul>
             )}
           </section>
-          <section id="historico" className={styles.panel} aria-labelledby="historico-titulo">
+
+          <section id="ultimos-lancamentos" className={styles.panel} aria-labelledby="ultimos-titulo">
             <div className={styles.panelHeader}>
-              <div><h2 id="historico-titulo">Histórico de renda</h2><p>Alterações reais, mais recente primeiro</p></div>
+              <div><h2 id="ultimos-titulo">Últimos lançamentos</h2><p>Gastos recentes de {monthLabel}</p></div>
+              <Link href="/gastos">Ver histórico →</Link>
+            </div>
+            {recentLoading && recentEntries.length === 0 ? (
+              <p className={styles.listState} role="status">Carregando lançamentos…</p>
+            ) : recentEntries.length === 0 ? (
+              <div className={styles.emptyState}>
+                <p>Nenhum gasto registrado neste mês ainda.</p>
+                {balanceEnvelopes.length > 0 && (
+                  <Button variant="secondary" onClick={() => { clearFeedback(); setShowQuickExpense(true); }}>
+                    Registrar primeiro gasto
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <ul className={styles.activityList}>
+                {recentEntries.map((item) => (
+                  <li key={item.entry.id}>
+                    <span className={styles.activityMark} aria-hidden="true" />
+                    <div>
+                      <strong>{item.envelopeName}</strong>
+                      <span>
+                        {formatDateLabel(item.entry.occurredAt)}
+                        {item.entry.description ? ` · ${item.entry.description}` : ""}
+                      </span>
+                    </div>
+                    <span className={styles.activityAmount}>{formatBRL(item.entry.amount.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className={styles.panelFooter}>
+              <p>
+                {summary?.income
+                  ? "Atalho: pressione N ou Ctrl+N para lançar um gasto de qualquer tela."
+                  : "Configure sua renda para habilitar o cálculo de não alocado."}
+              </p>
+            </div>
+          </section>
+        </div>
+
+        <QuickExpenseDialog
+          open={showQuickExpense}
+          envelopes={balanceEnvelopes}
+          month={month}
+          onClose={() => setShowQuickExpense(false)}
+          onSuccess={(result) => {
+            setShowQuickExpense(false);
+            notifySuccess(
+              `${result.kind === "CONTRIBUTION" ? "Aporte" : "Gasto"} registrado em "${result.envelopeName}"${overdraftNotice(result)}`,
+              {
+                label: "Desfazer",
+                onClick: () => {
+                  void createApiClient(client)
+                    .deleteHistoryEntry(result.entryId)
+                    .then(() => {
+                      setFeedback("Lançamento desfeito.");
+                      setAlertsRefreshKey((key) => key + 1);
+                      void refreshEnvelopes();
+                      void refreshSummary();
+                    })
+                    .catch(() => {
+                      setFeedback("Não foi possível desfazer o lançamento.");
+                    });
+                },
+              },
+            );
+            setAlertsRefreshKey((key) => key + 1);
+            void refreshEnvelopes();
+            void refreshSummary();
+          }}
+        />
+
+        <Dialog open={showNewEnvelope} onClose={() => setShowNewEnvelope(false)} title="Nova verba">
+          <EnvelopeForm
+            unallocatedAmount={summary?.unallocated.amount}
+            onSuccess={handleEnvelopeSuccess}
+            onCancel={() => setShowNewEnvelope(false)}
+          />
+        </Dialog>
+
+        <Dialog open={showIncomeForm} onClose={() => setShowIncomeForm(false)} title="Renda mensal">
+          <IncomeForm initialAmount={income?.amount} onSuccess={handleIncomeSuccess} onCancel={() => setShowIncomeForm(false)} />
+          <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid var(--border)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
+              <h3 style={{ fontSize: "0.9375rem" }}>Histórico de renda</h3>
               <Button variant="text" onClick={() => void refreshHistory()}>Atualizar</Button>
             </div>
             <IncomeHistory
@@ -248,27 +422,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
               onLoadMore={() => loadHistory((history?.page ?? 0) + 1)}
               onRetry={() => void refreshHistory()}
             />
-            <div className={styles.panelFooter}>
-              <p>
-                {summary?.income ? "Registre gastos nas verbas ao lado. Saldo negativo gera alerta, não bloqueio." : "Configure sua renda para habilitar o cálculo de não alocado."}
-              </p>
-            </div>
-          </section>
-        </div>
-
-        <Dialog open={showNewEnvelope} onClose={() => setShowNewEnvelope(false)} title="Nova verba">
-          <EnvelopeForm
-            onSuccess={handleEnvelopeSuccess}
-            onCancel={() => setShowNewEnvelope(false)}
-            onOpenGlossary={() => {
-              setShowNewEnvelope(false);
-              setShowGlossary(true);
-            }}
-          />
-        </Dialog>
-
-        <Dialog open={showIncomeForm} onClose={() => setShowIncomeForm(false)} title="Renda mensal">
-          <IncomeForm initialAmount={income?.amount} onSuccess={handleIncomeSuccess} onCancel={() => setShowIncomeForm(false)} />
+          </div>
         </Dialog>
 
         <Dialog open={!!expenseTarget} onClose={() => setExpenseTarget(null)} title={expenseTarget ? `${expenseKind === "CONTRIBUTION" ? "Aportar" : "Registrar gasto"} em ${expenseTarget.name}` : "Registrar gasto"}>

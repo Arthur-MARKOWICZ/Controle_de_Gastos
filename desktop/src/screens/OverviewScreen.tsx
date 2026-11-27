@@ -33,7 +33,7 @@ export function OverviewScreen({
 }: ScreenProps) {
   const { state } = useSummary(month, revision, onAuthRequired);
   const envelopes = state.kind === "ready" ? state.summary.envelopes : [];
-  const { dialog } = useExpenseCapture(envelopes, onRegistered);
+  const { openQuick, dialog, toast, hasSpendable } = useExpenseCapture(envelopes, onRegistered);
 
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertError, setAlertError] = useState<string | null>(null);
@@ -81,7 +81,15 @@ export function OverviewScreen({
     <div className={styles.screen}>
       <header className={styles.header}>
         <h1 className={styles.title}>Visão geral</h1>
-        <MonthSelector month={month} onChange={onMonthChange} />
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          {hasSpendable ? (
+            <button className={styles.rowAction} type="button" onClick={openQuick}>
+              <Plus size={20} aria-hidden />
+              Registrar gasto
+            </button>
+          ) : null}
+          <MonthSelector month={month} onChange={onMonthChange} />
+        </div>
       </header>
 
       {state.kind === "loading" ? <p role="status">Carregando o resumo…</p> : null}
@@ -180,6 +188,7 @@ export function OverviewScreen({
       ) : null}
 
       {dialog}
+      {toast}
     </div>
   );
 }
