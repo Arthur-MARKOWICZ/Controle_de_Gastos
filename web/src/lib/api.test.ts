@@ -40,6 +40,17 @@ describe("createApiClient", () => {
     expect(request).toHaveBeenCalledWith("/api/v1/alerts");
   });
 
+  it("consulta sugestões de gasto em GET /ledger/expense-suggestions", async () => {
+    const body = {
+      asOf: "2026-11-27T14:30:00-03:00",
+      items: [{ envelopeId: "e1", name: "Almoço", suggestedAmount: { amount: "32.50", currency: "BRL" } }],
+    };
+    const { api, request } = clientReturning(jsonResponse(200, body));
+
+    await expect(api.getExpenseSuggestions()).resolves.toEqual(body);
+    expect(request).toHaveBeenCalledWith("/api/v1/ledger/expense-suggestions");
+  });
+
   it("resolve undefined para 204 sem tentar ler corpo", async () => {
     const { api } = clientReturning(new Response(null, { status: 204 }));
 

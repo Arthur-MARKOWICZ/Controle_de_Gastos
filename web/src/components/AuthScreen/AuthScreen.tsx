@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import styles from "./AuthScreen.module.css";
 import { ThemeSelector } from "../../theme/ThemeSelector";
+import { BrandMark } from "../ui/BrandMark";
 import { Notice } from "../ui/Notice";
 
 type Props = {
@@ -19,6 +20,7 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, n
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,8 +31,8 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, n
     setMode(next);
     setMessage(null);
     setError(null);
-    setEmail("");
     setPassword("");
+    setShowPassword(false);
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -58,7 +60,7 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, n
     <main className={styles.page}>
       <section className={styles.intro} aria-labelledby="auth-title">
         <a href="#auth-form" className={styles.brand} aria-label="Verbas, ir ao formulário">
-          <span aria-hidden="true">V</span> Verbas
+          <span className={styles.brandMark}><BrandMark size={26} /></span> Verbas
         </a>
         <p className={styles.eyebrow}>Dinheiro com destino claro</p>
         <h1 id="auth-title">Organize o mês sem perder de vista a vida real.</h1>
@@ -66,7 +68,7 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, n
         <ul>
           <li>Saldo não usado continua com você.</li>
           <li>Gasto acima do planejado vira alerta, não bloqueio.</li>
-          <li>Seus dados financeiros ficam ligados ao seu UUID, nunca ao e-mail.</li>
+          <li>Seus dados financeiros ficam ligados a um identificador anônimo, nunca ao e-mail.</li>
         </ul>
       </section>
 
@@ -90,10 +92,20 @@ export function AuthScreen({ onLogin, onRegister, onOAuthLogin, externalError, n
           <input id="email" name="email" type="email" autoComplete="email" maxLength={254} required
             value={email} onChange={(event) => setEmail(event.target.value)} />
           <label htmlFor="password">Senha</label>
-          <input id="password" name="password" type="password"
-            autoComplete={mode === "login" ? "current-password" : "new-password"}
-            minLength={12} maxLength={128} required value={password}
-            onChange={(event) => setPassword(event.target.value)} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "0.5rem", alignItems: "center" }}>
+            <input id="password" name="password" type={showPassword ? "text" : "password"}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}
+              minLength={12} maxLength={128} required value={password}
+              onChange={(event) => setPassword(event.target.value)} />
+            <button
+              type="button"
+              className={styles.oauthHintLink}
+              aria-pressed={showPassword}
+              onClick={() => setShowPassword((v) => !v)}
+            >
+              {showPassword ? "Ocultar" : "Mostrar"}
+            </button>
+          </div>
           {mode === "login" && <Link className={styles.passwordResetLink} href="/recuperar-senha">Esqueci minha senha</Link>}
           {mode === "register" && <p className={styles.hint}>Use de 12 a 128 caracteres. Espaços e Unicode são aceitos.</p>}
           <button className={styles.submit} type="submit" disabled={busy}>

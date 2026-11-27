@@ -8,6 +8,7 @@ import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Notice } from "../ui/Notice";
 import { Field } from "../ui/Field";
 import { Button } from "../ui/Button";
+import { useToast } from "../ui/ToastProvider";
 import {
   createApiClient,
   type EnvelopeDTO,
@@ -22,8 +23,8 @@ import { formatBRL, formatBRLInputMask, maskToPlain } from "../../lib/money";
 import styles from "./HistoryPage.module.css";
 import { AppShell } from "../AppShell/AppShell";
 import { PageHeader } from "../ui/PageHeader";
-import { ExpenseForm, overdraftNotice, type ExpenseResult } from "../ExpenseForm/ExpenseForm";
-import { isContributionPurpose } from "../EnvelopeCard/EnvelopeCard";
+import { overdraftNotice } from "../ExpenseForm/ExpenseForm";
+import { QuickExpenseDialog } from "../QuickExpenseDialog/QuickExpenseDialog";
 
 type Props = { email: string; onLogout(): void };
 const purposes = {
@@ -44,25 +45,53 @@ function defaultFrom() {
   return `${currentMonthSaoPaulo()}-01`;
 }
 
+function shiftDays(isoDate: string, deltaDays: number): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+
+function previousMonthRange(): { from: string; to: string } {
+  const [y, m] = currentMonthSaoPaulo().split("-").map(Number);
+  const start = new Date(Date.UTC(y, m - 2, 1));
+  const year = start.getUTCFullYear();
+  const month = start.getUTCMonth() + 1;
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const mm = String(month).padStart(2, "0");
+  return { from: `${year}-${mm}-01`, to: `${year}-${mm}-${String(lastDay).padStart(2, "0")}` };
+}
+
+function formatDayHeading(isoDate: string, today: string): string {
+  if (isoDate === today) return `Hoje · ${formatDateLabel(isoDate)}`;
+  if (isoDate === shiftDays(today, -1)) return `Ontem · ${formatDateLabel(isoDate)}`;
+  return formatDateLabel(isoDate);
+}
+
 export function HistoryPage({ email, onLogout }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { client } = useAuth();
+  const { showToast } = useToast();
+  const today = todaySaoPaulo();
   const from = searchParams.get("from") ?? defaultFrom();
-  const to = searchParams.get("to") ?? todaySaoPaulo();
+  const to = searchParams.get("to") ?? today;
   const page = Number(searchParams.get("page") ?? "0") || 0;
   const includeDeleted = searchParams.get("includeDeleted") === "true";
   const q = searchParams.get("q")?.trim() ?? "";
   const envelopeFilter = searchParams.get("envelopeId") ?? "";
   const author = parseAuthor(searchParams.get("author"));
   const filtersActive = q !== "" || envelopeFilter !== "" || author !== undefined;
+  const activeExtraFilterCount =
+    (envelopeFilter !== "" ? 1 : 0) + (author !== undefined ? 1 : 0) + (includeDeleted ? 1 : 0);
+
   const [searchText, setSearchText] = useState(q);
   const [syncedQuery, setSyncedQuery] = useState(q);
   if (syncedQuery !== q) {
-    // A URL mudou por fora (voltar, limpar filtros): o campo acompanha.
     setSyncedQuery(q);
     setSearchText(q);
   }
+  const [showFilters, setShowFilters] = useState(filtersActive || includeDeleted);
+  const [groupBy, setGroupBy] = useState<"date" | "purpose">("date");
   const searchTimer = useRef<number | undefined>(undefined);
   const [data, setData] = useState<HistoryPageDTO | null>(null);
   const [summary, setSummary] = useState<HistorySummaryDTO | null>(null);
@@ -82,9 +111,9 @@ export function HistoryPage({ email, onLogout }: Props) {
   const [revisionsError, setRevisionsError] = useState<string | null>(null);
   const [revisionsLoading, setRevisionsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [showEnvelopePicker, setShowEnvelopePicker] = useState(false);
-  const [expenseTarget, setExpenseTarget] = useState<EnvelopeDTO | null>(null);
+  const [showQuickExpense, setShowQuickExpense] = useState(false);
   const hasDataRef = useRef(false);
+  const fromDateRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     if (from > to) {
@@ -131,7 +160,7 @@ export function HistoryPage({ email, onLogout }: Props) {
 
   useEffect(() => () => window.clearTimeout(searchTimer.current), []);
 
-  const grouped = useMemo(() => {
+  const groupedByPurpose = useMemo(() => {
     const groups: Record<keyof typeof purposes, HistoryItemDTO[]> = {
       LIMIT: [],
       GOAL: [],
@@ -141,6 +170,20 @@ export function HistoryPage({ email, onLogout }: Props) {
     };
     for (const item of data?.items ?? []) groups[item.purpose].push(item);
     return groups;
+  }, [data]);
+
+  const groupedByDate = useMemo(() => {
+    const map = new Map<string, HistoryItemDTO[]>();
+    const sorted = [...(data?.items ?? [])].sort((a, b) =>
+      b.entry.occurredAt.localeCompare(a.entry.occurredAt),
+    );
+    for (const item of sorted) {
+      const key = item.entry.occurredAt;
+      const list = map.get(key) ?? [];
+      list.push(item);
+      map.set(key, list);
+    }
+    return Array.from(map.entries());
   }, [data]);
 
   function navigate(next: Record<string, string | number | boolean | undefined>) {
@@ -198,6 +241,7 @@ export function HistoryPage({ email, onLogout }: Props) {
       });
       setEditing(null);
       setFeedback("Gasto atualizado.");
+      showToast("Gasto atualizado.");
       void load();
     } catch {
       setFormError("Não foi possível atualizar o gasto.");
@@ -213,32 +257,51 @@ export function HistoryPage({ email, onLogout }: Props) {
     try {
       await createApiClient(client).deleteHistoryEntry(item.entry.id);
       setFeedback("Gasto excluído.");
+      showToast({
+        message: "Gasto excluído.",
+        action: {
+          label: "Desfazer",
+          onClick: () => {
+            void createApiClient(client)
+              .createEntry(item.entry.envelopeId, {
+                kind: item.entry.kind ?? "EXPENSE",
+                amount: item.entry.amount,
+                occurredAt: item.entry.occurredAt,
+                description: item.entry.description,
+              })
+              .then(() => {
+                setFeedback("Exclusão desfeita.");
+                void load();
+              })
+              .catch(() => {
+                setFeedback("Não foi possível desfazer a exclusão.");
+              });
+          },
+        },
+      });
       void load();
     } catch {
       setFeedback("Não foi possível excluir o gasto.");
     }
   }
 
-  /** Verbas em que esta sessão pode lançar: dono ou participante. */
   const spendableEnvelopes = envelopes.filter((envelope) => !envelope.archivedAt);
   const canRegister = spendableEnvelopes.length > 0;
-  const expenseKind = expenseTarget
-    && expenseTarget.role === "OWNER"
-    && isContributionPurpose(expenseTarget.purpose)
-    ? "CONTRIBUTION"
-    : "EXPENSE";
+  const thisMonthFrom = defaultFrom();
+  const previousMonth = previousMonthRange();
+  const lastSevenFrom = shiftDays(today, -6);
+  const periodPreset =
+    from === thisMonthFrom && to === today
+      ? "this-month"
+      : from === previousMonth.from && to === previousMonth.to
+        ? "prev-month"
+        : from === lastSevenFrom && to === today
+          ? "last-7"
+          : "custom";
 
-  /** Primeiro a verba, depois o formulário: o lançamento sempre nomeia onde cai. */
   function startRegister() {
     setFeedback(null);
-    setShowEnvelopePicker(true);
-  }
-
-  function handleExpenseSuccess(result: ExpenseResult) {
-    const name = expenseTarget?.name ?? "verba";
-    setExpenseTarget(null);
-    setFeedback(`${expenseKind === "CONTRIBUTION" ? "Aporte" : "Gasto"} registrado em "${name}"${overdraftNotice(result)}`);
-    void load();
+    setShowQuickExpense(true);
   }
 
   const card = (label: string, value?: string) => (
@@ -251,8 +314,65 @@ export function HistoryPage({ email, onLogout }: Props) {
   const purposeMax = Math.max(...(summary?.purposeTotals.map((total) => Number(total.amount.amount)) ?? [0]), 1);
   const ownerEnvelopes = envelopes.filter((envelope) => envelope.role === "OWNER");
 
+  function renderEntryItem(item: HistoryItemDTO) {
+    return (
+      <li key={item.entry.id} data-deleted={item.entry.deletedAt ? "true" : "false"}>
+        <div>
+          <strong>{item.envelopeName}</strong>
+          <span>
+            {groupBy === "date" ? purposes[item.purpose] : formatDateLabel(item.entry.occurredAt)}
+            {item.entry.description ? ` · ${item.entry.description}` : ""}
+          </span>
+        </div>
+        <strong>{formatBRL(item.entry.amount.amount)}</strong>
+        {item.role === "OWNER" && (
+          <span className={styles.actions}>
+            <button
+              type="button"
+              onClick={() => {
+                setFeedback(null);
+                setRevisionsTarget(item);
+                setRevisions([]);
+                setRevisionsError(null);
+                setRevisionsLoading(true);
+                void createApiClient(client)
+                  .listEntryRevisions(item.entry.id)
+                  .then((revPage) => setRevisions(revPage.items))
+                  .catch(() => setRevisionsError("Não foi possível carregar as alterações."))
+                  .finally(() => setRevisionsLoading(false));
+              }}
+            >
+              Alterações
+            </button>
+            {!item.entry.deletedAt && (
+              <>
+                <button type="button" onClick={() => startEdit(item)}>
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFeedback(null);
+                    setPendingDelete(item);
+                  }}
+                >
+                  Excluir
+                </button>
+              </>
+            )}
+          </span>
+        )}
+      </li>
+    );
+  }
+
   return (
-    <AppShell current="expenses" email={email} onLogout={onLogout}>
+    <AppShell
+      current="expenses"
+      email={email}
+      onLogout={onLogout}
+      onQuickExpense={canRegister ? startRegister : undefined}
+    >
       <div className={styles.page}>
         <PageHeader
           eyebrow="Registro financeiro"
@@ -264,6 +384,53 @@ export function HistoryPage({ email, onLogout }: Props) {
           }
           actions={canRegister ? <Button onClick={startRegister}>Registrar gasto</Button> : undefined}
         />
+
+        <div className={styles.periodChips} role="group" aria-label="Atalhos de período">
+          <button
+            type="button"
+            className={periodPreset === "this-month" ? `${styles.periodChip} ${styles.periodChipActive}` : styles.periodChip}
+            aria-pressed={periodPreset === "this-month"}
+            onClick={() => navigate({ from: thisMonthFrom, to: today, page: 0 })}
+          >
+            Este mês
+          </button>
+          <button
+            type="button"
+            className={periodPreset === "prev-month" ? `${styles.periodChip} ${styles.periodChipActive}` : styles.periodChip}
+            aria-pressed={periodPreset === "prev-month"}
+            onClick={() => navigate({ from: previousMonth.from, to: previousMonth.to, page: 0 })}
+          >
+            Mês passado
+          </button>
+          <button
+            type="button"
+            className={periodPreset === "last-7" ? `${styles.periodChip} ${styles.periodChipActive}` : styles.periodChip}
+            aria-pressed={periodPreset === "last-7"}
+            onClick={() => navigate({ from: lastSevenFrom, to: today, page: 0 })}
+          >
+            Últimos 7 dias
+          </button>
+          <button
+            type="button"
+            className={periodPreset === "custom" ? `${styles.periodChip} ${styles.periodChipActive}` : styles.periodChip}
+            aria-pressed={periodPreset === "custom"}
+            onClick={() => {
+              setShowFilters(true);
+              window.requestAnimationFrame(() => fromDateRef.current?.focus());
+            }}
+          >
+            Personalizado
+          </button>
+          <Button
+            type="button"
+            variant="secondary"
+            aria-expanded={showFilters}
+            onClick={() => setShowFilters((open) => !open)}
+          >
+            {activeExtraFilterCount > 0 ? `Filtros (${activeExtraFilterCount})` : "Filtros"}
+          </Button>
+        </div>
+
         <form
           className={styles.filters}
           onSubmit={(event) => {
@@ -281,50 +448,60 @@ export function HistoryPage({ email, onLogout }: Props) {
               onChange={(event) => changeSearch(event.target.value)}
             />
           </label>
-          <label>
-            Verba
-            <select
-              value={envelopeFilter}
-              onChange={(event) => navigate({ envelopeId: event.target.value, page: 0 })}
-            >
-              <option value="">Todas</option>
-              {envelopes.map((envelope) => (
-                <option key={envelope.id} value={envelope.id}>
-                  {envelope.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Autor
-            <select value={author ?? ""} onChange={(event) => navigate({ author: event.target.value, page: 0 })}>
-              <option value="">Todos</option>
-              <option value="ME">Lançados por mim</option>
-              <option value="OTHERS">Lançados por outras pessoas</option>
-            </select>
-          </label>
-          <label>
-            De
-            <input type="date" value={from} onChange={(event) => navigate({ from: event.target.value, page: 0 })} />
-          </label>
-          <label>
-            Até
-            <input type="date" value={to} onChange={(event) => navigate({ to: event.target.value, page: 0 })} />
-          </label>
-          <label className={styles.checkbox}>
-            <input
-              type="checkbox"
-              checked={includeDeleted}
-              onChange={(event) => navigate({ includeDeleted: event.target.checked, page: 0 })}
-            />{" "}
-            Incluir excluídos
-          </label>
+          {showFilters && (
+            <>
+              <label>
+                Verba
+                <select
+                  value={envelopeFilter}
+                  onChange={(event) => navigate({ envelopeId: event.target.value, page: 0 })}
+                >
+                  <option value="">Todas</option>
+                  {envelopes.map((envelope) => (
+                    <option key={envelope.id} value={envelope.id}>
+                      {envelope.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Autor
+                <select value={author ?? ""} onChange={(event) => navigate({ author: event.target.value, page: 0 })}>
+                  <option value="">Todos</option>
+                  <option value="ME">Lançados por mim</option>
+                  <option value="OTHERS">Lançados por outras pessoas</option>
+                </select>
+              </label>
+              <label>
+                De
+                <input
+                  ref={fromDateRef}
+                  type="date"
+                  value={from}
+                  onChange={(event) => navigate({ from: event.target.value, page: 0 })}
+                />
+              </label>
+              <label>
+                Até
+                <input type="date" value={to} onChange={(event) => navigate({ to: event.target.value, page: 0 })} />
+              </label>
+              <label className={styles.checkbox}>
+                <input
+                  type="checkbox"
+                  checked={includeDeleted}
+                  onChange={(event) => navigate({ includeDeleted: event.target.checked, page: 0 })}
+                />{" "}
+                Incluir excluídos
+              </label>
+            </>
+          )}
           {filtersActive && (
             <Button variant="secondary" type="button" onClick={clearFilters}>
               Limpar filtros
             </Button>
           )}
         </form>
+
         {feedback && (
           <Notice tone="success" onClose={() => setFeedback(null)}>
             {feedback}
@@ -337,12 +514,12 @@ export function HistoryPage({ email, onLogout }: Props) {
           </div>
         )}
         {error && (
-          <p role="alert" className={styles.error}>
+          <Notice tone="danger">
             {error}{" "}
-            <button type="button" onClick={() => void load()}>
+            <Button variant="text" onClick={() => void load()}>
               Tentar novamente
-            </button>
-          </p>
+            </Button>
+          </Notice>
         )}
         {!loading && !error && summary && (
           <div aria-busy={busy || undefined}>
@@ -396,7 +573,25 @@ export function HistoryPage({ email, onLogout }: Props) {
             <section className={styles.entries} aria-labelledby="gastos-titulo">
               <header>
                 <h2 id="gastos-titulo">Gastos</h2>
-                <span>Página {(data?.page ?? 0) + 1}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                  <div role="group" aria-label="Agrupamento da lista" style={{ display: "flex", gap: "0.35rem" }}>
+                    <Button
+                      type="button"
+                      variant={groupBy === "date" ? "primary" : "secondary"}
+                      onClick={() => setGroupBy("date")}
+                    >
+                      Por data
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={groupBy === "purpose" ? "primary" : "secondary"}
+                      onClick={() => setGroupBy("purpose")}
+                    >
+                      Por tipo
+                    </Button>
+                  </div>
+                  <span>Página {(data?.page ?? 0) + 1}</span>
+                </div>
               </header>
               {filtersActive && data && (
                 <p className={styles.matchedTotal}>
@@ -417,112 +612,65 @@ export function HistoryPage({ email, onLogout }: Props) {
                     {canRegister && <Button onClick={startRegister}>Registrar gasto</Button>}
                   </div>
                 )
+              ) : groupBy === "date" ? (
+                groupedByDate.map(([dateKey, items]) => (
+                  <div className={styles.group} key={dateKey}>
+                    <h3>{formatDayHeading(dateKey, today)}</h3>
+                    <ul>{items.map(renderEntryItem)}</ul>
+                  </div>
+                ))
               ) : (
                 (Object.keys(purposes) as (keyof typeof purposes)[]).map(
                   (purpose) =>
-                    grouped[purpose].length > 0 && (
+                    groupedByPurpose[purpose].length > 0 && (
                       <div className={styles.group} key={purpose}>
                         <h3>{purposes[purpose]}</h3>
-                        <ul>
-                          {grouped[purpose].map((item) => (
-                            <li key={item.entry.id} data-deleted={item.entry.deletedAt ? "true" : "false"}>
-                              <div>
-                                <strong>{item.envelopeName}</strong>
-                                <span>
-                                  {formatDateLabel(item.entry.occurredAt)}
-                                  {item.entry.description ? ` · ${item.entry.description}` : ""}
-                                </span>
-                              </div>
-                              <strong>{formatBRL(item.entry.amount.amount)}</strong>
-                              {item.role === "OWNER" && (
-                                <span className={styles.actions}>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setFeedback(null);
-                                      setRevisionsTarget(item);
-                                      setRevisions([]);
-                                      setRevisionsError(null);
-                                      setRevisionsLoading(true);
-                                      void createApiClient(client)
-                                        .listEntryRevisions(item.entry.id)
-                                        .then((page) => setRevisions(page.items))
-                                        .catch(() => setRevisionsError("Não foi possível carregar as alterações."))
-                                        .finally(() => setRevisionsLoading(false));
-                                    }}
-                                  >
-                                    Alterações
-                                  </button>
-                                  {!item.entry.deletedAt && (
-                                    <>
-                                      <button type="button" onClick={() => startEdit(item)}>
-                                        Editar
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setFeedback(null);
-                                          setPendingDelete(item);
-                                        }}
-                                      >
-                                        Excluir
-                                      </button>
-                                    </>
-                                  )}
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
+                        <ul>{groupedByPurpose[purpose].map(renderEntryItem)}</ul>
                       </div>
                     ),
                 )
               )}
             </section>
             <nav className={styles.pagination} aria-label="Paginação do histórico">
-              <button type="button" disabled={page === 0} onClick={() => navigate({ page: page - 1 })}>
+              <Button variant="secondary" disabled={page === 0} onClick={() => navigate({ page: page - 1 })}>
                 Anterior
-              </button>
-              <button type="button" disabled={!data?.hasNext} onClick={() => navigate({ page: page + 1 })}>
+              </Button>
+              <Button variant="secondary" disabled={!data?.hasNext} onClick={() => navigate({ page: page + 1 })}>
                 Próxima
-              </button>
+              </Button>
             </nav>
           </div>
         )}
       </div>
-      <Dialog open={showEnvelopePicker} onClose={() => setShowEnvelopePicker(false)} title="Registrar gasto">
-        <p>Em qual verba?</p>
-        <ul className={styles.envelopePicker}>
-          {spendableEnvelopes.map((envelope) => (
-            <li key={envelope.id}>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setShowEnvelopePicker(false);
-                  setExpenseTarget(envelope);
-                }}
-              >
-                {envelope.name}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </Dialog>
 
-      <Dialog
-        open={!!expenseTarget}
-        onClose={() => setExpenseTarget(null)}
-        title={expenseTarget ? `${expenseKind === "CONTRIBUTION" ? "Aportar" : "Registrar gasto"} em ${expenseTarget.name}` : "Registrar gasto"}
-      >
-        {expenseTarget && (
-          <ExpenseForm
-            envelope={expenseTarget}
-            kind={expenseKind}
-            onSuccess={handleExpenseSuccess}
-            onCancel={() => setExpenseTarget(null)}
-          />
-        )}
-      </Dialog>
+      <QuickExpenseDialog
+        open={showQuickExpense}
+        envelopes={spendableEnvelopes}
+        onClose={() => setShowQuickExpense(false)}
+        onSuccess={(result) => {
+          setShowQuickExpense(false);
+          const msg = `${result.kind === "CONTRIBUTION" ? "Aporte" : "Gasto"} registrado em "${result.envelopeName}"${overdraftNotice(result)}`;
+          setFeedback(msg);
+          showToast({
+            message: msg,
+            action: {
+              label: "Desfazer",
+              onClick: () => {
+                void createApiClient(client)
+                  .deleteHistoryEntry(result.entryId)
+                  .then(() => {
+                    setFeedback("Lançamento desfeito.");
+                    void load();
+                  })
+                  .catch(() => {
+                    setFeedback("Não foi possível desfazer o lançamento.");
+                  });
+              },
+            },
+          });
+          void load();
+        }}
+      />
 
       <Dialog open={!!editing} onClose={() => setEditing(null)} title="Editar gasto">
         <form className={styles.editForm} onSubmit={submitEdit}>

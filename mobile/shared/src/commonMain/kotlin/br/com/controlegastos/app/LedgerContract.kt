@@ -116,11 +116,13 @@ interface LedgerGateway {
         page: Int,
         includeDeleted: Boolean,
         filter: HistoryFilter = HistoryFilter(),
+        size: Int = 20,
     ): HistoryPageView
     suspend fun loadHistorySummary(from: String, to: String): HistorySummaryView
     suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView
     suspend fun deleteEntry(id: String)
     suspend fun listEntryRevisions(id: String, page: Int = 0): LedgerEntryRevisionPageView
+    suspend fun loadExpenseSuggestions(): ExpenseSuggestions
 }
 
 interface IncomeGateway {

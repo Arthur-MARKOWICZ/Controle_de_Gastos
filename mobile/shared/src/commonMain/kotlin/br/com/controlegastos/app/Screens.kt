@@ -38,6 +38,7 @@ private sealed interface MonthDialog {
         val envelopes: List<EnvelopeView>,
         val initialEnvelopeId: String?,
         val kind: LedgerKind,
+        val initialAmountDigits: String = "",
     ) : MonthDialog
     data class Edit(val envelope: EnvelopeView) : MonthDialog
     data class Archive(val envelope: EnvelopeView) : MonthDialog
@@ -71,28 +72,43 @@ internal fun MonthWorkspaceScreen(
     today: String,
     recurring: RecurringGateway = UnavailableGateway,
     onOpenEntries: (EnvelopeView) -> Unit,
+    onOpenHistory: () -> Unit = {},
     onNotify: (String) -> Unit,
+    onEntryRegistered: (RegisterEntryResult) -> Unit = { onNotify(it.message) },
     onSessionExpired: () -> Unit = {},
     onMonthChanged: (YearMonth) -> Unit = {},
     quickExpenseRequested: Boolean = false,
+    quickExpenseEnvelopeId: String? = null,
     onQuickExpenseHandled: () -> Unit = {},
+    /** Incrementado pela casca após Desfazer, para espelhar o controller no estado local. */
+    panelSyncToken: Int = 0,
 ) {
     var state by remember(controller) { mutableStateOf(controller.state) }
     var alerts by remember(controller) { mutableStateOf(controller.activeAlerts) }
     var spendingPaceById by remember(controller) { mutableStateOf(controller.spendingPaceById) }
     var dialog by remember { mutableStateOf<MonthDialog?>(null) }
+    var recentEntries by remember(controller) { mutableStateOf<List<HistoryItemView>?>(null) }
+    var recentEpoch by remember(controller) { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     val pendingController = remember(recurring) { PendingOccurrencesController(recurring) }
     var pending by remember(recurring) { mutableStateOf(pendingController.pending) }
     var pendingError by remember(recurring) { mutableStateOf<String?>(null) }
     var pendingBusyId by remember(recurring) { mutableStateOf<String?>(null) }
 
-    androidx.compose.runtime.LaunchedEffect(quickExpenseRequested) {
+    androidx.compose.runtime.LaunchedEffect(quickExpenseRequested, quickExpenseEnvelopeId) {
         if (quickExpenseRequested) {
+            val envelopes = controller.expenseEnvelopes
+            val suggestions = runCatching { controller.loadExpenseSuggestions() }.getOrNull()
+            val prefill = resolveExpensePrefill(
+                suggestions = suggestions,
+                forcedEnvelopeId = quickExpenseEnvelopeId,
+                spendableIds = envelopes.map { it.id }.toSet(),
+            )
             dialog = MonthDialog.Entry(
-                envelopes = controller.expenseEnvelopes,
-                initialEnvelopeId = null,
+                envelopes = envelopes,
+                initialEnvelopeId = prefill.envelopeId,
                 kind = LedgerKind.EXPENSE,
+                initialAmountDigits = prefill.amountDigits,
             )
             onQuickExpenseHandled()
         }
@@ -114,6 +130,19 @@ internal fun MonthWorkspaceScreen(
     // troca faria quatro chamadas para os mesmos dados e piscaria a tela.
     androidx.compose.runtime.LaunchedEffect(controller) {
         if (controller.dashboard == null) reload()
+    }
+
+    androidx.compose.runtime.LaunchedEffect(panelSyncToken) {
+        if (panelSyncToken == 0) return@LaunchedEffect
+        state = controller.state
+        alerts = controller.activeAlerts
+        recentEpoch++
+    }
+
+    androidx.compose.runtime.LaunchedEffect(route, controller.month, state, recentEpoch) {
+        if (route != Route.Overview || state !is DashboardState.Content) return@LaunchedEffect
+        recentEntries = null
+        recentEntries = runCatching { controller.loadRecentEntries(limit = 5) }.getOrDefault(emptyList())
     }
 
     /** Dispensa o alerta persistente; a lista é a mesma em Visão geral e em Verbas. */
@@ -317,6 +346,7 @@ internal fun MonthWorkspaceScreen(
                     onRecurring = { dialog = MonthDialog.Recurring(it) },
                     spendingPaceById = spendingPaceById,
                 )
+                item { RecentEntriesSection(recentEntries, onOpenHistory) }
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         NewEnvelopeButton("Nova verba") {
@@ -337,11 +367,24 @@ internal fun MonthWorkspaceScreen(
         is MonthDialog.Entry -> EntrySheet(
             envelopes = open.envelopes,
             initialEnvelopeId = open.initialEnvelopeId,
+            initialAmountDigits = open.initialAmountDigits,
             kind = open.kind,
             month = controller.month,
             today = today,
             onSubmit = { envelopeId, entry, result ->
-                submit(result) { controller.registerEntry(envelopeId, entry) }
+                scope.launch {
+                    val outcome = runCatching { controller.registerEntry(envelopeId, entry) }
+                    state = controller.state
+                    alerts = controller.activeAlerts
+                    recentEpoch++
+                    if (outcome.exceptionOrNull()?.isSessionExpired() == true) onSessionExpired()
+                    outcome
+                        .onSuccess { registered ->
+                            result(null)
+                            onEntryRegistered(registered)
+                        }
+                        .onFailure { result(describeFailure(it, "Não foi possível concluir a operação.")) }
+                }
             },
             onDismiss = { dialog = null },
         )

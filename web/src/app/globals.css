@@ -1,115 +1,162 @@
 :root,
 :root[data-theme="light"] {
-  --background: #f4f7f6;
+  /* 1B Suíço Preciso — superfícies alabastro e linhas hairline */
+  --background: #f6f7f9;
   --surface: #ffffff;
-  --surface-raised: #f8fbfa;
-  --surface-muted: #e9f0ee;
-  --surface-inverse: #10201f;
-  --foreground: #10201f;
-  --foreground-muted: #536664;
-  --text-primary: #10201f;
-  --text-muted: #536664;
-  --text-subtle: #667a77;
-  --text-inverse: #f2f7f6;
-  --border: #ccd8d6;
-  --border-strong: #9fb1ae;
-  /* 5.03:1 sobre --surface (#fff); WCAG 1.4.11 ≥3:1 */
-  --border-control: #5f7370;
-  --accent: #0b6b69;
-  --accent-strong: #075653;
-  --accent-soft: #d9efec;
+  --surface-raised: #f1f3f6;
+  --surface-muted: #e9ecf1;
+  --surface-inverse: #111315;
+  --foreground: #111315;
+  --foreground-muted: #525965;
+  --text-primary: #111315;
+  --text-muted: #525965;
+  --text-subtle: #5d6675;
+  --text-inverse: #f1f3f5;
+  --border: #dde1e7;
+  --border-strong: #b8c0cc;
+  /* 5.09:1 sobre --surface (#fff); WCAG 1.4.11 >= 3:1 */
+  --border-control: #646e7d;
+
+  /* 2E Carimbo & Tinta — alto contraste editorial */
+  --accent: #1f3a73;
+  --accent-strong: #152852;
+  --accent-soft: #e9eef8;
   --on-accent: #ffffff;
-  --coral: #c9472d;
-  --coral-soft: #fbe7e2;
-  --focus: #1769c2;
-  --success: #146c43;
-  --success-soft: #e3f3e9;
-  --warning: #8a5712;
-  --warning-soft: #fbefd9;
-  --danger: #a52f25;
-  --danger-soft: #fbe7e5;
-  --purpose-limit: #0b6b69;
-  --purpose-goal: #315fa8;
-  --purpose-fixed: #a84d21;
-  /* 6.49:1 / 5.43:1 sobre --surface-muted */
-  --purpose-savings: #5c4d7a;
-  --purpose-annual: #7a5b1e;
-  --overlay: rgba(9, 22, 23, 0.58);
-  --brand-panel: #0d1b1d;
-  --brand-panel-grid: rgba(84, 198, 192, 0.055);
-  --brand-panel-text: #f2f7f6;
-  --brand-panel-text-soft: #dce5e3;
-  --brand-panel-text-muted: #bac9c7;
-  --brand-panel-highlight: #ff8a6f;
-  --brand-mark: #54c6c0;
-  --on-brand-mark: #062826;
-  --sidebar-bg: #0d1b1d;
-  --sidebar-grid: rgba(84, 198, 192, 0.045);
-  --sidebar-border: #263b3e;
-  --sidebar-text: #f2f7f6;
-  --sidebar-text-muted: #b8c7c5;
-  --sidebar-text-subtle: #9eb2af;
-  --sidebar-text-soft: #a9bcba;
-  --sidebar-nav-icon: #6f8c89;
-  --sidebar-hover: #15282b;
-  --sidebar-active: #193236;
-  --sidebar-active-border: #31565a;
-  --sidebar-divider: #294044;
-  --sidebar-surface: #172b2e;
+  --coral: #bd2d28;
+  --coral-soft: #fceaea;
+  --focus: #1f3a73;
+  --success: #1d6b52;
+  --success-soft: #e6f4ef;
+  --warning: #9a5b13;
+  --warning-soft: #faf1e4;
+  --danger: #bd2d28;
+  --danger-soft: #fceaea;
+
+  /* 5 naturezas de verba (WCAG AA sobre --surface e --surface-muted) */
+  --purpose-limit: #1f3a73;
+  --purpose-goal: #1d6b52;
+  --purpose-fixed: #bd2d28;
+  --purpose-savings: #5b3e7a;
+  --purpose-annual: #9a5b13;
+
+  --overlay: rgba(15, 17, 20, 0.54);
+
+  /* Painel de marca e 4B Monograma V Dobrado */
+  --brand-panel: #eff1f5;
+  --brand-panel-text: #111315;
+  --brand-panel-text-soft: #363d47;
+  --brand-panel-text-muted: #525965;
+  --brand-panel-highlight: #bd2d28;
+  --brand-mark: #1f3a73;
+  --brand-mark-accent: #bd2d28;
+  --on-brand-mark: #ffffff;
+
+  /* 5A Sidebar Tonal Integrada (clara no modo claro) */
+  --sidebar-bg: #eff1f5;
+  --sidebar-border: #dde1e7;
+  --sidebar-text: #111315;
+  --sidebar-text-muted: #525965;
+  --sidebar-text-subtle: #5d6675;
+  --sidebar-text-soft: #525965;
+  --sidebar-nav-icon: #646e7d;
+  --sidebar-hover: #e5e8ef;
+  --sidebar-active: #ffffff;
+  --sidebar-active-border: #cbd2de;
+  --sidebar-divider: #dde1e7;
+  --sidebar-surface: #ffffff;
+
   /* QR precisa de fundo claro nos dois temas para o contraste do código */
   --qr-canvas: #ffffff;
-  --shadow-sm: 0 0.5rem 1.5rem rgba(16, 32, 31, 0.08);
-  --shadow-lg: 0 1.5rem 4rem rgba(16, 32, 31, 0.18);
-  --radius-xs: 0.25rem;
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1.125rem;
+
+  /* Suíço Preciso: elevação por borda hairline, sombra mínima apenas em overlays */
+  --shadow-sm: none;
+  --shadow-lg: 0 1rem 2.5rem rgba(17, 19, 21, 0.12);
+
+  /* Raios contidos e geométricos */
+  --radius-xs: 0.125rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.625rem;
+
+  /* Escala tipográfica fixa (modo Operate) */
   --text-xs: 0.8125rem;
   --text-sm: 0.875rem;
   --text-md: 1rem;
   --text-lg: 1.125rem;
-  --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* 3B Newsreader + DM Sans + IBM Plex Mono */
+  --font-display: var(--font-newsreader), "Newsreader", Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-dm-sans), "DM Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root[data-theme="dark"] {
-  --background: #0b1416;
-  --surface: #111d20;
-  --surface-raised: #17262a;
-  --surface-muted: #1c2d31;
-  --surface-inverse: #f2f7f6;
-  --foreground: #f2f7f6;
-  --foreground-muted: #aabbb8;
-  --text-primary: #f2f7f6;
-  --text-muted: #aabbb8;
-  --text-subtle: #93a6a3;
-  --text-inverse: #10201f;
-  --border: #2b3d41;
-  --border-strong: #52676b;
-  /* 4.12:1 sobre --surface (#111d20); WCAG 1.4.11 ≥3:1 */
-  --border-control: #6a8084;
-  --accent: #54c6c0;
-  --accent-strong: #78d7d2;
-  --accent-soft: #153b3d;
-  --on-accent: #062826;
-  --coral: #ff8a6f;
-  --coral-soft: #432923;
-  --focus: #83bfff;
-  --success: #65d6a3;
-  --success-soft: #183c2e;
-  --warning: #f3c969;
-  --warning-soft: #3e341e;
-  --danger: #ff8a80;
-  --danger-soft: #432526;
-  --purpose-limit: #54c6c0;
-  --purpose-goal: #82adff;
-  --purpose-fixed: #ffac73;
-  /* 5.96:1 / 7.33:1 sobre --surface-muted */
-  --purpose-savings: #b39ddb;
-  --purpose-annual: #e0b35a;
+  /* 1B Suíço Preciso — carvão técnico */
+  --background: #0f1114;
+  --surface: #16191e;
+  --surface-raised: #1c2027;
+  --surface-muted: #232831;
+  --surface-inverse: #f1f3f5;
+  --foreground: #f1f3f5;
+  --foreground-muted: #9aa3b2;
+  --text-primary: #f1f3f5;
+  --text-muted: #9aa3b2;
+  --text-subtle: #8b95a5;
+  --text-inverse: #111315;
+  --border: #262c36;
+  --border-strong: #434d5e;
+  /* 3.92:1 sobre --surface (#16191e); WCAG 1.4.11 >= 3:1 */
+  --border-control: #687387;
+
+  /* 2E Carimbo & Tinta (modo escuro) */
+  --accent: #7da2f0;
+  --accent-strong: #9eb9f5;
+  --accent-soft: #1a2540;
+  --on-accent: #0b1324;
+  --coral: #f26b66;
+  --coral-soft: #3b1d1d;
+  --focus: #9eb9f5;
+  --success: #5ec7a3;
+  --success-soft: #163329;
+  --warning: #e6a65c;
+  --warning-soft: #382816;
+  --danger: #f26b66;
+  --danger-soft: #3b1d1d;
+
+  /* 5 naturezas de verba (modo escuro) */
+  --purpose-limit: #7da2f0;
+  --purpose-goal: #5ec7a3;
+  --purpose-fixed: #f26b66;
+  --purpose-savings: #b592db;
+  --purpose-annual: #e6a65c;
+
+  --brand-panel: #121519;
+  --brand-panel-text: #f1f3f5;
+  --brand-panel-text-soft: #d2d8e2;
+  --brand-panel-text-muted: #9aa3b2;
+  --brand-panel-highlight: #f26b66;
+  --brand-mark: #f1f3f5;
+  --brand-mark-accent: #7da2f0;
+  --on-brand-mark: #0b1324;
+
+  /* 5A Sidebar Tonal Integrada (escura no modo escuro) */
+  --sidebar-bg: #121519;
+  --sidebar-border: #262c36;
+  --sidebar-text: #f1f3f5;
+  --sidebar-text-muted: #9aa3b2;
+  --sidebar-text-subtle: #8b95a5;
+  --sidebar-text-soft: #9aa3b2;
+  --sidebar-nav-icon: #7d8799;
+  --sidebar-hover: #1a1e25;
+  --sidebar-active: #20252d;
+  --sidebar-active-border: #343c4a;
+  --sidebar-divider: #262c36;
+  --sidebar-surface: #1c2027;
+
   --qr-canvas: #ffffff;
-  --overlay: rgba(2, 8, 9, 0.76);
-  --shadow-sm: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.18);
-  --shadow-lg: 0 1.5rem 4rem rgba(0, 0, 0, 0.42);
+  --overlay: rgba(5, 7, 10, 0.76);
+  --shadow-sm: none;
+  --shadow-lg: 0 1.25rem 3rem rgba(0, 0, 0, 0.48);
 }
 
 html { min-height: 100%; background: var(--background); }
@@ -122,22 +169,25 @@ body {
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  caret-color: var(--accent);
 }
 
 * { box-sizing: border-box; padding: 0; margin: 0; }
-a { color: inherit; text-decoration: none; }
+a { color: inherit; text-decoration: none; text-underline-offset: 0.18em; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button, input, select, textarea { font: inherit; }
 button { color: inherit; }
 input, select, textarea { color: var(--text-primary); }
-:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 ::selection { color: var(--on-accent); background: var(--accent); }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    animation: none !important;
+    transition-property: opacity, color, background-color, border-color, box-shadow, outline-color, fill, stroke,
+      text-decoration-color !important;
   }
 }

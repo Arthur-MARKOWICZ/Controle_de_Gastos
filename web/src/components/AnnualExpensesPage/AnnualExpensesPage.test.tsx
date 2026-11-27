@@ -1,10 +1,12 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { EnvelopeDTO } from "../../lib/api";
+import { ToastProvider } from "../ui/ToastProvider";
 import { AnnualExpensesPage } from "./AnnualExpensesPage";
 
 const archiveEnvelope = vi.fn();
 const updateEnvelope = vi.fn();
+const deleteHistoryEntry = vi.fn();
 const refresh = vi.fn();
 let ledger: { summary: unknown; loading: boolean; busy: boolean; error: string | null; refresh: typeof refresh };
 
@@ -12,11 +14,31 @@ vi.mock("../../auth/auth-context", () => ({ useAuth: () => ({ client: { request:
 vi.mock("../../hooks/useLedgerSummary", () => ({ useLedgerSummary: () => ledger }));
 vi.mock("../../lib/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/api")>()),
-  createApiClient: () => ({ archiveEnvelope, updateEnvelope }),
+  createApiClient: () => ({ archiveEnvelope, updateEnvelope, deleteHistoryEntry }),
 }));
 vi.mock("../AppShell/AppShell", () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <main>{children}</main>,
 }));
+vi.mock("../ExpenseForm/ExpenseForm", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../ExpenseForm/ExpenseForm")>();
+  return {
+    ...original,
+    ExpenseForm: ({
+      onSuccess,
+    }: {
+      onSuccess(result: { entryId: string; targetJustReached: boolean; balanceAfter: string | null }): void;
+    }) => (
+      <form aria-label="Formulário de gasto">
+        <button
+          type="button"
+          onClick={() => onSuccess({ entryId: "entry-1", targetJustReached: false, balanceAfter: null })}
+        >
+          Confirmar gasto mock
+        </button>
+      </form>
+    ),
+  };
+});
 
 const ipva = {
   id: "ipva", ownerId: "owner", name: "IPVA", purpose: "ANNUAL_EXPENSE",
@@ -49,14 +71,24 @@ afterEach(() => {
   cleanup();
   archiveEnvelope.mockReset();
   updateEnvelope.mockReset();
+  deleteHistoryEntry.mockReset();
   refresh.mockReset();
 });
 
 function renderPage() {
-  render(<AnnualExpensesPage email="pessoa@example.com" onLogout={vi.fn()} />);
+  render(
+    <ToastProvider>
+      <AnnualExpensesPage email="pessoa@example.com" onLogout={vi.fn()} />
+    </ToastProvider>,
+  );
+}
+
+function openCardMenu(name = "IPVA") {
+  fireEvent.click(screen.getByLabelText(`Mais ações de ${name}`));
 }
 
 function openEdit() {
+  openCardMenu();
   fireEvent.click(screen.getByLabelText("Editar gasto anual IPVA"));
 }
 
@@ -73,6 +105,7 @@ describe("AnnualExpensesPage", () => {
     archiveEnvelope.mockResolvedValue(undefined);
     renderPage();
 
+    openCardMenu();
     fireEvent.click(screen.getByLabelText("Encerrar IPVA"));
     fireEvent.click(screen.getByRole("button", { name: "Encerrar" }));
 
@@ -103,6 +136,7 @@ describe("AnnualExpensesPage", () => {
   it("cancelar a confirmação não encerra o gasto anual", () => {
     renderPage();
 
+    openCardMenu();
     fireEvent.click(screen.getByLabelText("Encerrar IPVA"));
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
 
@@ -114,6 +148,7 @@ describe("AnnualExpensesPage", () => {
     ledger.summary = summaryWith([{ ...ipva, role: "PARTICIPANT" } as EnvelopeDTO]);
     renderPage();
 
+    expect(screen.queryByLabelText("Mais ações de IPVA")).toBeNull();
     expect(screen.queryByLabelText("Editar gasto anual IPVA")).toBeNull();
     expect(screen.queryByLabelText("Encerrar IPVA")).toBeNull();
     expect(screen.queryByLabelText("Marcar IPVA como alocação de patrimônio")).toBeNull();
@@ -155,6 +190,7 @@ describe("AnnualExpensesPage", () => {
     updateEnvelope.mockRejectedValue(new Error("500"));
     renderPage();
 
+    openCardMenu();
     fireEvent.click(screen.getByLabelText("Marcar IPVA como alocação de patrimônio"));
 
     expect(await screen.findByText("Não foi possível atualizar a classificação do gasto anual")).toBeDefined();
@@ -165,6 +201,7 @@ describe("AnnualExpensesPage", () => {
     archiveEnvelope.mockRejectedValue(new Error("403"));
     renderPage();
 
+    openCardMenu();
     fireEvent.click(screen.getByLabelText("Encerrar IPVA"));
     fireEvent.click(screen.getByRole("button", { name: "Encerrar" }));
 
@@ -181,6 +218,21 @@ describe("AnnualExpensesPage", () => {
     expect(screen.queryByText(/vencimento em/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(refresh).toHaveBeenCalledOnce();
+  });
+
+  it("ao registrar gasto mostra toast com Desfazer e remove o lançamento", async () => {
+    deleteHistoryEntry.mockResolvedValueOnce(undefined);
+    renderPage();
+
+    fireEvent.click(screen.getByLabelText("Registrar gasto em IPVA"));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar gasto mock" }));
+
+    expect(await screen.findByRole("button", { name: "Desfazer" })).toBeDefined();
+    expect(screen.getAllByText(/Gasto registrado/).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    await waitFor(() => expect(deleteHistoryEntry).toHaveBeenCalledWith("entry-1"));
+    expect(await screen.findByText("Lançamento desfeito.")).toBeDefined();
   });
 });
 

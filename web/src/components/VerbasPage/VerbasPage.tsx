@@ -14,6 +14,7 @@ import { Dialog } from "../ui/Dialog";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Button } from "../ui/Button";
 import { Notice } from "../ui/Notice";
+import { useToast } from "../ui/ToastProvider";
 import { PageHeader } from "../ui/PageHeader";
 import { EnvelopeForm } from "../EnvelopeForm/EnvelopeForm";
 import { ExpenseForm, overdraftNotice, type ExpenseResult } from "../ExpenseForm/ExpenseForm";
@@ -38,6 +39,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   const searchParams = useSearchParams();
   const router = useRouter();
   const { client } = useAuth();
+  const { showToast } = useToast();
 
   const rawMonth = parseMonthParam(searchParams.get("month"));
   const month = rawMonth ?? currentMonthSaoPaulo();
@@ -170,15 +172,42 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
   function handleExpenseSuccess(result: ExpenseResult) {
     const name = expenseTarget?.name ?? "verba";
     setExpenseTarget(null);
-    setFeedback(`Gasto registrado em "${name}"${overdraftNotice(result)}`);
+    const message = `Gasto registrado em "${name}"${overdraftNotice(result)}`;
+    setFeedback(message);
+    showToast({
+      message,
+      action: {
+        label: "Desfazer",
+        onClick: () => {
+          void createApiClient(client)
+            .deleteHistoryEntry(result.entryId)
+            .then(() => {
+              setFeedback("Lançamento desfeito.");
+              setAlertsRefreshKey((key) => key + 1);
+              void refreshEnvelopes();
+              void refreshSummary();
+            })
+            .catch(() => {
+              setFeedback("Não foi possível desfazer o lançamento.");
+            });
+        },
+      },
+    });
     void refreshEnvelopes();
     void refreshSummary();
     void refreshPace();
     setAlertsRefreshKey((key) => key + 1);
   }
 
+  const firstSpendable = source.find((env) => !env.archivedAt) ?? null;
+
   return (
-    <AppShell current="envelopes" email={email} onLogout={onLogout}>
+    <AppShell
+      current="envelopes"
+      email={email}
+      onLogout={onLogout}
+      onQuickExpense={firstSpendable ? () => { setFeedback(null); setExpenseTarget(firstSpendable); } : undefined}
+    >
         {feedback && (
           <Notice tone="success" onClose={() => setFeedback(null)}>{feedback}</Notice>
         )}
@@ -308,6 +337,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
           <EnvelopeForm
             initialPurpose={showNewEnvelope ?? "LIMIT"}
             allowedPurposes={["LIMIT", "FIXED"]}
+            unallocatedAmount={summary?.unallocated.amount}
             onOpenGlossary={() => {
               setShowNewEnvelope(null);
               setShowGlossary(true);

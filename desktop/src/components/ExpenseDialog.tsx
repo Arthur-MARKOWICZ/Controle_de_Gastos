@@ -16,17 +16,25 @@ export type ExpenseDialogProps = {
   envelope: SummaryEnvelope;
   onClose: () => void;
   onRegistered: () => void;
+  /** Prefill do valor sugerido (string decimal `"32.50"`); nulo/ausente deixa vazio. */
+  initialAmount?: string | null;
   /** Injetável no teste; por padrão, hoje em America/Sao_Paulo. */
   today?: string;
 };
+
+function maskFromPlain(plain: string | null | undefined): string {
+  if (!plain || !/^\d{1,17}\.\d{2}$/.test(plain)) return "";
+  return maskPtBR(plain.replace(".", ""));
+}
 
 export function ExpenseDialog({
   envelope,
   onClose,
   onRegistered,
+  initialAmount,
   today,
 }: ExpenseDialogProps) {
-  const [masked, setMasked] = useState("");
+  const [masked, setMasked] = useState(() => maskFromPlain(initialAmount));
   const [description, setDescription] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -36,7 +44,8 @@ export function ExpenseDialog({
   // campo valor mover o foco — num efeito já seria tarde demais.
   const [opener] = useState<Element | null>(() => document.activeElement);
 
-  const occurredAt = today ?? todaySaoPaulo();
+  const todayDate = today ?? todaySaoPaulo();
+  const [occurredAt, setOccurredAt] = useState(todayDate);
 
   // Devolve o foco ao gatilho ao fechar — vale tanto para a ação da verba
   // quanto para o atalho de teclado.
@@ -144,11 +153,9 @@ export function ExpenseDialog({
             label="Data"
             type="date"
             value={occurredAt}
-            onChange={() => {
-              /* o corte registra na data de hoje */
-            }}
-            hint="Hoje, no calendário de São Paulo."
-            disabled
+            onChange={setOccurredAt}
+            hint="Padrão hoje (São Paulo); você pode escolher uma data anterior."
+            disabled={pending}
           />
           <Field
             id="descricao"

@@ -21,10 +21,6 @@ sealed interface Route {
         override val label = "Verbas"
     }
 
-    data object Goals : TopLevel {
-        override val label = "Metas"
-    }
-
     data object History : TopLevel {
         override val label = "Gastos"
     }
@@ -33,6 +29,7 @@ sealed interface Route {
         override val label = "Mais"
     }
 
+    data object Goals : Route
     data object AnnualExpenses : Route
     data object Reports : Route
     data object Security : Route
@@ -47,6 +44,7 @@ val Route.title: String
         // O título da tela pode ser mais longo que o rótulo da barra.
         Route.Overview -> "Visão geral"
         is Route.TopLevel -> label
+        Route.Goals -> "Metas"
         Route.AnnualExpenses -> "Gastos anuais"
         Route.Reports -> "Relatórios"
         Route.Security -> "Segurança"
@@ -56,7 +54,7 @@ val Route.title: String
     }
 
 val TOP_LEVEL_ROUTES: List<Route.TopLevel> =
-    listOf(Route.Overview, Route.Envelopes, Route.Goals, Route.History, Route.More)
+    listOf(Route.Overview, Route.Envelopes, Route.History, Route.More)
 
 /**
  * Pilha de navegação.

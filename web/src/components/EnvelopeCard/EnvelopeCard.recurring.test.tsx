@@ -18,8 +18,8 @@ describe("EnvelopeCard · recorrências", () => {
     const onManageRecurring = vi.fn();
     render(<ul><EnvelopeCard envelope={envelope("OWNER")} onRegisterExpense={vi.fn()} onManageRecurring={onManageRecurring} /></ul>);
 
-    const action = screen.getByRole("button", { name: "Recorrências de Moradia", hidden: true });
-    fireEvent.click(action);
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações de Moradia" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Recorrências de Moradia" }));
 
     expect(onManageRecurring).toHaveBeenCalled();
   });
@@ -27,6 +27,7 @@ describe("EnvelopeCard · recorrências", () => {
   it("não mostra Recorrências ao participante", () => {
     render(<ul><EnvelopeCard envelope={envelope("PARTICIPANT")} onRegisterExpense={vi.fn()} onManageRecurring={vi.fn()} /></ul>);
 
-    expect(screen.queryByRole("button", { name: "Recorrências de Moradia", hidden: true })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Mais ações de Moradia" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Recorrências de Moradia" })).toBeNull();
   });
 });

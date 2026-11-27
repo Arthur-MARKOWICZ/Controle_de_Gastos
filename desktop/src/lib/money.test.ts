@@ -51,7 +51,13 @@ describe("9.1 serialização para a API", () => {
 
   it("não aceita valor zero nem negativo como gasto", () => {
     expect(toPlainAmount("0,00")).toBeNull();
+    expect(toPlainAmount("00,00")).toBeNull();
     expect(toPlainAmount("-5,00")).toBeNull();
+  });
+
+  it("rejeita máscara que não vira plain válido da API", () => {
+    // Passa o regex do campo, mas o plain resultante quebra o contrato.
+    expect(toPlainAmount("00000000000000000000,00")).toBeNull();
   });
 
   it("o que sai da serialização é sempre aceito pelo contrato da API", () => {

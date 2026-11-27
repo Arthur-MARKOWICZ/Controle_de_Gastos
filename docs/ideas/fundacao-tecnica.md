@@ -22,7 +22,8 @@ Como construir um sistema pessoal de verbas reservadas, acessível pela web e pe
 - **Mobile:** lançamento rápido, saldos, alertas, notificações e histórico.
 - **Web:** configuração, histórico completo e relatórios.
 - **Desktop (Tauri):** janela própria no computador para lançamento rápido por
-  teclado, visão geral do mês e lista de verbas (ADR-0029).
+  teclado (atalho de janela e atalho global de SO), ícone na bandeja, autostart
+  opcional, visão geral do mês e lista de verbas (ADR-0029; Linux validável).
 - **MCP (stdio):** consulta e registro por agentes de IA (ADR-023).
 - **Backend:** fonte única das regras, autorizações e notificações.
 

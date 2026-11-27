@@ -11,7 +11,11 @@ import { Field } from "../ui/Field";
 import { Notice } from "../ui/Notice";
 import styles from "../EnvelopeForm/EnvelopeForm.module.css";
 
-export type ExpenseResult = { targetJustReached: boolean; balanceAfter: string | null };
+export type ExpenseResult = {
+  entryId: string;
+  targetJustReached: boolean;
+  balanceAfter: string | null;
+};
 
 type Props = {
   envelope: EnvelopeDTO;
@@ -58,7 +62,7 @@ export function ExpenseForm({ envelope, kind = "EXPENSE", onSuccess, onCancel }:
     setBusy(true);
     try {
       const entry = await api.createEntry(envelope.id, { kind, amount: { amount: plain, currency: "BRL" }, occurredAt, description: description.trim() || null });
-      onSuccess({ targetJustReached: entry.targetJustReached ?? false, balanceAfter });
+      onSuccess({ entryId: entry.id, targetJustReached: entry.targetJustReached ?? false, balanceAfter });
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) {
         failField("amount", "expense-amount", err.detail || "Valor inválido para este lançamento");

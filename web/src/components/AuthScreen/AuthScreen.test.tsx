@@ -116,7 +116,7 @@ describe("AuthScreen", () => {
     expect(screen.queryByText(/Agora você pode entrar/)).toBeNull();
   });
 
-  it("trocar entre entrar e criar conta apaga e-mail, senha e mensagens anteriores", async () => {
+  it("trocar entre entrar e criar conta preserva o e-mail e apaga senha e mensagens anteriores", async () => {
     render(<AuthScreen onLogin={vi.fn()} onRegister={vi.fn().mockRejectedValue(new Error("400"))} />);
     fireEvent.click(screen.getByRole("button", { name: "Criar conta" }));
     fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "pessoa@example.com" } });
@@ -126,7 +126,7 @@ describe("AuthScreen", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Entrar" }));
 
-    expect((screen.getByLabelText("E-mail") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("E-mail") as HTMLInputElement).value).toBe("pessoa@example.com");
     expect((screen.getByLabelText("Senha") as HTMLInputElement).value).toBe("");
     expect(screen.queryByRole("alert")).toBeNull();
   });

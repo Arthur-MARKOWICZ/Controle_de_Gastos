@@ -1,6 +1,16 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "../ui/ToastProvider";
 import { HistoryPage } from "./HistoryPage";
+import { currentMonthSaoPaulo, todaySaoPaulo } from "../../lib/dates";
+
+function renderPage() {
+  return render(
+    <ToastProvider>
+      <HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />
+    </ToastProvider>,
+  );
+}
 
 const updateHistoryEntry = vi.fn();
 const deleteHistoryEntry = vi.fn();
@@ -14,6 +24,7 @@ function ownerItem() {
     entry: {
       id: "entry-1",
       envelopeId: "env-1",
+      kind: "EXPENSE",
       amount: { amount: "50.00", currency: "BRL" },
       occurredAt: "2026-08-10",
       description: "Gasolina",
@@ -108,6 +119,7 @@ vi.mock("../../lib/api", async (importOriginal) => {
         }),
       ),
       getEnvelopes: vi.fn().mockImplementation(() => Promise.resolve(apiState.envelopes)),
+      getExpenseSuggestions: vi.fn().mockResolvedValue({ asOf: "2026-11-27T12:00:00-03:00", items: [] }),
       updateHistoryEntry,
       deleteHistoryEntry,
       createEntry,
@@ -172,14 +184,71 @@ describe("HistoryPage", () => {
 
   it("confirma exclusão com diálogo nomeado", async () => {
     deleteHistoryEntry.mockResolvedValueOnce(undefined);
-    render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     fireEvent.click(await screen.findByRole("button", { name: "Excluir" }));
     const dialog = screen.getByRole("dialog", { name: "Excluir lançamento?" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Excluir" }));
 
     await waitFor(() => expect(deleteHistoryEntry).toHaveBeenCalledWith("entry-1"));
-    expect(await screen.findByText("Gasto excluído.")).toBeDefined();
+    expect(await screen.findAllByText("Gasto excluído.")).not.toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Desfazer" })).toBeDefined();
+  });
+
+  it("desfaz exclusão recriando o gasto", async () => {
+    deleteHistoryEntry.mockResolvedValueOnce(undefined);
+    createEntry.mockResolvedValueOnce({ id: "entry-restored" });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Excluir" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Excluir lançamento?" })).getByRole("button", { name: "Excluir" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Desfazer" }));
+    await waitFor(() =>
+      expect(createEntry).toHaveBeenCalledWith(
+        "env-1",
+        expect.objectContaining({
+          kind: "EXPENSE",
+          amount: { amount: "50.00", currency: "BRL" },
+          occurredAt: "2026-08-10",
+          description: "Gasolina",
+        }),
+      ),
+    );
+    expect(await screen.findByText("Exclusão desfeita.")).toBeDefined();
+  });
+
+  it("marca o chip de período selecionado com aria-pressed", async () => {
+    const today = todaySaoPaulo();
+    const month = currentMonthSaoPaulo();
+    navState.query = `from=${month}-01&to=${today}`;
+    renderPage();
+
+    const thisMonth = await screen.findByRole("button", { name: "Este mês" });
+    expect(thisMonth.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Mês passado" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: "Últimos 7 dias" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: "Personalizado" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("marca Personalizado com aria-pressed quando o período não é um preset", async () => {
+    navState.query = "from=2026-01-01&to=2026-01-15";
+    renderPage();
+
+    expect((await screen.findByRole("button", { name: "Personalizado" })).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Este mês" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("abre os filtros de data ao acionar o chip Personalizado", async () => {
+    const today = todaySaoPaulo();
+    const month = currentMonthSaoPaulo();
+    navState.query = `from=${month}-01&to=${today}`;
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Personalizado" }));
+
+    expect(screen.getByLabelText("De")).toBeDefined();
+    expect(screen.getByLabelText("Até")).toBeDefined();
   });
 
   it("se chama Histórico e oferece registrar gasto no cabeçalho", async () => {
@@ -187,20 +256,18 @@ describe("HistoryPage", () => {
 
     expect(await screen.findByRole("heading", { level: 1, name: "Histórico" })).toBeDefined();
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    // o controle só existe depois que as verbas gastáveis carregam
-    expect(await screen.findByRole("button", { name: "Registrar gasto" })).toBeDefined();
+    // cabeçalho + CTA do shell compartilham o rótulo aprovado em DESIGN.md
+    expect((await screen.findAllByRole("button", { name: "Registrar gasto" })).length).toBeGreaterThan(0);
   });
 
-  it("deixa o dono escolher a verba e abrir o formulário de gasto", async () => {
+  it("abre o diálogo unificado de lançamento rápido permitindo escolher a verba e o valor", async () => {
     render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Registrar gasto" }));
+    fireEvent.click((await screen.findAllByRole("button", { name: "Registrar gasto" }))[0]);
 
-    const picker = screen.getByRole("dialog", { name: "Registrar gasto" });
-    fireEvent.click(within(picker).getByRole("button", { name: "Combustível" }));
-
-    const form = await screen.findByRole("dialog", { name: "Registrar gasto em Combustível" });
-    expect(within(form).getByLabelText("Valor (BRL)")).toBeDefined();
+    const dialog = screen.getByRole("dialog", { name: "Lançamento rápido" });
+    expect(within(dialog).getByLabelText("Verba")).toBeDefined();
+    expect(within(dialog).getByLabelText("Valor (BRL)")).toBeDefined();
   });
 
   it("oferece registrar gasto também no estado vazio do período", async () => {
@@ -300,6 +367,7 @@ describe("HistoryPage", () => {
     it("filtra por verba e por autor pela URL", async () => {
       apiState.envelopes = [ownerEnvelope(), secondEnvelope()];
       render(<HistoryPage email="pessoa@example.com" onLogout={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Filtros" }));
       const envelopeSelect = await screen.findByLabelText("Verba");
       await screen.findByRole("option", { name: "Saúde" });
 

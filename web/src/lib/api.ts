@@ -148,6 +148,17 @@ export type LedgerSummaryDTO = {
   envelopes: EnvelopeDTO[];
 };
 
+export type ExpenseSuggestionItemDTO = {
+  envelopeId: string;
+  name: string;
+  suggestedAmount: MoneyDTO | null;
+};
+
+export type ExpenseSuggestionsDTO = {
+  asOf: string;
+  items: ExpenseSuggestionItemDTO[];
+};
+
 export type IncomeDTO = {
   amount: string;
   currency: "BRL";
@@ -392,6 +403,11 @@ export function createApiClient(authClient: AuthClient) {
     getLimitSpendingPace(month: string): Promise<LimitSpendingPaceRowDTO[]> {
       const qs = `?month=${encodeURIComponent(month)}`;
       return authClient.request(`/api/v1/reports/limit-spending-pace${qs}`).then(handleResponse<LimitSpendingPaceRowDTO[]>);
+    },
+    getExpenseSuggestions(): Promise<ExpenseSuggestionsDTO> {
+      return authClient
+        .request("/api/v1/ledger/expense-suggestions")
+        .then(handleResponse<ExpenseSuggestionsDTO>);
     },
     getIncome(month?: string): Promise<IncomeDTO> {
       const qs = month ? `?month=${encodeURIComponent(month)}` : "";

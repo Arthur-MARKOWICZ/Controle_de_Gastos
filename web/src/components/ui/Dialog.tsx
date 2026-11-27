@@ -1,19 +1,22 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { XIcon } from "./NavIcons";
 import styles from "./Dialog.module.css";
 
 type Props = {
   open: boolean;
   onClose(): void;
   title: string;
+  /** 6A: drawer lateral por padrão para manter o contexto dos saldos; modal para confirmações curtas. */
+  variant?: "drawer" | "modal";
   children: React.ReactNode;
 };
 
 const FOCUSABLE =
   "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
 
-export function Dialog({ open, onClose, title, children }: Props) {
+export function Dialog({ open, onClose, title, variant = "drawer", children }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const previousActive = useRef<Element | null>(null);
   const titleId = useId();
@@ -71,7 +74,7 @@ export function Dialog({ open, onClose, title, children }: Props) {
   return (
     <dialog
       ref={dialogRef}
-      className={styles.dialog}
+      className={variant === "drawer" ? `${styles.dialog} ${styles.drawer}` : styles.dialog}
       aria-modal="true"
       aria-labelledby={titleId}
       onClick={(e) => {
@@ -83,7 +86,7 @@ export function Dialog({ open, onClose, title, children }: Props) {
           <div className={styles.header}>
             <h2 id={titleId}>{title}</h2>
             <button type="button" aria-label="Fechar" onClick={onClose} className={styles.close}>
-              ×
+              <XIcon />
             </button>
           </div>
           <div className={styles.body} data-dialog-body>

@@ -1,0 +1,23 @@
+---
+description: Consultar o mapa Graphify antes de explorar código em perguntas cross-file
+alwaysApply: true
+---
+
+Este projeto tem um mapa de código em `graphify-out/` (AST local, sem LLM).
+
+**Quando usar (perguntas de navegação / arquitetura):**
+- onde fica X, o que chama Y, como o fluxo A chega em B
+- antes do primeiro Grep/Read amplo: `graphify query "<pergunta>"`
+- relação entre símbolos: `graphify path "<A>" "<B>"`
+- conceito focado: `graphify explain "<conceito>"`
+- no Claude Code: `bash ~/.claude/skills/token/scripts/token.sh query "<pergunta>" .` (atualiza mapa stale)
+
+**Quando NÃO forçar o grafo:**
+- edição pontual em arquivo já localizado
+- o agente já tem file:line do passo anterior
+- `graphify-out/graph.json` ainda não existe → construir com `graphify extract . --code-only`
+
+**Regras de custo:**
+- NUNCA ler `graphify-out/graph.json` inteiro
+- `GRAPH_REPORT.md` só para visão arquitetural ampla
+- depois de mudar código: `graphify update .` (AST only, sem API)

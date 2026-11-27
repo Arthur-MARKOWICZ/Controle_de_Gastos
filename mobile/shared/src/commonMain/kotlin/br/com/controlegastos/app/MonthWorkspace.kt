@@ -1,8 +1,6 @@
 package br.com.controlegastos.app
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -11,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
@@ -27,6 +24,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -68,13 +66,13 @@ private fun MonthSelector(
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         TextButton(onClick = onPrevious, modifier = Modifier.height(TouchTarget)) {
             Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft, contentDescription = null)
             Text("Anterior")
         }
-        Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(month.label(), fontWeight = FontWeight.Bold)
             if (isCurrentMonth) {
                 Text(
@@ -97,46 +95,97 @@ internal fun IncomeSummaryCard(dashboard: FinancialDashboard, onConfigureIncome:
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = MaterialTheme.shapes.medium,
     ) {
-        Row(Modifier.fillMaxWidth()) {
-            Box(Modifier.width(4.dp).height(if (onConfigureIncome == null) 148.dp else 196.dp)
-                .background(MaterialTheme.colorScheme.primary))
-            Column(Modifier.weight(1f).padding(20.dp)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp)) {
+            Text(
+                "Renda do mês",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                dashboard.income?.amount?.toBrl() ?: "Renda não configurada",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+            )
+            Spacer(Modifier.height(16.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                SummaryValue("Reservado", dashboard.allocated.toBrl())
+                SummaryValue("Não alocado", dashboard.unallocated.toBrl())
+            }
+            Spacer(Modifier.height(12.dp))
+            val usage = (dashboard.usagePct / 100.0).coerceIn(0.0, 1.0).toFloat()
+            LinearProgressIndicator(
+                progress = { usage },
+                modifier = Modifier.fillMaxWidth().height(6.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+            )
+            Text(
+                "${dashboard.usagePct.toInt()}% da renda já está reservada",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            onConfigureIncome?.let {
+                OutlinedButton(
+                    onClick = it,
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(TouchTarget),
+                ) { Text(if (dashboard.income == null) "Configurar renda" else "Alterar renda") }
+            }
+        }
+    }
+}
+
+/** Seção compacta da Visão geral: poucos lançamentos recentes + atalho ao Histórico. */
+@Composable
+internal fun RecentEntriesSection(
+    items: List<HistoryItemView>?,
+    onOpenHistory: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Últimos lançamentos", fontWeight = FontWeight.Bold)
+            TextButton(onClick = onOpenHistory, modifier = Modifier.height(TouchTarget)) {
+                Text("Ver histórico")
+            }
+        }
+        when {
+            items == null -> Text(
+                "Carregando lançamentos…",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+            )
+            items.isEmpty() -> Text(
+                "Nenhum gasto registrado neste mês ainda.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            else -> items.forEach { CompactHistoryRow(it) }
+        }
+    }
+}
+
+/** Linha compacta reaproveitando o padrão visual do histórico, sem ações. */
+@Composable
+internal fun CompactHistoryRow(item: HistoryItemView) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                Text(item.envelopeName, fontWeight = FontWeight.Bold)
                 Text(
-                    "Renda do mês",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelLarge,
-                )
-                Text(
-                    dashboard.income?.amount?.toBrl() ?: "Renda não configurada",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Black,
-                )
-                Spacer(Modifier.height(16.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    SummaryValue("Reservado", dashboard.allocated.toBrl())
-                    SummaryValue("Não alocado", dashboard.unallocated.toBrl())
-                }
-                Spacer(Modifier.height(12.dp))
-                val usage = (dashboard.usagePct / 100.0).coerceIn(0.0, 1.0).toFloat()
-                LinearProgressIndicator(
-                    progress = { usage },
-                    modifier = Modifier.fillMaxWidth().height(6.dp),
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                )
-                Text(
-                    "${dashboard.usagePct.toInt()}% da renda já está reservada",
+                    "${item.entry.kind.label} · ${formatIsoDateBr(item.entry.occurredAt)}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = 6.dp),
                 )
-                onConfigureIncome?.let {
-                    OutlinedButton(
-                        onClick = it,
-                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp).height(TouchTarget),
-                    ) { Text(if (dashboard.income == null) "Configurar renda" else "Alterar renda") }
-                }
             }
+            Text(item.entry.amount.toBrl(), fontWeight = FontWeight.Bold)
         }
     }
 }

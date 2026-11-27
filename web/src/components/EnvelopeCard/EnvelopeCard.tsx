@@ -1,8 +1,11 @@
 import { formatBRL } from "../../lib/money";
 import type { EnvelopeDTO, LimitSpendingPaceRowDTO } from "../../lib/api";
 import { spendingPaceLabel } from "../../lib/spendingPace";
+import { ActionMenu } from "../ui/ActionMenu";
+import type { ActionMenuItem } from "../ui/ActionMenu";
 import { Button } from "../ui/Button";
 import { ProgressBar } from "../ui/ProgressBar";
+import { ProgressRing } from "../ui/ProgressRing";
 import styles from "./EnvelopeCard.module.css";
 
 type Props = {
@@ -34,17 +37,6 @@ function purposeLabel(purpose: string) {
   }
 }
 
-function purposeRule(purpose: string) {
-  switch (purpose) {
-    case "LIMIT": return "Planeje até este valor por mês; o saldo reinicia no mês seguinte.";
-    case "FIXED": return "Reserve este valor mensal e registre o pagamento; reinicia a cada mês.";
-    case "GOAL": return "Faça aportes mensais para avançar nesta meta.";
-    case "SAVINGS_TARGET": return "Junte qualquer valor; o saldo não reinicia no próximo mês.";
-    case "ANNUAL_EXPENSE": return "Reserve até o vencimento anual e registre o pagamento real.";
-    default: return "";
-  }
-}
-
 export function EnvelopeCard({
   envelope,
   pace,
@@ -70,6 +62,7 @@ export function EnvelopeCard({
   /** LIMIT e FIXED enchem conforme o mês é consumido; as demais naturezas, conforme o alvo avança. */
   const consumesPeriod = envelope.purpose === "LIMIT" || envelope.purpose === "FIXED";
   const progressValue = consumesPeriod ? spent : pct;
+  const ringValue = envelope.isNegative ? 100 : Math.max(0, Math.min(100, progressValue));
 
   let status: string;
   if (envelope.isNegative) {
@@ -106,9 +99,9 @@ export function EnvelopeCard({
     envelope.role === "OWNER" && isContributionPurpose(envelope.purpose) ? "Aportar" : "Registrar gasto";
 
   const isOwner = envelope.role === "OWNER";
-  const secondaryActions: Array<{ key: string; label: string; ariaLabel: string; onClick(): void }> = [];
+  const menuItems: ActionMenuItem[] = [];
   if (onManageParticipants && isOwner) {
-    secondaryActions.push({
+    menuItems.push({
       key: "participants",
       label: "Participantes",
       ariaLabel: `Participantes de ${envelope.name}`,
@@ -116,7 +109,7 @@ export function EnvelopeCard({
     });
   }
   if (onManageRecurring && isOwner) {
-    secondaryActions.push({
+    menuItems.push({
       key: "recurring",
       label: "Recorrências",
       ariaLabel: `Recorrências de ${envelope.name}`,
@@ -124,7 +117,7 @@ export function EnvelopeCard({
     });
   }
   if (onEditTarget && envelope.purpose === "SAVINGS_TARGET" && isOwner) {
-    secondaryActions.push({
+    menuItems.push({
       key: "target",
       label: "Editar alvo",
       ariaLabel: `Editar alvo de ${envelope.name}`,
@@ -132,7 +125,7 @@ export function EnvelopeCard({
     });
   }
   if (onEditAnnual && envelope.purpose === "ANNUAL_EXPENSE" && isOwner) {
-    secondaryActions.push({
+    menuItems.push({
       key: "annual",
       label: "Editar",
       ariaLabel: `Editar gasto anual ${envelope.name}`,
@@ -140,7 +133,7 @@ export function EnvelopeCard({
     });
   }
   if (onToggleWealthAllocation && isOwner) {
-    secondaryActions.push({
+    menuItems.push({
       key: "wealth",
       label: envelope.wealthAllocation ? "Tratar como consumo" : "Marcar como patrimônio",
       ariaLabel: envelope.wealthAllocation
@@ -150,31 +143,48 @@ export function EnvelopeCard({
     });
   }
   if (onArchive && isOwner) {
-    secondaryActions.push({
+    menuItems.push({
       key: "archive",
       label: "Encerrar",
       ariaLabel: `Encerrar ${envelope.name}`,
+      danger: true,
       onClick: () => onArchive(envelope),
     });
   }
 
   return (
-    <li className={styles.card}>
-      <div className={styles.envelopeHeading}>
-        <div>
-          <h3>{envelope.name}</h3>
-          <span>
-            {purposeLabel(envelope.purpose)}
-            {envelope.role === "PARTICIPANT" ? " · Participante" : ""}
-            {envelope.wealthAllocation ? " · Alocação de patrimônio" : ""}
-          </span>
-          <span>{purposeRule(envelope.purpose)}</span>
+    <li className={styles.card} data-negative={envelope.isNegative ? "true" : undefined}>
+      <div className={styles.cardTop}>
+        <div
+          className={styles.ringWrap}
+          data-negative={envelope.isNegative ? "true" : undefined}
+          aria-hidden="true"
+        >
+          <ProgressRing
+            value={ringValue}
+            purpose={envelope.purpose}
+            negative={envelope.isNegative}
+            size={36}
+          />
+          <span className={styles.ringLabel}>{envelope.isNegative ? "!" : `${ringValue}%`}</span>
         </div>
-        <div className={styles.envelopeValue}>
-          <strong>{envelope.purpose === "GOAL" && goalProgress ? `Faltam ${available}` : available}</strong>
-          <span>{envelope.purpose === "GOAL" && goalProgress ? `meta acumulada ${base}` : `de ${base}`}</span>
+
+        <div className={styles.envelopeHeading}>
+          <div className={styles.titleRow}>
+            <h3>{envelope.name}</h3>
+            <span className={styles.purposePill} data-purpose={envelope.purpose}>
+              {purposeLabel(envelope.purpose)}
+            </span>
+          </div>
+          <div className={styles.envelopeValue}>
+            <strong data-negative={envelope.isNegative ? "true" : undefined}>
+              {envelope.purpose === "GOAL" && goalProgress ? `Faltam ${available}` : available}
+            </strong>
+            <span>{envelope.purpose === "GOAL" && goalProgress ? `meta acumulada ${base}` : `de ${base}`}</span>
+          </div>
         </div>
       </div>
+
       <ProgressBar
         label={`Progresso de ${envelope.name}`}
         value={progressValue}
@@ -182,6 +192,7 @@ export function EnvelopeCard({
         negative={envelope.isNegative}
         valueText={envelope.isNegative ? status : undefined}
       />
+
       <p
         className={styles.statusText}
         data-negative={envelope.isNegative ? "true" : undefined}
@@ -189,6 +200,7 @@ export function EnvelopeCard({
       >
         {status}
       </p>
+
       <div className={styles.cardActions}>
         {envelope.role === "PARTICIPANT" && (
           <span className={`${styles.badge} ${styles.badgeShared}`}>Compartilhada</span>
@@ -201,22 +213,11 @@ export function EnvelopeCard({
             {registerActionLabel}
           </Button>
         )}
-        {secondaryActions.length > 0 && (
-          <details className={styles.more}>
-            <summary>Mais</summary>
-            <div className={styles.moreActions}>
-              {secondaryActions.map((action) => (
-                <Button
-                  key={action.key}
-                  variant="text"
-                  onClick={action.onClick}
-                  aria-label={action.ariaLabel}
-                >
-                  {action.label}
-                </Button>
-              ))}
-            </div>
-          </details>
+        {menuItems.length > 0 && (
+          <ActionMenu
+            ariaLabel={`Mais ações de ${envelope.name}`}
+            items={menuItems}
+          />
         )}
       </div>
     </li>

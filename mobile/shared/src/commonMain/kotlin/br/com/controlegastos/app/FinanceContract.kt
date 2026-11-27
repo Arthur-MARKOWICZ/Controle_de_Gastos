@@ -6,6 +6,12 @@ sealed interface DashboardState {
     data class Error(val message: String) : DashboardState
 }
 
+/** Confirmação de lançamento com id para o snackbar Desfazer. */
+data class RegisterEntryResult(
+    val message: String,
+    val entryId: String,
+)
+
 /**
  * Estado financeiro de um mês: saldos, verbas e as operações que os alteram.
  *
@@ -88,27 +94,51 @@ class FinanceDashboardController(
     val expenseEnvelopes: List<EnvelopeView>
         get() = dashboard?.envelopes.orEmpty().expenseEnvelopes()
 
+    suspend fun loadExpenseSuggestions(): ExpenseSuggestions = ledger.loadExpenseSuggestions()
+
     /**
      * @param envelopeName nome conhecido por quem chamou, para o lançamento feito
      * de uma tela cujo mês não é o do painel ainda ser confirmado pelo nome certo.
-     * @return confirmação do lançamento, com alerta quando o gasto deixou a verba negativa.
+     * @return confirmação do lançamento (mensagem + id), com alerta quando o gasto
+     * deixou a verba negativa.
      */
     suspend fun registerEntry(
         envelopeId: String,
         entry: NewLedgerEntry,
         envelopeName: String? = null,
-    ): String {
+    ): RegisterEntryResult {
         val name = envelopeName ?: envelopeNamed(envelopeId)
         val created = ledger.createEntry(envelopeId, entry)
         refresh()
-        if (created.targetJustReached) return "Meta de $name alcançada."
+        if (created.targetJustReached) {
+            return RegisterEntryResult("Meta de $name alcançada.", created.id)
+        }
         val confirmation = "${entry.kind.label} de ${entry.amount.toBrl()} em $name."
         val after = dashboard?.envelopes?.firstOrNull { it.id == envelopeId }
-        return if (entry.kind == LedgerKind.EXPENSE && after?.isNegative == true) {
+        val message = if (entry.kind == LedgerKind.EXPENSE && after?.isNegative == true) {
             "$confirmation A verba ficou negativa: ${after.available.toBrl()}."
         } else {
             confirmation
         }
+        return RegisterEntryResult(message, created.id)
+    }
+
+    /** Últimos lançamentos do mês para a Visão geral; não inclui histórico de renda. */
+    suspend fun loadRecentEntries(limit: Int = 5): List<HistoryItemView> {
+        val page = ledger.loadHistory(
+            from = month.firstDay(),
+            to = month.lastDay(),
+            page = 0,
+            includeDeleted = false,
+            size = limit,
+        )
+        return page.items.take(limit)
+    }
+
+    /** Soft-delete para Desfazer imediatamente após registrar. */
+    suspend fun deleteEntry(id: String) {
+        ledger.deleteEntry(id)
+        refresh()
     }
 
     private fun envelopeNamed(id: String): String =

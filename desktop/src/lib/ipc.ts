@@ -129,3 +129,12 @@ export function themeGet(): Promise<ThemeMode> {
 export function themeSet(mode: ThemeMode): Promise<void> {
   return guarded<void>("theme_set", { mode });
 }
+
+/** Preferência local de autostart (default off; não vai à API). */
+export function autostartGet(): Promise<boolean> {
+  return guarded<boolean>("autostart_get");
+}
+
+export function autostartSet(enabled: boolean): Promise<void> {
+  return guarded<void>("autostart_set", { enabled });
+}

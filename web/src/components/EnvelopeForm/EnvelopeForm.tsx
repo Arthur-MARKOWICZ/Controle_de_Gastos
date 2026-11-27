@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "../../auth/auth-context";
 import { createApiClient, ApiError } from "../../lib/api";
-import { formatBRL, formatBRLInputMask, maskToPlain } from "../../lib/money";
+import { formatBRL, formatBRLInputMask, maskToPlain, subtractBRL } from "../../lib/money";
 import { focusField } from "../../lib/form-errors";
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
@@ -12,12 +12,17 @@ import styles from "./EnvelopeForm.module.css";
 
 export type EnvelopePurpose = "LIMIT" | "GOAL" | "FIXED" | "SAVINGS_TARGET" | "ANNUAL_EXPENSE";
 
-const PURPOSE_OPTIONS: { value: EnvelopePurpose; label: string }[] = [
-  { value: "LIMIT", label: "Limite de gasto" },
-  { value: "GOAL", label: "Meta de aporte" },
-  { value: "FIXED", label: "Compromisso fixo" },
-  { value: "SAVINGS_TARGET", label: "Meta de acumulação" },
-  { value: "ANNUAL_EXPENSE", label: "Gasto anual" },
+const PURPOSE_OPTIONS: { value: EnvelopePurpose; label: string; summary: string }[] = [
+  { value: "LIMIT", label: "Limite de gasto", summary: "Teto mensal de consumo (ex.: mercado, lazer). O saldo reinicia no mês seguinte." },
+  { value: "GOAL", label: "Meta de aporte", summary: "Valor planejado para aportar todo mês (ex.: investimentos). O saldo acumula." },
+  { value: "FIXED", label: "Compromisso fixo", summary: "Conta mensal previsível (ex.: aluguel, internet). O saldo reinicia no mês seguinte." },
+  { value: "SAVINGS_TARGET", label: "Meta de acumulação", summary: "Reserva para um objetivo com valor total definido. Não consome alocação mensal fixa." },
+  { value: "ANNUAL_EXPENSE", label: "Gasto anual", summary: "Despesa que vence uma vez por ano (ex.: IPVA, seguro). Pode reservar parcela mensal." },
+];
+
+const MONTHS_PT = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
 type Props = {
@@ -25,6 +30,7 @@ type Props = {
   onCancel(): void;
   initialPurpose?: EnvelopePurpose;
   allowedPurposes?: EnvelopePurpose[];
+  unallocatedAmount?: string;
   onOpenGlossary?(): void;
 };
 
@@ -33,6 +39,7 @@ export function EnvelopeForm({
   onCancel,
   initialPurpose = "LIMIT",
   allowedPurposes,
+  unallocatedAmount,
   onOpenGlossary,
 }: Props) {
   const { client } = useAuth();
@@ -64,6 +71,14 @@ export function EnvelopeForm({
   const amountFieldId = purpose === "SAVINGS_TARGET"
     ? "envelope-target"
     : purpose === "ANNUAL_EXPENSE" ? "envelope-annual-amount" : "envelope-amount";
+
+  const selectedOption = options.find((o) => o.value === purpose);
+  const usesBaseAllocation = purpose !== "SAVINGS_TARGET" && purpose !== "ANNUAL_EXPENSE";
+  const remainingAfter =
+    usesBaseAllocation && unallocatedAmount
+      ? subtractBRL(unallocatedAmount, maskToPlain(amountMask) || "0.00")
+      : null;
+  const exceedsUnallocated = remainingAfter?.startsWith("-") ?? false;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -109,7 +124,11 @@ export function EnvelopeForm({
       <Field id="envelope-name" label="Nome da verba" error={fieldErrors.name}>
         <input value={name} onChange={e => setName(e.target.value)} maxLength={80} required placeholder="Ex: Combustível" />
       </Field>
-      <Field id="envelope-purpose" label="Natureza">
+      <Field
+        id="envelope-purpose"
+        label="Natureza"
+        hint={selectedOption?.summary}
+      >
         <select value={purpose} onChange={e => setPurpose(e.target.value as EnvelopePurpose)}>
           {options.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
@@ -149,7 +168,11 @@ export function EnvelopeForm({
             />
           </Field>
           <Field id="envelope-due-month" label="Mês do vencimento" error={fieldErrors.due}>
-            <input type="number" min="1" max="12" value={dueMonth} onChange={e => setDueMonth(e.target.value)} required />
+            <select value={dueMonth} onChange={e => setDueMonth(e.target.value)} required>
+              {MONTHS_PT.map((label, idx) => (
+                <option key={label} value={String(idx + 1)}>{label}</option>
+              ))}
+            </select>
           </Field>
           <Field id="envelope-due-day" label="Dia do vencimento" error={fieldErrors.due}>
             <input type="number" min="1" max="31" value={dueDay} onChange={e => setDueDay(e.target.value)} required />
@@ -162,15 +185,31 @@ export function EnvelopeForm({
           </Field>
         </>
       ) : (
-        <Field id="envelope-amount" label="Valor-base (BRL)" hint="Use vírgula para centavos (ex.: 400,00)." error={fieldErrors.amount}>
-          <input
-            inputMode="decimal"
-            value={amountMask}
-            onChange={e => setAmountMask(formatBRLInputMask(e.target.value))}
-            placeholder="0,00"
-            required
-          />
-        </Field>
+        <>
+          <Field id="envelope-amount" label="Valor-base (BRL)" hint="Use vírgula para centavos (ex.: 400,00)." error={fieldErrors.amount}>
+            <input
+              inputMode="decimal"
+              value={amountMask}
+              onChange={e => setAmountMask(formatBRLInputMask(e.target.value))}
+              placeholder="0,00"
+              required
+            />
+          </Field>
+          {unallocatedAmount && (
+            <div
+              aria-live="polite"
+              className={exceedsUnallocated ? styles.balancePreviewNegative : styles.balancePreview}
+            >
+              <p>
+                Não alocado disponível: <strong>{formatBRL(unallocatedAmount)}</strong>
+                {remainingAfter ? ` · após criar: ${formatBRL(remainingAfter)}` : ""}
+              </p>
+              {exceedsUnallocated && (
+                <p>Este valor ultrapassa o saldo não alocado da sua renda mensal.</p>
+              )}
+            </div>
+          )}
+        </>
       )}
       <label className={styles.checkbox}>
         <input

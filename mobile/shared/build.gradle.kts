@@ -45,6 +45,7 @@ kotlin {
             implementation("org.jetbrains.compose.ui:ui:1.12.0")
             // Botão voltar do sistema no código comum.
             implementation("org.jetbrains.compose.ui:ui-backhandler:1.12.0")
+            implementation(compose.components.resources)
             implementation(libs.kotlinx.coroutines.core)
         }
 
@@ -64,6 +65,11 @@ kotlin {
 // Cobertura (ADR-0030) medida pelos testes JVM; limites na linha de base, só sobem.
 // Funções @Composable só desenham estado: a regra testável fica nos controllers,
 // gateways e validações, que é o que a cobertura mede.
+compose.resources {
+    packageOfResClass = "br.com.controlegastos.shared.generated.resources"
+    generateResClass = always
+}
+
 kover {
     reports {
         filters {

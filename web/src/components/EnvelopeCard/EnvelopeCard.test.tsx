@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { EnvelopeCard } from "./EnvelopeCard";
 
 const cardCss = readFileSync(join(process.cwd(), "src/components/EnvelopeCard/EnvelopeCard.module.css"), "utf8");
+const cardSource = readFileSync(join(process.cwd(), "src/components/EnvelopeCard/EnvelopeCard.tsx"), "utf8");
 
 describe("EnvelopeCard", () => {
   it("mostra o restante e aumenta a barra de uma meta de aporte acumulada", () => {
@@ -39,7 +40,7 @@ describe("EnvelopeCard", () => {
     cleanup();
   });
 
-  it("explica que limite de gasto reinicia a cada mês", () => {
+  it("mostra só o pill de natureza, sem purposeRule repetida", () => {
     render(<ul><EnvelopeCard variant="verbas" envelope={{
       id: "limit", ownerId: "owner", name: "Mercado", purpose: "LIMIT",
       baseAmount: { amount: "100.00", currency: "BRL" }, targetAmount: null, targetReachedAt: null,
@@ -48,7 +49,10 @@ describe("EnvelopeCard", () => {
     }} /></ul>);
 
     expect(screen.getByText("Limite de gasto")).toBeDefined();
-    expect(screen.getByText(/saldo reinicia no mês seguinte/)).toBeDefined();
+    expect(screen.queryByText(/saldo reinicia/i)).toBeNull();
+    expect(screen.queryByText(/não reinicia/i)).toBeNull();
+    expect(screen.queryByText(/aporte mensal/i)).toBeNull();
+    expect(screen.queryByText(/reserva contínua/i)).toBeNull();
   });
 
   it("mostra ritmo da API só em LIMIT e omite em GOAL", () => {
@@ -83,7 +87,7 @@ describe("EnvelopeCard", () => {
     unmount();
   });
 
-  it("explica a regra e mostra o progresso de uma meta de acumulação", () => {
+  it("mostra o progresso de uma meta de acumulação sem repetir a regra", () => {
     render(<ul><EnvelopeCard variant="verbas" envelope={{
       id: "target", ownerId: "owner", name: "Notebook", purpose: "SAVINGS_TARGET",
       baseAmount: { amount: "0.00", currency: "BRL" }, targetAmount: { amount: "1000.00", currency: "BRL" }, targetReachedAt: null,
@@ -91,9 +95,18 @@ describe("EnvelopeCard", () => {
     }} /></ul>);
 
     expect(screen.getByText("Meta de acumulação")).toBeDefined();
-    expect(screen.getByText(/saldo não reinicia/)).toBeDefined();
+    expect(screen.queryByText(/saldo não reinicia/)).toBeNull();
     expect(screen.getByText(/10% concluído/)).toBeDefined();
     expect(screen.getByRole("progressbar", { name: "Progresso de Notebook" }).getAttribute("value")).toBe("10");
+  });
+
+  it("usa ProgressRing compacto e ProgressBar hairline visível", () => {
+    expect(cardSource).toMatch(/ProgressRing/);
+    expect(cardSource).not.toMatch(/className=\{styles\.srOnly\}/);
+    expect(cardCss).toMatch(/\.ringWrap\s*\{[^}]*width:\s*2\.25rem/);
+    expect(cardCss).toMatch(/\.ringWrap\s*\{[^}]*height:\s*2\.25rem/);
+    expect(cardCss).not.toMatch(/3\.25rem/);
+    expect(cardCss).not.toMatch(/\.srOnly\s*\{/);
   });
 
   it("mostra Participantes só para o owner e Registrar gasto para participante", () => {
@@ -112,7 +125,8 @@ describe("EnvelopeCard", () => {
         />
       </ul>,
     );
-    expect(screen.getByRole("button", { name: "Participantes de Mercado" })).toBeDefined();
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações de Mercado" }));
+    expect(screen.getByRole("menuitem", { name: "Participantes de Mercado" })).toBeDefined();
     expect(screen.getByRole("button", { name: "Registrar gasto em Mercado" })).toBeDefined();
 
     rerender(
@@ -124,10 +138,11 @@ describe("EnvelopeCard", () => {
         />
       </ul>,
     );
-    expect(screen.queryByRole("button", { name: "Participantes de Mercado" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Mais ações de Mercado" })).toBeNull();
     expect(screen.getByRole("button", { name: "Registrar gasto em Mercado" })).toBeDefined();
     unmount();
   });
+
   it("enche a barra de um limite conforme o mês é gasto, e diz o restante em texto", () => {
     render(<ul><EnvelopeCard variant="verbas" envelope={{
       id: "limit", ownerId: "owner", name: "Combustível", purpose: "LIMIT",
@@ -167,7 +182,7 @@ describe("EnvelopeCard", () => {
     cleanup();
   });
 
-  it("dá uma ação primária ao dono e guarda Encerrar em Mais; participante não vê nenhuma das duas", () => {
+  it("dá uma ação primária ao dono e guarda Encerrar no ActionMenu; participante não vê nenhuma das duas", () => {
     const owner = {
       id: "limit", ownerId: "owner", name: "Combustível", purpose: "LIMIT" as const,
       baseAmount: { amount: "400.00", currency: "BRL" as const }, targetAmount: null, targetReachedAt: null,
@@ -187,9 +202,15 @@ describe("EnvelopeCard", () => {
 
     const primary = screen.getByRole("button", { name: "Registrar gasto em Combustível" });
     expect(primary.className).not.toMatch(/text/);
-    expect(screen.getByText("Mais")).toBeDefined();
-    expect(screen.getByRole("button", { name: "Encerrar Combustível" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "Mais ações de Combustível" })).toBeDefined();
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mais ações de Combustível" }));
+    expect(screen.getByRole("menu")).toBeDefined();
+    expect(screen.getByRole("menuitem", { name: "Encerrar Combustível" })).toBeDefined();
     expect(screen.queryByRole("button", { name: "Arquivar Combustível" })).toBeNull();
+    expect(cardSource).toMatch(/ActionMenu/);
+    expect(cardSource).not.toMatch(/<details/);
 
     rerender(
       <ul>
@@ -203,8 +224,9 @@ describe("EnvelopeCard", () => {
     );
 
     expect(screen.getByRole("button", { name: "Registrar gasto em Combustível" })).toBeDefined();
-    expect(screen.queryByRole("button", { name: "Encerrar Combustível" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Participantes de Combustível" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Mais ações de Combustível" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Encerrar Combustível" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Participantes de Combustível" })).toBeNull();
     unmount();
   });
 
@@ -223,9 +245,9 @@ describe("EnvelopeCard", () => {
     cleanup();
   });
 
-  it("abre o menu Mais abaixo do botão e para cima no último card, para não esconder as opções", () => {
-    expect(cardCss).toMatch(/\.moreActions\s*\{[^}]*top:\s*100%/);
-    expect(cardCss).toMatch(/\.card:last-child\s+\.moreActions\s*\{[^}]*bottom:\s*100%/);
-    expect(cardCss).toMatch(/\.more\[open\]\s*\{[^}]*z-index:\s*[1-9]/);
+  it("não usa shadow-lg decorativo no card; menu vem do ActionMenu com hairline", () => {
+    expect(cardCss).not.toMatch(/shadow-lg/);
+    expect(cardCss).not.toMatch(/\.moreActions/);
+    expect(cardSource).toMatch(/ActionMenu/);
   });
 });

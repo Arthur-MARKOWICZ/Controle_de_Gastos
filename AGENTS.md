@@ -5,6 +5,7 @@ Antes de propor arquitetura, escrever código ou alterar dependências, leia int
 1. [`docs/ideas/fundacao-tecnica.md`](docs/ideas/fundacao-tecnica.md) — intenção confirmada, escopo e stack obrigatória.
 2. [`docs/decisions/`](docs/decisions/) — decisões arquiteturais aceitas e seus limites.
 3. [`docs/privacy/`](docs/privacy/) — requisitos de privacidade e segurança desde a concepção.
+4. [`DESIGN.md`](DESIGN.md) — identidade visual, navegação e UX aprovadas (fonte única; não reabrir propostas paralelas).
 
 ## Regras do projeto
 
@@ -28,6 +29,7 @@ Antes de propor arquitetura, escrever código ou alterar dependências, leia int
 - Skills do projeto: [`.agents/skills/`](.agents/skills/)
 - Skill de UI/UX: [`.cursor/skills/ui-ux-pro-max`](.cursor/skills/ui-ux-pro-max) (design system / recomendações visuais; CLI: `uipro`)
 - OpenSpec (spec-driven): [`.cursor/skills/openspec-*`](.cursor/skills/) — propor, aplicar, verificar (`/openspec-verify-change` antes de arquivar), sincronizar e arquivar mudanças; specs vigentes em [`openspec/`](openspec/) (CLI: `openspec`). No Cursor e no Claude Code: `/openspec-propose`.
+- Graphify + token-skill: mapa AST em `graphify-out/` (local, sem LLM). Em perguntas cross-file, consultar o mapa antes de Grep/Read amplos (`graphify query` ou `/token` no Claude Code). Não versionar `graphify-out/`.
 
 Mudanças de comportamento começam por um change em `openspec/changes/`. Specs descrevem o que o sistema deve fazer; ADRs em `docs/decisions/` continuam a fonte de verdade arquitetural.
 

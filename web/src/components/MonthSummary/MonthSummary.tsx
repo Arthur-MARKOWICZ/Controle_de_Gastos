@@ -15,9 +15,8 @@ type Props = {
 };
 
 /**
- * Resumo único do mês: renda, já reservado, não alocado e uso.
- * A renda aparece aqui uma só vez — nenhum outro bloco da Visão geral
- * repete esse valor como figura principal.
+ * Resumo único do mês em 4 KPIs simétricos (3B — Command Center):
+ * renda, já reservado, não alocado e uso da renda.
  */
 export function MonthSummary({ summary, income, month, monthLabel, loading, error, onConfigureIncome }: Props) {
   const effectiveIncome = summary?.income ?? income;
@@ -29,6 +28,7 @@ export function MonthSummary({ summary, income, month, monthLabel, loading, erro
     : `${monthLabel} — sem renda efetiva`;
 
   const actionLabel = effectiveIncome ? "Editar renda" : "Configurar renda";
+  const unallocatedAmount = summary ? Number(summary.unallocated.amount) : 0;
 
   return (
     <section
@@ -56,9 +56,23 @@ export function MonthSummary({ summary, income, month, monthLabel, loading, erro
         )}
       </div>
       <dl className={styles.summaryStats}>
-        <div><dt>Já reservado</dt><dd>{summary ? formatBRL(summary.allocated.amount) : "—"}</dd></div>
-        <div><dt>Não alocado</dt><dd>{summary ? formatBRL(summary.unallocated.amount) : "—"}</dd></div>
-        <div><dt>Uso da renda</dt><dd>{summary?.income ? `${Math.round(summary.usagePct)}%` : "—"}</dd></div>
+        <div>
+          <dt>Já reservado</dt>
+          <dd>{summary ? formatBRL(summary.allocated.amount) : "—"}</dd>
+        </div>
+        <div>
+          <dt>Não alocado</dt>
+          <dd
+            data-negative={summary && unallocatedAmount < 0 ? "true" : undefined}
+            data-positive={summary && unallocatedAmount > 0 ? "true" : undefined}
+          >
+            {summary ? formatBRL(summary.unallocated.amount) : "—"}
+          </dd>
+        </div>
+        <div>
+          <dt>Uso da renda</dt>
+          <dd>{summary?.income ? `${Math.round(summary.usagePct)}%` : "—"}</dd>
+        </div>
       </dl>
     </section>
   );

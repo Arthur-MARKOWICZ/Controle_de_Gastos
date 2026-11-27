@@ -1,5 +1,7 @@
 package br.com.controlegastos.app
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,6 +12,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.MoreVert
@@ -74,35 +79,66 @@ internal fun EnvelopeCard(
     onParticipants: (() -> Unit)? = null,
     onRecurring: (() -> Unit)? = null,
 ) {
+    val progress = progressOf(envelope)
+    val ringColor = if (envelope.isNegative) MaterialTheme.colorScheme.error else purposeColor(envelope.purpose)
+    val trackColor = MaterialTheme.colorScheme.surfaceVariant
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = MaterialTheme.shapes.medium,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(Modifier.weight(1f)) {
-                    Text(envelope.name, fontWeight = FontWeight.Bold)
-                    Text(
-                        envelope.purposeLabel + if (envelope.isOwner) "" else " · Participante",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Canvas(Modifier.size(34.dp)) {
+                        val stroke = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                        drawArc(
+                            color = trackColor,
+                            startAngle = 0f,
+                            sweepAngle = 360f,
+                            useCenter = false,
+                            style = stroke,
+                        )
+                        drawArc(
+                            color = ringColor,
+                            startAngle = -90f,
+                            sweepAngle = if (envelope.isNegative) 360f else (progress * 360f),
+                            useCenter = false,
+                            style = stroke,
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(envelope.name, fontWeight = FontWeight.Bold)
+                        Text(
+                            envelope.purposeLabel + if (envelope.isOwner) "" else " · Participante",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
-                Text(headlineAmount(envelope), fontWeight = FontWeight.Black)
+                Text(
+                    headlineAmount(envelope),
+                    fontWeight = FontWeight.Bold,
+                    color = if (envelope.isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                )
             }
-            Spacer(Modifier.height(12.dp))
-            val progress = progressOf(envelope)
+            Spacer(Modifier.height(10.dp))
             LinearProgressIndicator(
                 progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(7.dp).semantics {
+                modifier = Modifier.fillMaxWidth().height(4.dp).semantics {
                     contentDescription = if (envelope.isNegative) {
                         "Progresso de ${envelope.name}: saldo negativo"
                     } else {
                         "Progresso de ${envelope.name}: ${(progress * 100).toInt()}%"
                     }
                 },
-                color = if (envelope.isNegative) MaterialTheme.colorScheme.error else purposeColor(envelope.purpose),
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                color = ringColor,
+                trackColor = trackColor,
             )
             Spacer(Modifier.height(8.dp))
             EnvelopeStatus(envelope, pace)

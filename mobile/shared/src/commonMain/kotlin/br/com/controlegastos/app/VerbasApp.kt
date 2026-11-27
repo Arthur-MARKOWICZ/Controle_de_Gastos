@@ -12,7 +12,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
-import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.CircularProgressIndicator
@@ -26,6 +25,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -73,8 +73,10 @@ fun VerbasApp(
     onOAuthCallbackHandled: () -> Unit = {},
     /** Lembrete diário local (ADR-0033); o iOS ainda não agenda. */
     reminderScheduler: ReminderScheduler = NoReminderScheduler,
-    /** A pessoa tocou no lembrete: abre o lançamento rápido. */
+    /** A pessoa tocou no lembrete / widget / tile: abre o lançamento rápido. */
     quickExpenseIntent: Boolean = false,
+    /** Verba forçada pelo widget; nulo no atalho genérico. */
+    quickExpenseEnvelopeId: String? = null,
     onQuickExpenseIntentHandled: () -> Unit = {},
 ) {
     val authController = remember(gateways) { AuthSessionController(gateways.auth) }
@@ -204,6 +206,7 @@ fun VerbasApp(
                 onOpenInBrowser = onOpenInBrowser,
                 reminderScheduler = reminderScheduler,
                 quickExpenseIntent = quickExpenseIntent,
+                quickExpenseEnvelopeId = quickExpenseEnvelopeId,
                 onQuickExpenseIntentHandled = onQuickExpenseIntentHandled,
                 onSignOut = {
                     authState = AuthState.Anonymous
@@ -247,26 +250,30 @@ private fun SignedInApp(
     onOpenInBrowser: ((String) -> Unit)?,
     reminderScheduler: ReminderScheduler,
     quickExpenseIntent: Boolean,
+    quickExpenseEnvelopeId: String?,
     onQuickExpenseIntentHandled: () -> Unit,
     onSignOut: () -> Unit,
     onSessionExpired: () -> Unit,
 ) {
     var backStack by remember { mutableStateOf<BackStack>(listOf(Route.Overview)) }
     var quickExpenseRequested by remember { mutableStateOf(false) }
+    var forcedEnvelopeId by remember { mutableStateOf<String?>(null) }
     val reminder = remember(gateways, reminderScheduler) {
         ReminderSettingsController(gateways.notifications, reminderScheduler)
     }
     // Ao abrir o app, o agendamento local segue o horário salvo na API.
     LaunchedEffect(reminder) { reminder.sync() }
-    LaunchedEffect(quickExpenseIntent) {
+    LaunchedEffect(quickExpenseIntent, quickExpenseEnvelopeId) {
         if (quickExpenseIntent) {
             backStack = listOf(Route.Overview)
+            forcedEnvelopeId = quickExpenseEnvelopeId
             quickExpenseRequested = true
             onQuickExpenseIntentHandled()
         }
     }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    var panelSyncToken by remember { mutableStateOf(0) }
 
     val financeController = remember(gateways, currentMonth) {
         FinanceDashboardController(
@@ -297,6 +304,29 @@ private fun SignedInApp(
         scope.launch { snackbar.showSnackbar(message) }
     }
 
+    fun notifyEntryRegistered(registered: RegisterEntryResult) {
+        scope.launch {
+            val result = snackbar.showSnackbar(
+                message = registered.message,
+                actionLabel = "Desfazer",
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                runCatching { financeController.deleteEntry(registered.entryId) }
+                    .onSuccess {
+                        panelSyncToken++
+                        if (backStack.current == Route.History) {
+                            historyController.refresh()
+                        }
+                    }
+                    .onFailure {
+                        snackbar.showSnackbar(
+                            describeFailure(it, "Não foi possível desfazer o lançamento."),
+                        )
+                    }
+            }
+        }
+    }
+
     BackHandler(enabled = backStack.canGoBack) { goBack() }
 
     Scaffold(
@@ -306,7 +336,7 @@ private fun SignedInApp(
             // Mês futuro não tem data de lançamento válida: sem atalho nele.
             val monthInView = if (backStack.current == Route.History) historyMonth else panelMonth
             if (backStack.current in QUICK_EXPENSE_ROUTES && canRegisterIn(monthInView, today)) {
-                ExtendedFloatingActionButton(onClick = { quickExpenseRequested = true }) { Text("Novo gasto") }
+                ExtendedFloatingActionButton(onClick = { quickExpenseRequested = true }) { Text("Registrar gasto") }
             }
         },
         topBar = {
@@ -323,7 +353,7 @@ private fun SignedInApp(
                 },
                 // O e-mail não é o assunto de nenhuma tela: ele fica em Mais,
                 // e a barra superior diz só onde a pessoa está.
-                title = { Text(backStack.current.title, fontWeight = FontWeight.Black) },
+                title = { Text(backStack.current.title, fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
@@ -354,11 +384,18 @@ private fun SignedInApp(
                     recurring = gateways.recurring,
                     today = today,
                     onOpenEntries = { go(Route.EnvelopeEntries(it.id, it.name)) },
+                    onOpenHistory = { backStack = backStack.selectTopLevel(Route.History) },
                     onNotify = ::notify,
+                    onEntryRegistered = ::notifyEntryRegistered,
                     onSessionExpired = onSessionExpired,
                     onMonthChanged = { panelMonth = it },
                     quickExpenseRequested = quickExpenseRequested,
-                    onQuickExpenseHandled = { quickExpenseRequested = false },
+                    quickExpenseEnvelopeId = forcedEnvelopeId,
+                    onQuickExpenseHandled = {
+                        quickExpenseRequested = false
+                        forcedEnvelopeId = null
+                    },
+                    panelSyncToken = panelSyncToken,
                 )
                 Route.History -> HistoryScreen(
                     controller = historyController,
@@ -367,8 +404,12 @@ private fun SignedInApp(
                     onSessionExpired = onSessionExpired,
                     onMonthChanged = { historyMonth = it },
                     onNotify = ::notify,
+                    onEntryRegistered = ::notifyEntryRegistered,
                     quickExpenseRequested = quickExpenseRequested,
-                    onQuickExpenseHandled = { quickExpenseRequested = false },
+                    onQuickExpenseHandled = {
+                        quickExpenseRequested = false
+                        forcedEnvelopeId = null
+                    },
                     // O lançamento feito na aba Gastos recarrega também o painel,
                     // que é quem guarda saldo e alertas do mês.
                     onRegisterEntry = { envelopeId, name, entry ->
@@ -424,7 +465,6 @@ private val QUICK_EXPENSE_ROUTES =
 private fun iconOf(route: Route.TopLevel): ImageVector = when (route) {
     Route.Overview -> Icons.Outlined.Home
     Route.Envelopes -> Icons.Outlined.AccountBalanceWallet
-    Route.Goals -> Icons.Outlined.Flag
     Route.History -> Icons.AutoMirrored.Outlined.List
     Route.More -> Icons.Outlined.MoreHoriz
 }
