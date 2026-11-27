@@ -49,6 +49,17 @@ export type LedgerSummary = {
   envelopes: SummaryEnvelope[];
 };
 
+export type ExpenseSuggestionItem = {
+  envelopeId: string;
+  name: string;
+  suggestedAmount: MoneyDTO | null;
+};
+
+export type ExpenseSuggestions = {
+  asOf: string;
+  items: ExpenseSuggestionItem[];
+};
+
 /** Preferências de notificação (ADR-0033); horário `HH:mm` em Brasília. */
 export type NotificationPreferences = {
   dailyReminder: boolean;

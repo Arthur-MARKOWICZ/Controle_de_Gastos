@@ -194,4 +194,17 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, UUID> 
 
     boolean existsByAuthorIdAndKindAndOccurredAtAndDeletedAtIsNull(
             UUID authorId, br.com.controlegastos.ledger.domain.LedgerKind kind, java.time.LocalDate occurredAt);
+
+    @Query("""
+        SELECT e FROM LedgerEntry e
+        WHERE e.kind = br.com.controlegastos.ledger.domain.LedgerKind.EXPENSE
+          AND e.authorId = :authorId
+          AND e.deletedAt IS NULL
+          AND e.occurredAt BETWEEN :from AND :to
+        ORDER BY e.createdAt DESC
+        """)
+    java.util.List<LedgerEntry> findActiveExpensesByAuthorBetween(
+            @Param("authorId") UUID authorId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
 }

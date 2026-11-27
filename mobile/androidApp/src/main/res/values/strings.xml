@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="expense_suggestions_widget_description">Atalhos para lançar gasto nas verbas mais usadas</string>
+    <string name="quick_expense_tile_label">Novo gasto</string>
+</resources>

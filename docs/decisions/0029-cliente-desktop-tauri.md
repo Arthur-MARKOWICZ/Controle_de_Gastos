@@ -2,11 +2,12 @@
 
 ## Status
 
-Aceito
+Aceito — emendado em 2026-11-27 (tray, atalho global de SO e autostart no
+corte validável em Linux; ver change `lancamento-1-toque`).
 
 ## Data
 
-2026-11-12
+2026-11-12 (emenda 2026-11-27)
 
 ## Contexto
 
@@ -54,18 +55,25 @@ declarar build verificado nas outras plataformas.
   cliente não cai para arquivo em texto claro.
 - Preferência de tema `SYSTEM` | `LIGHT` | `DARK` em arquivo de configuração do
   aplicativo no dispositivo — não no cofre e não na API (emenda ao ADR-013).
+- Preferência local de **autostart** no login da sessão (default desligado), no
+  mesmo espírito do tema: arquivo/config do dispositivo, **não** enviada à API.
+- **Tray** (ícone na bandeja) com ao menos “Novo gasto” e “Mostrar janela”, e
+  **atalho global de SO** (padrão `Ctrl+Alt+G` no Linux) que traz o app à frente
+  e abre o diálogo de captura mesmo com a janela em segundo plano. O atalho de
+  janela focada `Ctrl+N` / `Cmd+N` permanece.
 - URL da API resolvida **em tempo de build**, no espírito do ADR-021:
   `API_ENV=local|prod`, `API_BASE_URL_LOCAL` e `API_BASE_URL_PROD` em
   `desktop/.env` (fora do Git). URL inválida falha o build.
-- **Linux é o alvo validável.** O projeto Tauri mantém Windows e macOS no
-  código, mas este repositório não declara esses builds testados. `make check`
-  inclui o desktop apenas quando o toolchain está presente.
+- **Linux é o alvo validável**, inclusive para tray, atalho global e autostart.
+  O projeto Tauri mantém Windows e macOS no código, mas este repositório não
+  declara esses builds nem essas superfícies de SO testados fora do Linux.
+  `make check` inclui o desktop apenas quando o toolchain está presente.
 - Logs do cliente sem token, senha, código TOTP, valor ou descrição de gasto.
-- Primeiro corte do produto: login e-mail/senha com MFA TOTP, visão geral do
-  mês, lista de verbas e registro de gasto. Fora do corte: OAuth social,
-  cadastro, recuperação de senha, relatórios, metas ricas, gastos anuais,
-  participantes/convites, criar/editar verba, alterar renda, tray, atalho global
-  de SO e publicação em lojas.
+- Corte do produto: login e-mail/senha com MFA TOTP, visão geral do mês, lista
+  de verbas, registro de gasto, tray, atalho global de SO e autostart opcional
+  (Linux validável). Fora do corte: OAuth social, cadastro, recuperação de
+  senha, relatórios, metas ricas, gastos anuais, participantes/convites,
+  criar/editar verba, alterar renda e publicação em lojas.
 - Saldo e lista de verbas vêm de `GET /api/v1/ledger/summary`, **não** de
   `GET /api/v1/envelopes` — neste último, por contrato documentado, `available`
   espelha `baseAmount` e `isNegative` é sempre `false`.
@@ -141,5 +149,7 @@ declarar build verificado nas outras plataformas.
   natural.
 - Rollback é não distribuir o binário: a API e os outros clientes não dependem
   do desktop. A entrada do cofre sai no logout ou ao desinstalar.
-- Ampliar o corte (relatórios, criar verba, renda, OAuth, tray, atalho global de
-  SO, publicação em loja) exige atualizar este ADR.
+- Ampliar o corte (relatórios, criar verba, renda, OAuth, publicação em loja)
+  exige atualizar este ADR. Tray, atalho global e autostart já estão no corte
+  validável em Linux; validar ou declarar suporte dessas superfícies em
+  Windows/macOS também exigiria emenda.

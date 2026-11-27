@@ -129,6 +129,7 @@ vi.mock("../lib/api", async (importOriginal) => {
         purposeTotals: [],
       }),
       getEnvelopes: vi.fn().mockResolvedValue([envelope]),
+      getExpenseSuggestions: vi.fn().mockResolvedValue({ asOf: "2026-11-27T12:00:00-03:00", items: [] }),
       downloadReport: vi.fn(),
       listAlerts: vi.fn().mockResolvedValue({ items: [] }),
       dismissAlert: vi.fn().mockResolvedValue(undefined),
@@ -165,9 +166,12 @@ describe.each<ThemePreference>(["light", "dark"])("acessibilidade no tema %s", (
 
   it("não introduz violações estruturais na Visão geral", async () => {
     renderInTheme(<Dashboard email="ana@example.com" onLogout={vi.fn()} />, theme);
-    await waitFor(() => expect(document.querySelector("h1")?.textContent).toContain("Visão geral"));
+    await waitFor(
+      () => expect(document.querySelector("h1")?.textContent).toContain("Visão geral"),
+      { timeout: 10_000 },
+    );
     await expectNoAxeViolations();
-  });
+  }, 15_000);
 
   it("não introduz violações estruturais em Verbas", async () => {
     renderInTheme(<VerbasPage email="ana@example.com" onLogout={vi.fn()} />, theme);

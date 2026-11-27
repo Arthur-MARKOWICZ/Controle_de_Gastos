@@ -73,8 +73,10 @@ fun VerbasApp(
     onOAuthCallbackHandled: () -> Unit = {},
     /** Lembrete diário local (ADR-0033); o iOS ainda não agenda. */
     reminderScheduler: ReminderScheduler = NoReminderScheduler,
-    /** A pessoa tocou no lembrete: abre o lançamento rápido. */
+    /** A pessoa tocou no lembrete / widget / tile: abre o lançamento rápido. */
     quickExpenseIntent: Boolean = false,
+    /** Verba forçada pelo widget; nulo no atalho genérico. */
+    quickExpenseEnvelopeId: String? = null,
     onQuickExpenseIntentHandled: () -> Unit = {},
 ) {
     val authController = remember(gateways) { AuthSessionController(gateways.auth) }
@@ -204,6 +206,7 @@ fun VerbasApp(
                 onOpenInBrowser = onOpenInBrowser,
                 reminderScheduler = reminderScheduler,
                 quickExpenseIntent = quickExpenseIntent,
+                quickExpenseEnvelopeId = quickExpenseEnvelopeId,
                 onQuickExpenseIntentHandled = onQuickExpenseIntentHandled,
                 onSignOut = {
                     authState = AuthState.Anonymous
@@ -247,20 +250,23 @@ private fun SignedInApp(
     onOpenInBrowser: ((String) -> Unit)?,
     reminderScheduler: ReminderScheduler,
     quickExpenseIntent: Boolean,
+    quickExpenseEnvelopeId: String?,
     onQuickExpenseIntentHandled: () -> Unit,
     onSignOut: () -> Unit,
     onSessionExpired: () -> Unit,
 ) {
     var backStack by remember { mutableStateOf<BackStack>(listOf(Route.Overview)) }
     var quickExpenseRequested by remember { mutableStateOf(false) }
+    var forcedEnvelopeId by remember { mutableStateOf<String?>(null) }
     val reminder = remember(gateways, reminderScheduler) {
         ReminderSettingsController(gateways.notifications, reminderScheduler)
     }
     // Ao abrir o app, o agendamento local segue o horário salvo na API.
     LaunchedEffect(reminder) { reminder.sync() }
-    LaunchedEffect(quickExpenseIntent) {
+    LaunchedEffect(quickExpenseIntent, quickExpenseEnvelopeId) {
         if (quickExpenseIntent) {
             backStack = listOf(Route.Overview)
+            forcedEnvelopeId = quickExpenseEnvelopeId
             quickExpenseRequested = true
             onQuickExpenseIntentHandled()
         }
@@ -383,7 +389,11 @@ private fun SignedInApp(
                     onSessionExpired = onSessionExpired,
                     onMonthChanged = { panelMonth = it },
                     quickExpenseRequested = quickExpenseRequested,
-                    onQuickExpenseHandled = { quickExpenseRequested = false },
+                    quickExpenseEnvelopeId = forcedEnvelopeId,
+                    onQuickExpenseHandled = {
+                        quickExpenseRequested = false
+                        forcedEnvelopeId = null
+                    },
                     panelSyncToken = panelSyncToken,
                 )
                 Route.History -> HistoryScreen(
@@ -395,7 +405,10 @@ private fun SignedInApp(
                     onNotify = ::notify,
                     onEntryRegistered = ::notifyEntryRegistered,
                     quickExpenseRequested = quickExpenseRequested,
-                    onQuickExpenseHandled = { quickExpenseRequested = false },
+                    onQuickExpenseHandled = {
+                        quickExpenseRequested = false
+                        forcedEnvelopeId = null
+                    },
                     // O lançamento feito na aba Gastos recarrega também o painel,
                     // que é quem guarda saldo e alertas do mês.
                     onRegisterEntry = { envelopeId, name, entry ->

@@ -51,6 +51,39 @@ function corpoEnviado(ipc: FakeIpc, id: string) {
   return chamada ? JSON.parse(String(chamada.args.body)) : null;
 }
 
+describe("prefill de sugestão", () => {
+  it("abre com verba e valor sugeridos sem enviar gasto", () => {
+    installFakeIpc();
+    render(
+      <ExpenseDialog
+        envelope={envelope({ id: "env-almoco", name: "Almoço" })}
+        initialAmount="32.50"
+        onClose={vi.fn()}
+        onRegistered={vi.fn()}
+        today={HOJE}
+      />,
+    );
+
+    expect(screen.getByText(/Verba Almoço/)).toBeTruthy();
+    expect(screen.getByLabelText("Valor")).toHaveValue("32,50");
+  });
+
+  it("suggestedAmount nulo deixa o valor vazio", () => {
+    installFakeIpc();
+    render(
+      <ExpenseDialog
+        envelope={envelope({ name: "Farmácia" })}
+        initialAmount={null}
+        onClose={vi.fn()}
+        onRegistered={vi.fn()}
+        today={HOJE}
+      />,
+    );
+
+    expect(screen.getByLabelText("Valor")).toHaveValue("");
+  });
+});
+
 describe("9.1 valor exato em BRL e data de hoje", () => {
   it('"45,90" digitado vira amount "45.90" com moeda BRL', async () => {
     const user = userEvent.setup();
@@ -101,7 +134,9 @@ describe("9.1 valor exato em BRL e data de hoje", () => {
   });
 
   it("a descrição vai junto e é limitada a 140 caracteres", async () => {
-    const user = userEvent.setup();
+    // Sem delay: digitar 200 chars com o default do userEvent estoura o timeout
+    // em suíte cheia (jsdom + coverage).
+    const user = userEvent.setup({ delay: null });
     const { ipc, verba } = montar();
     const descricao = "a".repeat(200);
 
@@ -115,7 +150,7 @@ describe("9.1 valor exato em BRL e data de hoje", () => {
       "maxlength",
       "140",
     );
-  });
+  }, 15_000);
 
   it("a data enviada é a de hoje no calendário de São Paulo", async () => {
     const user = userEvent.setup();

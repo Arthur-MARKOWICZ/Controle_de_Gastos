@@ -9,6 +9,7 @@
 import { apiCall, IpcError, type ApiMethod } from "./ipc";
 import type {
   Alert,
+  ExpenseSuggestions,
   NotificationPreferences,
   LedgerSummary,
   PendingOccurrences,
@@ -62,6 +63,10 @@ export function getLedgerSummary(month: string): Promise<LedgerSummary> {
     "GET",
     `/api/v1/ledger/summary?month=${encodeURIComponent(month)}`,
   );
+}
+
+export function getExpenseSuggestions(): Promise<ExpenseSuggestions> {
+  return request<ExpenseSuggestions>("GET", "/api/v1/ledger/expense-suggestions");
 }
 
 export function listAlerts(): Promise<{ items: Alert[] }> {

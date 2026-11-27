@@ -16,17 +16,25 @@ export type ExpenseDialogProps = {
   envelope: SummaryEnvelope;
   onClose: () => void;
   onRegistered: () => void;
+  /** Prefill do valor sugerido (string decimal `"32.50"`); nulo/ausente deixa vazio. */
+  initialAmount?: string | null;
   /** Injetável no teste; por padrão, hoje em America/Sao_Paulo. */
   today?: string;
 };
+
+function maskFromPlain(plain: string | null | undefined): string {
+  if (!plain || !/^\d{1,17}\.\d{2}$/.test(plain)) return "";
+  return maskPtBR(plain.replace(".", ""));
+}
 
 export function ExpenseDialog({
   envelope,
   onClose,
   onRegistered,
+  initialAmount,
   today,
 }: ExpenseDialogProps) {
-  const [masked, setMasked] = useState("");
+  const [masked, setMasked] = useState(() => maskFromPlain(initialAmount));
   const [description, setDescription] = useState("");
   const [amountError, setAmountError] = useState<string | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);

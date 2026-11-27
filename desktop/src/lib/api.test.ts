@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   ApiError,
   dismissAlert,
+  getExpenseSuggestions,
   getLedgerSummary,
   hasExpenseToday,
   listAlerts,
@@ -21,6 +22,17 @@ describe("api do desktop", () => {
 
     expect(result.unallocated.amount).toBe("1550.00");
     expect(ipc.apiCalls()[0].args).toMatchObject({ method: "GET", body: null });
+  });
+
+  it("consulta sugestões de gasto", async () => {
+    const body = {
+      asOf: "2026-11-27T14:30:00-03:00",
+      items: [{ envelopeId: "e1", name: "Almoço", suggestedAmount: { amount: "32.50", currency: "BRL" } }],
+    };
+    const ipc = installFakeIpc().onApi("/api/v1/ledger/expense-suggestions", { status: 200, body });
+
+    await expect(getExpenseSuggestions()).resolves.toEqual(body);
+    expect(ipc.apiCalls()[0].args).toMatchObject({ method: "GET", path: "/api/v1/ledger/expense-suggestions" });
   });
 
   it("registra gasto com valor em string decimal de duas casas", async () => {

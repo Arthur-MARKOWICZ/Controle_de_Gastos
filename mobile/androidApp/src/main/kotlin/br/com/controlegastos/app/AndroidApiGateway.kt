@@ -221,6 +221,22 @@ class AndroidApiGateway(
         ),
     )
 
+    override suspend fun loadExpenseSuggestions(): ExpenseSuggestions {
+        val body = client.requestJson(
+            "GET",
+            "/api/v1/ledger/expense-suggestions",
+            failure = "Não foi possível carregar sugestões de lançamento",
+        )
+        val items = body.getJSONArray("items").mapObjects { node ->
+            ExpenseSuggestionItem(
+                envelopeId = node.getString("envelopeId"),
+                name = node.getString("name"),
+                suggestedAmount = node.optJSONObject("suggestedAmount")?.let { money(it) },
+            )
+        }
+        return ExpenseSuggestions(asOf = body.getString("asOf"), items = items)
+    }
+
     override suspend fun loadHistory(
         from: String,
         to: String,

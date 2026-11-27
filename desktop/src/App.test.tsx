@@ -168,3 +168,18 @@ describe("6.3 sair", () => {
     expect(ipc.calls.some((c) => c.command === "logout")).toBe(true);
   });
 });
+
+describe("system-launch sem sessão", () => {
+  it("sem sessão mostra autenticação e não o diálogo de gasto", async () => {
+    montar({ sessao: null });
+
+    expect(await screen.findByRole("heading", { name: "Entrar" })).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByText("Registrar gasto")).toBeNull();
+    // O evento nativo open-quick-expense só é escutado com sessão;
+    // com janela à frente permanece a superfície de login.
+    window.dispatchEvent(new CustomEvent("open-quick-expense"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Entrar" })).toBeTruthy();
+  });
+});

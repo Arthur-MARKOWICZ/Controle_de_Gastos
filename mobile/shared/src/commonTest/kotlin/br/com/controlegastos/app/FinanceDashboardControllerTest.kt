@@ -267,6 +267,9 @@ private class FakeLedgerGateway(private var dashboard: FinancialDashboard) : Led
         )
     }
 
+    override suspend fun loadExpenseSuggestions(): ExpenseSuggestions =
+        ExpenseSuggestions(asOf = "2026-11-27T12:00:00-03:00", items = emptyList())
+
     override suspend fun listEntries(envelopeId: String, month: YearMonth?): List<LedgerEntryView> = emptyList()
     override suspend fun loadHistory(
         from: String,

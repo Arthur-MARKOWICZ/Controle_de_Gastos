@@ -122,6 +122,7 @@ interface LedgerGateway {
     suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView
     suspend fun deleteEntry(id: String)
     suspend fun listEntryRevisions(id: String, page: Int = 0): LedgerEntryRevisionPageView
+    suspend fun loadExpenseSuggestions(): ExpenseSuggestions
 }
 
 interface IncomeGateway {

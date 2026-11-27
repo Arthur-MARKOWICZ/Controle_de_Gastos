@@ -148,6 +148,17 @@ export type LedgerSummaryDTO = {
   envelopes: EnvelopeDTO[];
 };
 
+export type ExpenseSuggestionItemDTO = {
+  envelopeId: string;
+  name: string;
+  suggestedAmount: MoneyDTO | null;
+};
+
+export type ExpenseSuggestionsDTO = {
+  asOf: string;
+  items: ExpenseSuggestionItemDTO[];
+};
+
 export type IncomeDTO = {
   amount: string;
   currency: "BRL";
@@ -377,6 +388,11 @@ export function createApiClient(authClient: AuthClient) {
     getLedgerSummary(month?: string): Promise<LedgerSummaryDTO> {
       const qs = month ? `?month=${encodeURIComponent(month)}` : "";
       return authClient.request(`/api/v1/ledger/summary${qs}`).then(handleResponse<LedgerSummaryDTO>);
+    },
+    getExpenseSuggestions(): Promise<ExpenseSuggestionsDTO> {
+      return authClient
+        .request("/api/v1/ledger/expense-suggestions")
+        .then(handleResponse<ExpenseSuggestionsDTO>);
     },
     getIncome(month?: string): Promise<IncomeDTO> {
       const qs = month ? `?month=${encodeURIComponent(month)}` : "";
