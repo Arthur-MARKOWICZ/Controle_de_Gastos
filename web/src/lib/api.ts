@@ -160,6 +160,17 @@ export type IncomeHistoryPageDTO = { items: IncomeHistoryItemDTO[]; page: number
 export type ReportId = "expenses-by-purpose" | "limit-exceeded-months" | "goals-below-target";
 export type ReportFormat = "csv" | "xlsx";
 
+export type LimitSpendingPaceRowDTO = {
+  envelopeId: string;
+  name: string;
+  capacity: string;
+  spent: string;
+  projectedMonthSpend: string;
+  dailyRemainingAllowance: string;
+  projectedOverrunDay: string | null;
+  month: string;
+};
+
 export type LedgerKind = "EXPENSE" | "CONTRIBUTION";
 
 export type RecurringEntryDTO = {
@@ -377,6 +388,10 @@ export function createApiClient(authClient: AuthClient) {
     getLedgerSummary(month?: string): Promise<LedgerSummaryDTO> {
       const qs = month ? `?month=${encodeURIComponent(month)}` : "";
       return authClient.request(`/api/v1/ledger/summary${qs}`).then(handleResponse<LedgerSummaryDTO>);
+    },
+    getLimitSpendingPace(month: string): Promise<LimitSpendingPaceRowDTO[]> {
+      const qs = `?month=${encodeURIComponent(month)}`;
+      return authClient.request(`/api/v1/reports/limit-spending-pace${qs}`).then(handleResponse<LimitSpendingPaceRowDTO[]>);
     },
     getIncome(month?: string): Promise<IncomeDTO> {
       const qs = month ? `?month=${encodeURIComponent(month)}` : "";

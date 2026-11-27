@@ -54,6 +54,18 @@ describe("createApiClient", () => {
     expect(request).toHaveBeenCalledWith("/api/v1/envelopes?month=2026-09%26x%3D1");
   });
 
+  it("busca ritmo de LIMIT por mês sem recalcular no cliente", async () => {
+    const rows = [{
+      envelopeId: "e1", name: "Combustível", capacity: "400.00", spent: "200.00",
+      projectedMonthSpend: "620.00", dailyRemainingAllowance: "9.09",
+      projectedOverrunDay: "2026-10-20", month: "2026-10",
+    }];
+    const { api, request } = clientReturning(jsonResponse(200, rows));
+
+    await expect(api.getLimitSpendingPace("2026-10")).resolves.toEqual(rows);
+    expect(request).toHaveBeenCalledWith("/api/v1/reports/limit-spending-pace?month=2026-10");
+  });
+
   it("envia valores monetários como string decimal no corpo", async () => {
     const { api, request } = clientReturning(jsonResponse(200, { amount: "1000.00" }));
 

@@ -27,14 +27,21 @@ como contrato e web como canal de relatórios. O repositório já reserva o mód
 - Implementar relatórios como consultas no módulo `reporting`, sem novas
   tabelas, cache, fila ou armazenamento de arquivo. O módulo depende apenas de
   interfaces de leitura explícitas dos módulos de domínio necessários.
-- Publicar três endpoints autenticados, um por relatório, com `from`, `to` e
-  `format=csv|xlsx` obrigatórios:
+- Publicar três endpoints autenticados de exportação, um por relatório, com
+  `from`, `to` e `format=csv|xlsx` obrigatórios:
 
   ```text
   GET /api/v1/reports/expenses-by-purpose
   GET /api/v1/reports/limit-exceeded-months
   GET /api/v1/reports/goals-below-target
   ```
+
+- Adendo (projeção de ritmo, issue #87 / NEG-005): publicar também a consulta
+  JSON autenticada `GET /api/v1/reports/limit-spending-pace?month=YYYY-MM`,
+  leitura pura no mesmo módulo `reporting`, sem tabela nova, sem cache, sem
+  fila e sem materialização de arquivo. O cálculo é efêmero sob demanda; a
+  alternativa rejeitada “Criar projeções ou arquivos persistidos” continua
+  válida para persistência, não para métricas derivadas em memória.
 
 - Usar datas inclusivas em `America/Sao_Paulo`. Gastos por tipo aceita qualquer
   intervalo válido. Relatórios mensais aceitam somente meses completos: início

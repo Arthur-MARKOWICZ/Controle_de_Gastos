@@ -8,8 +8,11 @@ import br.com.controlegastos.ledger.application.LedgerReportingQuery;
 import br.com.controlegastos.reporting.domain.ReportRange;
 import br.com.controlegastos.shared.money.Money;
 import java.io.ByteArrayOutputStream;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -18,10 +21,13 @@ class ReportingServiceTest {
 
     private static final UUID LIMIT = UUID.randomUUID();
     private static final UUID GOAL = UUID.randomUUID();
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Sao_Paulo");
+    private static final Clock FIXED_OCT_10 = Clock.fixed(
+            LocalDate.of(2026, 10, 10).atStartOfDay(BUSINESS_ZONE).toInstant(), BUSINESS_ZONE);
 
     @Test
     void createsCsvWithOneExpenseRowPerEnvelopeAndNeutralizesSpreadsheetFormulas() throws Exception {
-        ReportingService service = new ReportingService(new FakeLedgerQuery());
+        ReportingService service = new ReportingService(new FakeLedgerQuery(), FIXED_OCT_10);
 
         ReportDocument report = service.prepare(ReportType.EXPENSES_BY_PURPOSE,
                 new ReportRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31)), ReportFormat.CSV);
@@ -36,7 +42,7 @@ class ReportingServiceTest {
 
     @Test
     void reportsNegativeLimitBalancesAndGoalsBelowExplicitContributions() {
-        ReportingService service = new ReportingService(new FakeLedgerQuery());
+        ReportingService service = new ReportingService(new FakeLedgerQuery(), FIXED_OCT_10);
         ReportRange range = new ReportRange(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31));
 
         ReportDocument limits = service.prepare(ReportType.LIMIT_EXCEEDED_MONTHS, range, ReportFormat.CSV);
@@ -76,7 +82,65 @@ class ReportingServiceTest {
             @Override public List<ReportEnvelope> visibleEnvelopes() { return envelopes; }
             @Override public List<ReportEntry> activeEntries(LocalDate from, LocalDate to) { return entries; }
             @Override public Money availableAt(UUID envelopeId, LocalDate until) { return closing; }
-        });
+        }, FIXED_OCT_10);
+    }
+
+    @Test
+    @DisplayName("ritmo: só LIMIT visíveis, com aporte na capacidade e strings de duas casas")
+    void limitSpendingPaceOnlyVisibleLimits() {
+        UUID combustivel = UUID.randomUUID();
+        UUID lazer = UUID.randomUUID();
+        UUID viagem = UUID.randomUUID();
+        ReportingService service = serviceWith(
+                List.of(
+                        envelope(combustivel, "Combustível", "LIMIT", "300.00", false),
+                        envelope(lazer, "Lazer", "LIMIT", "400.00", false),
+                        envelope(viagem, "Viagem", "GOAL", "80.00", false)),
+                List.of(
+                        new LedgerReportingQuery.ReportEntry(combustivel, "EXPENSE", Money.brl("100.00"), LocalDate.of(2026, 10, 5)),
+                        new LedgerReportingQuery.ReportEntry(combustivel, "CONTRIBUTION", Money.brl("10.00"), LocalDate.of(2026, 10, 3)),
+                        new LedgerReportingQuery.ReportEntry(lazer, "EXPENSE", Money.brl("200.00"), LocalDate.of(2026, 10, 8)),
+                        new LedgerReportingQuery.ReportEntry(viagem, "CONTRIBUTION", Money.brl("10.00"), LocalDate.of(2026, 10, 4))),
+                Money.zero());
+
+        List<LimitSpendingPaceRow> rows = service.limitSpendingPace(YearMonth.of(2026, 10));
+
+        assertThat(rows).extracting(LimitSpendingPaceRow::name).containsExactly("Combustível", "Lazer");
+        assertThat(rows.get(0).capacity()).isEqualTo("310.00");
+        assertThat(rows.get(0).spent()).isEqualTo("100.00");
+        assertThat(rows.get(0).projectedMonthSpend()).isEqualTo("310.00");
+        assertThat(rows.get(0).projectedOverrunDay()).isNull();
+        assertThat(rows.get(0).dailyRemainingAllowance()).isEqualTo("9.55");
+        assertThat(rows.get(0).month()).isEqualTo("2026-10");
+        assertThat(rows.get(1).projectedMonthSpend()).isEqualTo("620.00");
+        assertThat(rows.get(1).projectedOverrunDay()).isEqualTo(LocalDate.of(2026, 10, 20));
+        assertThat(rows.get(1).dailyRemainingAllowance()).isEqualTo("9.09");
+    }
+
+    @Test
+    @DisplayName("ritmo: lista vazia quando não há LIMIT visível (terceiro ou só outras naturezas)")
+    void limitSpendingPaceEmptyForThirdParty() {
+        List<LimitSpendingPaceRow> rows = serviceWith(
+                List.of(envelope(GOAL, "Viagem", "GOAL", "80.00", false)),
+                List.of(), Money.zero()).limitSpendingPace(YearMonth.of(2026, 10));
+
+        assertThat(rows).isEmpty();
+    }
+
+    @Test
+    @DisplayName("ritmo: resposta não inclui e-mail nem descrição de gasto")
+    void limitSpendingPaceHasNoPiiFields() {
+        LimitSpendingPaceRow row = serviceWith(
+                List.of(envelope(LIMIT, "Mercado", "LIMIT", "100.00", false)),
+                List.of(new LedgerReportingQuery.ReportEntry(LIMIT, "EXPENSE", Money.brl("10.00"), LocalDate.of(2026, 10, 2))),
+                Money.zero()).limitSpendingPace(YearMonth.of(2026, 10)).get(0);
+
+        assertThat(row).hasNoNullFieldsOrPropertiesExcept("projectedOverrunDay");
+        assertThat(row.getClass().getRecordComponents())
+                .extracting(java.lang.reflect.RecordComponent::getName)
+                .containsExactlyInAnyOrder(
+                        "envelopeId", "name", "capacity", "spent",
+                        "projectedMonthSpend", "dailyRemainingAllowance", "projectedOverrunDay", "month");
     }
 
     private static LedgerReportingQuery.ReportEnvelope envelope(UUID id, String name, String purpose, String base,
@@ -163,7 +227,7 @@ class ReportingServiceTest {
             @Override public List<ReportEnvelope> visibleEnvelopes() { throw new IllegalStateException("ledger fora"); }
             @Override public List<ReportEntry> activeEntries(LocalDate from, LocalDate to) { return List.of(); }
             @Override public Money availableAt(UUID envelopeId, LocalDate until) { return Money.zero(); }
-        });
+        }, FIXED_OCT_10);
 
         assertThatThrownBy(() -> failing.prepare(ReportType.EXPENSES_BY_PURPOSE, JANUARY, ReportFormat.CSV))
                 .isInstanceOf(IllegalStateException.class)

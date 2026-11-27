@@ -134,6 +134,10 @@ vi.mock("../../hooks/useLedgerSummary", () => ({
   useLedgerSummary: () => ledgerHook,
 }));
 
+vi.mock("../../hooks/useLimitSpendingPace", () => ({
+  useLimitSpendingPace: () => ({ byEnvelopeId: {}, refresh: vi.fn() }),
+}));
+
 vi.mock("../../hooks/useIncome", () => ({
   useIncome: () => ({
     income: { amount: "5000.00", currency: "BRL", effectiveFrom: "2026-08", changedAt: new Date().toISOString() },

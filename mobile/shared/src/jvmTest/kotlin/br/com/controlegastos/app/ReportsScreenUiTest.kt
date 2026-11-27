@@ -24,6 +24,8 @@ class ReportsScreenUiTest {
             failure?.let { throw it }
             return DownloadedReport("gastos.${format.extension}", "/cache/gastos.${format.extension}")
         }
+
+        override suspend fun loadLimitSpendingPace(month: String): List<LimitSpendingPaceRow> = emptyList()
     }
 
     @Test

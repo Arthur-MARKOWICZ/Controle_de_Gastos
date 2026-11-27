@@ -8,6 +8,8 @@ import {
   PENDING_PATH,
   alert,
   envelope,
+  pacePath,
+  paceRow,
   pendingOccurrence,
   summary,
   summaryPath,
@@ -39,9 +41,33 @@ function montar(ipc: FakeIpc, month = "2026-11", onMonthChange = vi.fn()) {
 function ipcCom(resumo: LedgerSummary, alertas = { items: [] as ReturnType<typeof alert>[] }) {
   return installFakeIpc()
     .onApi(summaryPath("2026-11"), { status: 200, body: resumo })
+    .onApi(pacePath("2026-11"), { status: 200, body: [] })
     .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
     .onApi(ALERTS_PATH, { status: 200, body: alertas });
 }
+
+describe("ritmo das verbas de limite", () => {
+  it("mostra o estouro projetado quando a API devolve ritmo", async () => {
+    const ipc = installFakeIpc()
+      .onApi(summaryPath("2026-11"), { status: 200, body: summary() })
+      .onApi(pacePath("2026-11"), {
+        status: 200,
+        body: [paceRow({ envelopeId: "env-1", name: "Combustível", projectedOverrunDay: "2026-11-20", month: "2026-11" })],
+      })
+      .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
+      .onApi(ALERTS_PATH, { status: 200, body: { items: [] } });
+    montar(ipc);
+
+    expect(await screen.findByText(/Estouro projetado em 20\/11\/2026/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Ritmo das verbas de limite" })).toBeTruthy();
+  });
+
+  it("não inventa ritmo quando a API devolve lista vazia", async () => {
+    montar(ipcCom(summary()));
+    await screen.findByText("Renda do mês");
+    expect(screen.queryByRole("heading", { name: "Ritmo das verbas de limite" })).toBeNull();
+  });
+});
 
 describe("alerta de gasto em verba compartilhada", () => {
   it("descreve o gasto de participante sem dizer quem nem quanto", async () => {
@@ -102,6 +128,7 @@ describe("7.1 resumo do mês", () => {
         status: 200,
         body: summary({ unallocated: { amount: "90.00", currency: "BRL" } }),
       })
+      .onApi(pacePath("2026-10"), { status: 200, body: [] })
       .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
       .onApi(ALERTS_PATH, { status: 200, body: { items: [] } });
     montar(ipc, "2026-10");
@@ -153,6 +180,7 @@ describe("7.3 dispensar alerta", () => {
     const user = userEvent.setup();
     const ipc = installFakeIpc()
       .onApi(summaryPath("2026-11"), { status: 200, body: summary() })
+      .onApi(pacePath("2026-11"), { status: 200, body: [] })
       .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
       .onApi(ALERTS_PATH, { status: 200, body: { items: [alert()] } })
       .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
@@ -176,6 +204,7 @@ describe("7.3 dispensar alerta", () => {
     const user = userEvent.setup();
     const ipc = installFakeIpc()
       .onApi(summaryPath("2026-11"), { status: 200, body: summary() })
+      .onApi(pacePath("2026-11"), { status: 200, body: [] })
       .onApi(PENDING_PATH, { status: 200, body: NO_PENDING })
       .onApi(ALERTS_PATH, { status: 200, body: { items: [alert()] } })
       .onApi("/api/v1/alerts/alerta-1/dismiss", {
@@ -200,6 +229,7 @@ describe("recorrências pendentes na visão geral", () => {
     const onRegistered = vi.fn();
     installFakeIpc()
       .onApi(summaryPath("2026-11"), { status: 200, body: summary() })
+      .onApi(pacePath("2026-11"), { status: 200, body: [] })
       .onApi(PENDING_PATH, { status: 200, body: { current: [pendingOccurrence()], overdue: [] } })
       .onApi(ALERTS_PATH, { status: 200, body: { items: [] } })
       .onApi("/api/v1/recurring-occurrences/oc-1/confirm", {

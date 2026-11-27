@@ -2,10 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EnvelopesScreen } from "./EnvelopesScreen";
-import { envelope, summary, summaryPath } from "../lib/fixtures";
+import { envelope, pacePath, paceRow, summary, summaryPath } from "../lib/fixtures";
 import { installFakeIpc, resetIpc } from "../lib/test-ipc";
 import type { FakeIpc } from "../lib/test-ipc";
-import type { SummaryEnvelope } from "../lib/types";
+import type { LimitSpendingPaceRowDTO, SummaryEnvelope } from "../lib/types";
 
 afterEach(() => {
   cleanup();
@@ -14,11 +14,13 @@ afterEach(() => {
 
 const semEfeito = () => {};
 
-function montar(envelopes: SummaryEnvelope[]): FakeIpc {
-  const ipc = installFakeIpc().onApi(summaryPath("2026-11"), {
-    status: 200,
-    body: summary({ envelopes }),
-  });
+function montar(envelopes: SummaryEnvelope[], pace: LimitSpendingPaceRowDTO[] = []): FakeIpc {
+  const ipc = installFakeIpc()
+    .onApi(summaryPath("2026-11"), {
+      status: 200,
+      body: summary({ envelopes }),
+    })
+    .onApi(pacePath("2026-11"), { status: 200, body: pace });
   render(
     <EnvelopesScreen
       month="2026-11"
@@ -159,5 +161,38 @@ describe("recorrências na lista de verbas", () => {
     await screen.findByText("Mercado");
 
     expect(screen.queryByRole("button", { name: "Recorrências de Mercado" })).toBeNull();
+  });
+});
+
+describe("ritmo de LIMIT", () => {
+  it("mostra o dia de estouro só em verba LIMIT", async () => {
+    montar(
+      [
+        envelope({
+          id: "env-limit",
+          name: "Combustível",
+          purpose: "LIMIT",
+          available: { amount: "200.00", currency: "BRL" },
+        }),
+        envelope({ id: "env-fix", name: "Moradia", purpose: "FIXED" }),
+      ],
+      [
+        paceRow({
+          envelopeId: "env-limit",
+          name: "Combustível",
+          projectedOverrunDay: "2026-11-20",
+          month: "2026-11",
+        }),
+      ],
+    );
+
+    await screen.findByText(/Estouro projetado em 20\/11\/2026/);
+    expect(linha("Moradia").textContent).not.toContain("Estouro projetado");
+  });
+
+  it("mês sem LIMIT não inventa ritmo", async () => {
+    montar([envelope({ name: "Moradia", purpose: "FIXED" })], []);
+    await screen.findByText("Moradia");
+    expect(screen.queryByText(/Estouro projetado|por dia até o fim/)).toBeNull();
   });
 });

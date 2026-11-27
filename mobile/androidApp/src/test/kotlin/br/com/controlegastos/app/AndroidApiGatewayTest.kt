@@ -121,6 +121,26 @@ class AndroidApiGatewayTest {
         assertFalse(File(cacheDir, "relatorios").listFiles().orEmpty().any())
     }
 
+    @Test
+    fun `le ritmo LIMIT com strings decimais e dia de estouro`() = runBlocking {
+        server.on(
+            "GET",
+            "/api/v1/reports/limit-spending-pace",
+            FakeApiServer.Reply(
+                200,
+                """[{"envelopeId":"e1","name":"Combustível","capacity":"400.00","spent":"200.00","projectedMonthSpend":"620.00","dailyRemainingAllowance":"9.09","projectedOverrunDay":"2026-10-20","month":"2026-10"}]""",
+            ),
+        )
+
+        val row = gateway.loadLimitSpendingPace("2026-10").single()
+
+        assertEquals("e1", row.envelopeId)
+        assertEquals("400.00", row.capacity)
+        assertEquals("9.09", row.dailyRemainingAllowance)
+        assertEquals("2026-10-20", row.projectedOverrunDay)
+        assertEquals("month=2026-10", server.requests.single().query)
+    }
+
     // --------------------------------------------------------------------- verbas
 
     @Test

@@ -77,9 +77,9 @@ internal fun headlineAmount(envelope: EnvelopeView): String {
  * Emoji não é lido por todo leitor de tela nem sobrevive a toda fonte, então
  * o estado vem escrito; cor e ícone no card só reforçam o que já está dito.
  */
-internal fun statusLine(envelope: EnvelopeView): String {
+internal fun statusLine(envelope: EnvelopeView, pace: LimitSpendingPaceRow? = null): String {
     val goal = envelope.goalProgress
-    return when {
+    val base = when {
         envelope.isNegative -> "Saldo negativo. O gasto foi registrado mesmo assim."
         envelope.targetReachedAt != null -> "Meta alcançada"
         goal != null && envelope.purpose == EnvelopePurpose.GOAL.api ->
@@ -88,6 +88,21 @@ internal fun statusLine(envelope: EnvelopeView): String {
         envelope.annualExpense != null -> annualLine(envelope.annualExpense)
         else -> "Saldo disponível"
     }
+    if (envelope.purpose != EnvelopePurpose.LIMIT.api || pace == null) return base
+    return "$base · ${spendingPaceLabel(pace)}"
+}
+
+/** Texto de ritmo a partir da API — sem recalcular no cliente. */
+internal fun spendingPaceLabel(pace: LimitSpendingPaceRow): String {
+    val overrun = pace.projectedOverrunDay
+    if (overrun != null) {
+        val parts = overrun.split("-")
+        if (parts.size == 3) {
+            return "Estouro projetado em ${parts[2]}/${parts[1]}/${parts[0]}"
+        }
+        return "Estouro projetado em $overrun"
+    }
+    return "${Money.fromApiAmount(pace.dailyRemainingAllowance).toBrl()} por dia até o fim do mês"
 }
 
 private fun annualLine(annual: AnnualExpenseView): String {

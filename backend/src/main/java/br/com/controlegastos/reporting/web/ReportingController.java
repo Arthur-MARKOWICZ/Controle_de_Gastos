@@ -1,5 +1,6 @@
 package br.com.controlegastos.reporting.web;
 
+import br.com.controlegastos.reporting.application.LimitSpendingPaceRow;
 import br.com.controlegastos.reporting.application.ReportDocument;
 import br.com.controlegastos.reporting.application.ReportFormat;
 import br.com.controlegastos.reporting.application.ReportType;
@@ -7,7 +8,9 @@ import br.com.controlegastos.reporting.application.ReportingService;
 import br.com.controlegastos.reporting.domain.ReportRange;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -46,6 +49,13 @@ public class ReportingController {
         return response(ReportType.GOALS_BELOW_TARGET, from, to, format);
     }
 
+    @GetMapping("/limit-spending-pace")
+    ResponseEntity<List<LimitSpendingPaceRow>> limitSpendingPace(@RequestParam String month) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(reports.limitSpendingPace(parseMonth(month)));
+    }
+
     private ResponseEntity<byte[]> response(ReportType type, String from, String to, String format) {
         ReportDocument document = reports.prepare(type, new ReportRange(parseDate(from), parseDate(to)), ReportFormat.from(format));
         return ResponseEntity.ok()
@@ -61,6 +71,14 @@ public class ReportingController {
             return LocalDate.parse(value);
         } catch (DateTimeParseException exception) {
             throw new IllegalArgumentException("Data inválida, use YYYY-MM-DD");
+        }
+    }
+
+    private YearMonth parseMonth(String value) {
+        try {
+            return YearMonth.parse(value);
+        } catch (DateTimeParseException exception) {
+            throw new IllegalArgumentException("Mês inválido, use YYYY-MM");
         }
     }
 }

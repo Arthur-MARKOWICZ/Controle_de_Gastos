@@ -51,6 +51,38 @@ describe("EnvelopeCard", () => {
     expect(screen.getByText(/saldo reinicia no mês seguinte/)).toBeDefined();
   });
 
+  it("mostra ritmo da API só em LIMIT e omite em GOAL", () => {
+    const pace = {
+      envelopeId: "limit", name: "Mercado", capacity: "400.00", spent: "200.00",
+      projectedMonthSpend: "620.00", dailyRemainingAllowance: "9.09",
+      projectedOverrunDay: "2026-10-20", month: "2026-10",
+    };
+    const { rerender, unmount } = render(<ul><EnvelopeCard envelope={{
+      id: "limit", ownerId: "owner", name: "Mercado", purpose: "LIMIT",
+      baseAmount: { amount: "400.00", currency: "BRL" }, targetAmount: null, targetReachedAt: null,
+      available: { amount: "200.00", currency: "BRL" }, isNegative: false, role: "OWNER",
+      wealthAllocation: false, createdAt: "2026-10-01T00:00:00Z", archivedAt: null, version: 0,
+    }} pace={pace} /></ul>);
+
+    expect(screen.getByText(/Estouro projetado em 20\/10\/2026/)).toBeDefined();
+
+    rerender(<ul><EnvelopeCard envelope={{
+      id: "goal", ownerId: "owner", name: "Viagem", purpose: "GOAL",
+      baseAmount: { amount: "100.00", currency: "BRL" }, targetAmount: null, targetReachedAt: null,
+      available: { amount: "100.00", currency: "BRL" }, isNegative: false, role: "OWNER",
+      wealthAllocation: false, createdAt: "2026-10-01T00:00:00Z", archivedAt: null, version: 0,
+      goalProgress: {
+        plannedAmount: { amount: "100.00", currency: "BRL" },
+        contributedAmount: { amount: "0.00", currency: "BRL" },
+        remainingAmount: { amount: "100.00", currency: "BRL" },
+        percent: 0,
+      },
+    }} pace={pace} /></ul>);
+
+    expect(screen.queryByText(/Estouro projetado/)).toBeNull();
+    unmount();
+  });
+
   it("explica a regra e mostra o progresso de uma meta de acumulação", () => {
     render(<ul><EnvelopeCard variant="verbas" envelope={{
       id: "target", ownerId: "owner", name: "Notebook", purpose: "SAVINGS_TARGET",

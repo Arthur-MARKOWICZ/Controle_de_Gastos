@@ -750,6 +750,27 @@ paths:
              application/vnd.openxmlformats-officedocument.spreadsheetml.sheet: { schema: { type: string, format: binary } }
          '400': { $ref: '#/components/responses/InvalidRequest' }
          '401': { $ref: '#/components/responses/AuthenticationFailed' }
+  /reports/limit-spending-pace:
+     get:
+       summary: Projeção de ritmo do mês para verbas LIMIT visíveis
+       description: >
+         Leitura pura (sem persistência) com gasto projetado, dia previsto de estouro
+         e allowance diária restante. Autorização pela visibilidade da verba.
+       security: [{ bearerAuth: [] }]
+       parameters:
+         - { in: query, name: month, required: true, schema: { type: string, pattern: '^\d{4}-\d{2}$', example: '2026-10' } }
+       responses:
+         '200':
+           description: Lista de ritmo por verba LIMIT
+           headers:
+             Cache-Control: { schema: { type: string, example: no-store } }
+           content:
+             application/json:
+               schema:
+                 type: array
+                 items: { $ref: '#/components/schemas/LimitSpendingPaceRow' }
+         '400': { $ref: '#/components/responses/InvalidRequest' }
+         '401': { $ref: '#/components/responses/AuthenticationFailed' }
   /ledger/entries/{id}:
      patch:
        summary: Edita valor, verba e descrição de um gasto (autor ou owner da verba; data imutável)
@@ -922,6 +943,19 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
+    LimitSpendingPaceRow:
+      type: object
+      additionalProperties: false
+      required: [envelopeId, name, capacity, spent, projectedMonthSpend, dailyRemainingAllowance, month]
+      properties:
+        envelopeId: { type: string, format: uuid }
+        name: { type: string }
+        capacity: { type: string, pattern: '^-?\d+\.\d{2}$', description: Capacidade do mês (baseAmount + aportes) }
+        spent: { type: string, pattern: '^-?\d+\.\d{2}$', description: Gastos ativos do mês }
+        projectedMonthSpend: { type: string, pattern: '^-?\d+\.\d{2}$' }
+        dailyRemainingAllowance: { type: string, pattern: '^-?\d+\.\d{2}$' }
+        projectedOverrunDay: { type: string, format: date, nullable: true }
+        month: { type: string, pattern: '^\d{4}-\d{2}$' }
     RegisterCredentials:
       type: object
       additionalProperties: false

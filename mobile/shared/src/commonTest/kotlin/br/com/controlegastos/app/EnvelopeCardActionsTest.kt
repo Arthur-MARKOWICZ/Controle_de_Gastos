@@ -98,4 +98,42 @@ class EnvelopeCardActionsTest {
         assertEquals("Meta alcançada", line)
         assertFalse(line.contains("✓"), line)
     }
+
+    @Test
+    fun `appends LIMIT spending pace from the API without local recalculation`() {
+        val pace = LimitSpendingPaceRow(
+            envelopeId = "limit",
+            name = "Mercado",
+            capacity = "400.00",
+            spent = "200.00",
+            projectedMonthSpend = "620.00",
+            dailyRemainingAllowance = "9.09",
+            projectedOverrunDay = "2026-10-20",
+            month = "2026-10",
+        )
+        val limitLine = statusLine(envelope(EnvelopePurpose.LIMIT), pace)
+        val goalLine = statusLine(envelope(EnvelopePurpose.GOAL), pace)
+
+        assertTrue(limitLine.contains("Estouro projetado em 20/10/2026"), limitLine)
+        assertFalse(goalLine.contains("Estouro projetado"), goalLine)
+    }
+
+    @Test
+    fun `formats daily allowance when overrun day is absent`() {
+        val label = spendingPaceLabel(
+            LimitSpendingPaceRow(
+                envelopeId = "limit",
+                name = "Lazer",
+                capacity = "310.00",
+                spent = "100.00",
+                projectedMonthSpend = "310.00",
+                dailyRemainingAllowance = "9.55",
+                projectedOverrunDay = null,
+                month = "2026-10",
+            ),
+        )
+
+        assertTrue(label.contains("9,55"), label)
+        assertTrue(label.contains("por dia até o fim do mês"), label)
+    }
 }
