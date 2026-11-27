@@ -8,7 +8,9 @@ import { formatBRLInputMask, maskToPlain } from "../../lib/money";
 import { Dialog } from "../ui/Dialog";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { Notice } from "../ui/Notice";
+import { useToast } from "../ui/ToastProvider";
 import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
 import { PageHeader } from "../ui/PageHeader";
 import { EnvelopeForm } from "../EnvelopeForm/EnvelopeForm";
 import { ExpenseForm, type ExpenseResult } from "../ExpenseForm/ExpenseForm";
@@ -23,6 +25,7 @@ const ARCHIVE_MESSAGE =
 
 export function MetasPage({ email, onLogout }: { email: string; onLogout(): void }) {
   const { client } = useAuth();
+  const { showToast } = useToast();
   const { summary, loading, busy, error, refresh } = useLedgerSummary();
   const api = useMemo(() => createApiClient(client), [client]);
   const [newGoal, setNewGoal] = useState(false);
@@ -69,15 +72,31 @@ export function MetasPage({ email, onLogout }: { email: string; onLogout(): void
     }
   }
 
-  function contributionSaved({ targetJustReached }: ExpenseResult) {
+  function contributionSaved(result: ExpenseResult) {
     setContribution(null);
-    setFeedback(
-      targetJustReached
-        ? "Parabéns! Você alcançou esta meta pela primeira vez."
-        : contributionKind === "CONTRIBUTION"
-          ? "Aporte registrado."
-          : "Gasto registrado.",
-    );
+    const message = result.targetJustReached
+      ? "Parabéns! Você alcançou esta meta pela primeira vez."
+      : contributionKind === "CONTRIBUTION"
+        ? "Aporte registrado."
+        : "Gasto registrado.";
+    setFeedback(message);
+    showToast({
+      message,
+      action: {
+        label: "Desfazer",
+        onClick: () => {
+          void createApiClient(client)
+            .deleteHistoryEntry(result.entryId)
+            .then(() => {
+              setFeedback("Lançamento desfeito.");
+              void refresh();
+            })
+            .catch(() => {
+              setFeedback("Não foi possível desfazer o lançamento.");
+            });
+        },
+      },
+    });
     void refresh();
   }
 
@@ -344,17 +363,17 @@ function TargetForm({
     }
   }
   return (
-    <form className={styles.filtersBar} onSubmit={submit}>
+    <form className={styles.dialogForm} onSubmit={submit}>
       {error && <Notice tone="danger">{error}</Notice>}
-      <label htmlFor="target-amount">Valor total da meta (BRL)</label>
-      <input
-        id="target-amount"
-        inputMode="decimal"
-        value={amount}
-        onChange={(event) => setAmount(formatBRLInputMask(event.target.value))}
-        required
-      />
-      <div>
+      <Field id="target-amount" label="Valor total da meta (BRL)">
+        <input
+          inputMode="decimal"
+          value={amount}
+          onChange={(event) => setAmount(formatBRLInputMask(event.target.value))}
+          required
+        />
+      </Field>
+      <div className={styles.dialogFormActions}>
         <Button variant="secondary" onClick={onCancel} disabled={busy}>
           Cancelar
         </Button>

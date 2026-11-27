@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { BrandMark } from "../components/BrandMark";
 import { Field } from "../components/Field";
 import { IpcError, login, verifyMfa } from "../lib/ipc";
 import type { AuthReply, SessionView } from "../lib/ipc";
@@ -85,7 +86,10 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
   return (
     <main className={styles.screen} id="conteudo">
       <div className={styles.card}>
-        <p className={styles.brand}>Verbas</p>
+        <p className={styles.brand}>
+          <span className={styles.brandIcon}><BrandMark size={20} /></span>
+          Verbas
+        </p>
 
         {error ? (
           <p className={styles.alert} role="alert" tabIndex={-1} ref={alertRef}>

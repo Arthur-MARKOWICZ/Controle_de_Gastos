@@ -95,7 +95,7 @@ private fun PendingCard(
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(item.label, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(item.suggestedAmount.toBrl(), fontWeight = FontWeight.Black)
+                Text(item.suggestedAmount.toBrl(), fontWeight = FontWeight.Bold)
             }
             Text(
                 "${item.envelopeName} · ${if (overdue) "venceu em" else "previsto para"} ${formatIsoDateBr(item.dueDate)}",

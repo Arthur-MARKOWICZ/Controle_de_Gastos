@@ -56,7 +56,7 @@ class NavigationTest {
     @Test
     fun `labels the bottom bar with words that fit a narrow phone`() {
         assertEquals(
-            listOf("Início", "Verbas", "Metas", "Gastos", "Mais"),
+            listOf("Início", "Verbas", "Gastos", "Mais"),
             TOP_LEVEL_ROUTES.map { it.label },
         )
     }
@@ -83,13 +83,24 @@ class NavigationTest {
     }
 
     @Test
-    fun `pushes Carteira from More while keeping bottom bar with 5 items`() {
+    fun `pushes Carteira from More while keeping bottom bar with 4 items`() {
         val opened = listOf<Route>(Route.More).push(Route.Carteira)
 
         assertEquals(Route.Carteira, opened.current)
         assertEquals(Route.More, opened.topLevel)
         assertTrue(opened.canGoBack)
-        assertEquals(5, TOP_LEVEL_ROUTES.size)
+        assertEquals(4, TOP_LEVEL_ROUTES.size)
+        assertEquals(Route.More, opened.pop().current)
+    }
+
+    @Test
+    fun `pushes Goals from More while keeping bottom bar on Mais`() {
+        val opened = listOf<Route>(Route.More).push(Route.Goals)
+
+        assertEquals(Route.Goals, opened.current)
+        assertEquals(Route.More, opened.topLevel)
+        assertTrue(opened.canGoBack)
+        assertEquals(4, TOP_LEVEL_ROUTES.size)
         assertEquals(Route.More, opened.pop().current)
     }
 }

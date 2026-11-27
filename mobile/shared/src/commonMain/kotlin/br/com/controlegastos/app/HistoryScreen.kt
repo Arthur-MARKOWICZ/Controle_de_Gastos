@@ -1,5 +1,6 @@
 package br.com.controlegastos.app
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -20,6 +22,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -66,10 +69,11 @@ internal fun HistoryScreen(
     onSessionExpired: () -> Unit = {},
     onMonthChanged: (YearMonth) -> Unit = {},
     onNotify: (String) -> Unit = {},
+    onEntryRegistered: (RegisterEntryResult) -> Unit = { onNotify(it.message) },
     quickExpenseRequested: Boolean = false,
     onQuickExpenseHandled: () -> Unit = {},
-    onRegisterEntry: suspend (envelopeId: String, name: String, entry: NewLedgerEntry) -> String =
-        { _, _, _ -> "" },
+    onRegisterEntry: suspend (envelopeId: String, name: String, entry: NewLedgerEntry) -> RegisterEntryResult =
+        { _, _, _ -> RegisterEntryResult("", "") },
 ) {
     // A tela carrega as próprias verbas em vez de receber as do painel: o
     // histórico pode ser a primeira aba aberta, e aí o painel nunca carregou.
@@ -78,7 +82,9 @@ internal fun HistoryScreen(
     var dialog by remember { mutableStateOf<HistoryDialog?>(null) }
     var entrySheetOpen by remember { mutableStateOf(false) }
     var searchText by remember(controller) { mutableStateOf(controller.query) }
+    var showAdvancedFilters by remember { mutableStateOf(controller.filtersActive || controller.includeDeleted) }
     val scope = rememberCoroutineScope()
+    val periodPreset = controller.periodPreset(today)
 
     fun reloading(action: suspend () -> Unit) = scope.launch {
         action()
@@ -128,19 +134,27 @@ internal fun HistoryScreen(
             }
         }
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = controller.includeDeleted,
-                    onCheckedChange = { include -> reloading { controller.showDeleted(include) } },
-                )
-                Text("Mostrar lançamentos excluídos")
-            }
+            HistoryPeriodChips(
+                selected = periodPreset,
+                onSelect = { preset ->
+                    when (preset) {
+                        HistoryPeriodPreset.THIS_MONTH -> reloading { controller.showThisMonth(today) }
+                        HistoryPeriodPreset.PREV_MONTH -> reloading { controller.showPreviousCalendarMonth() }
+                        HistoryPeriodPreset.LAST_7 -> reloading { controller.showLast7Days(today) }
+                        HistoryPeriodPreset.CUSTOM -> showAdvancedFilters = true
+                    }
+                },
+            )
         }
         item {
             HistoryFilters(
                 searchText = searchText,
                 onSearchTextChange = { searchText = it },
                 onSearch = { reloading { controller.search(searchText) } },
+                showAdvanced = showAdvancedFilters,
+                onToggleAdvanced = { showAdvancedFilters = !showAdvancedFilters },
+                includeDeleted = controller.includeDeleted,
+                onIncludeDeletedChange = { include -> reloading { controller.showDeleted(include) } },
                 envelopes = envelopes,
                 envelopeId = controller.envelopeId,
                 onEnvelopeSelected = { id -> reloading { controller.filterEnvelope(id) } },
@@ -183,25 +197,34 @@ internal fun HistoryScreen(
                         }
                     }
                 } else {
-                    items(current.page.items, key = { it.entry.id }) { item ->
-                        HistoryRow(
-                            item = item,
-                            onRevisions = if (item.isOwner) {
-                                { dialog = HistoryDialog.Revisions(item) }
-                            } else {
-                                null
-                            },
-                            onEdit = if (item.isOwner && item.entry.deletedAt == null) {
-                                { dialog = HistoryDialog.Edit(item) }
-                            } else {
-                                null
-                            },
-                            onDelete = if (item.isOwner && item.entry.deletedAt == null) {
-                                { dialog = HistoryDialog.Delete(item) }
-                            } else {
-                                null
-                            },
-                        )
+                    groupHistoryByDay(current.page.items).forEach { (day, dayItems) ->
+                        item(key = "day-$day") {
+                            Text(
+                                formatHistoryDayHeading(day, today),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                        items(dayItems, key = { it.entry.id }) { item ->
+                            HistoryRow(
+                                item = item,
+                                onRevisions = if (item.isOwner) {
+                                    { dialog = HistoryDialog.Revisions(item) }
+                                } else {
+                                    null
+                                },
+                                onEdit = if (item.isOwner && item.entry.deletedAt == null) {
+                                    { dialog = HistoryDialog.Edit(item) }
+                                } else {
+                                    null
+                                },
+                                onDelete = if (item.isOwner && item.entry.deletedAt == null) {
+                                    { dialog = HistoryDialog.Delete(item) }
+                                } else {
+                                    null
+                                },
+                            )
+                        }
                     }
                     item {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -240,9 +263,9 @@ internal fun HistoryScreen(
                 val name = target.firstOrNull { it.id == envelopeId }?.name ?: "verba"
                 scope.launch {
                     runCatching { onRegisterEntry(envelopeId, name, entry) }
-                        .onSuccess { notice ->
+                        .onSuccess { registered ->
                             result(null)
-                            notice.takeIf(String::isNotBlank)?.let(onNotify)
+                            if (registered.message.isNotBlank()) onEntryRegistered(registered)
                             reloading { controller.refresh() }
                         }
                         .onFailure { result(describeFailure(it, "Não foi possível registrar o gasto.")) }
@@ -288,10 +311,39 @@ internal fun HistoryScreen(
 }
 
 @Composable
+private fun HistoryPeriodChips(
+    selected: HistoryPeriodPreset,
+    onSelect: (HistoryPeriodPreset) -> Unit,
+) {
+    val options = listOf(
+        HistoryPeriodPreset.THIS_MONTH to "Este mês",
+        HistoryPeriodPreset.PREV_MONTH to "Mês passado",
+        HistoryPeriodPreset.LAST_7 to "Últimos 7 dias",
+        HistoryPeriodPreset.CUSTOM to "Personalizado",
+    )
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEach { (preset, label) ->
+            FilterChip(
+                selected = selected == preset,
+                onClick = { onSelect(preset) },
+                label = { Text(label) },
+            )
+        }
+    }
+}
+
+@Composable
 private fun HistoryFilters(
     searchText: String,
     onSearchTextChange: (String) -> Unit,
     onSearch: () -> Unit,
+    showAdvanced: Boolean,
+    onToggleAdvanced: () -> Unit,
+    includeDeleted: Boolean,
+    onIncludeDeletedChange: (Boolean) -> Unit,
     envelopes: List<EnvelopeView>,
     envelopeId: String?,
     onEnvelopeSelected: (String?) -> Unit,
@@ -300,6 +352,7 @@ private fun HistoryFilters(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val selectedName = envelopes.firstOrNull { it.id == envelopeId }?.name ?: "Todas"
+    val advancedCount = (if (envelopeId != null) 1 else 0) + (if (includeDeleted) 1 else 0)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value = searchText,
@@ -316,6 +369,18 @@ private fun HistoryFilters(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            TextButton(onClick = onToggleAdvanced, modifier = Modifier.height(TouchTarget)) {
+                Text(if (advancedCount > 0) "Filtros ($advancedCount)" else "Filtros")
+            }
+            if (filtersActive) {
+                TextButton(onClick = onClear, modifier = Modifier.height(TouchTarget)) { Text("Limpar filtros") }
+            }
+        }
+        if (showAdvanced) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = includeDeleted, onCheckedChange = onIncludeDeletedChange)
+                Text("Mostrar lançamentos excluídos")
+            }
             Column {
                 TextButton(onClick = { menuOpen = true }, modifier = Modifier.height(TouchTarget)) {
                     Text("Verba: $selectedName")
@@ -334,9 +399,6 @@ private fun HistoryFilters(
                         )
                     }
                 }
-            }
-            if (filtersActive) {
-                TextButton(onClick = onClear, modifier = Modifier.height(TouchTarget)) { Text("Limpar filtros") }
             }
         }
     }
@@ -411,7 +473,7 @@ private fun HistoryRow(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                Text(item.entry.amount.toBrl(), fontWeight = FontWeight.Black)
+                Text(item.entry.amount.toBrl(), fontWeight = FontWeight.Bold)
             }
             item.entry.description?.let {
                 Text(it, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))

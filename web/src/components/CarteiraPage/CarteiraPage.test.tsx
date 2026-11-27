@@ -294,8 +294,8 @@ describe("CarteiraPage — cadastro e exclusão", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "Cadastrar CDB" })[0]);
     const dialog = screen.getByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText("Valor aplicado (BRL)"), { target: { value: "10000.00" } });
-    fireEvent.change(within(dialog).getByLabelText(/Taxa anual decimal/i), { target: { value: "0.1250" } });
+    fireEvent.change(within(dialog).getByLabelText("Valor aplicado (BRL)"), { target: { value: "1000000" } });
+    fireEvent.change(within(dialog).getByLabelText(/Taxa anual \(% a\.a\.\)/i), { target: { value: "12,50" } });
     fireEvent.change(within(dialog).getByLabelText("Data de início"), { target: { value: "2026-01-01" } });
     fireEvent.change(within(dialog).getByLabelText("Data de vencimento"), { target: { value: "2027-01-01" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Salvar CDB" }));

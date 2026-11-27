@@ -31,5 +31,10 @@ plans/
 .vscode/
 *.swp
 reports/
+
+# Graphify / token-skill (regenerate locally: graphify extract . --code-only)
+graphify-out/
+.graphifyignore
+
 # Kotlin compiler caches
 .kotlin/

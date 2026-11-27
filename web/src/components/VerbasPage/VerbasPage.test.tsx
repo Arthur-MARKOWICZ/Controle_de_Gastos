@@ -1,6 +1,9 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "../ui/ToastProvider";
 import { VerbasPage } from "./VerbasPage";
+
+const deleteHistoryEntry = vi.hoisted(() => vi.fn());
 
 const envelopesHook = vi.hoisted(() => ({
   envelopes: [] as Array<{
@@ -113,7 +116,29 @@ vi.mock("../../lib/api", async (importOriginal) => {
       archiveEnvelope: vi.fn().mockResolvedValue(undefined),
       listAlerts: vi.fn().mockResolvedValue({ items: [] }),
       dismissAlert: vi.fn().mockResolvedValue(undefined),
+      deleteHistoryEntry,
     }),
+  };
+});
+
+vi.mock("../ExpenseForm/ExpenseForm", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../ExpenseForm/ExpenseForm")>();
+  return {
+    ...original,
+    ExpenseForm: ({
+      onSuccess,
+    }: {
+      onSuccess(result: { entryId: string; targetJustReached: boolean; balanceAfter: string | null }): void;
+    }) => (
+      <form aria-label="Formulário de gasto">
+        <button
+          type="button"
+          onClick={() => onSuccess({ entryId: "entry-1", targetJustReached: false, balanceAfter: null })}
+        >
+          Confirmar gasto mock
+        </button>
+      </form>
+    ),
   };
 });
 
@@ -125,50 +150,62 @@ vi.mock("../../hooks/useLedgerSummary", () => ({
   useLedgerSummary: () => ledgerHook,
 }));
 
-beforeEach(resetHooks);
+function renderPage() {
+  return render(
+    <ToastProvider>
+      <VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />
+    </ToastProvider>,
+  );
+}
+
+beforeEach(() => {
+  resetHooks();
+  deleteHistoryEntry.mockReset();
+});
 
 afterEach(cleanup);
 
 describe("VerbasPage", () => {
   it("mantém limites e compromissos no orçamento mensal", () => {
-    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+    renderPage();
     expect(screen.getByRole("heading", { level: 1, name: "Verbas" })).toBeDefined();
     expect(screen.getByRole("heading", { level: 2, name: /Limite de gasto/ })).toBeDefined();
     expect(screen.getByRole("heading", { level: 2, name: /Compromisso fixo/ })).toBeDefined();
   });
 
   it("expõe barra de progresso acessível para cada verba", () => {
-    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+    renderPage();
     expect(screen.getAllByRole("progressbar")).toHaveLength(3);
     // LIMIT enche conforme o mês é gasto: 60% disponível = 40% usado
     expect(screen.getByRole("progressbar", { name: "Progresso de Combustível" }).getAttribute("value")).toBe("40");
   });
 
   it("usa o verbo Encerrar no card e na confirmação, e diz que o histórico fica", () => {
-    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Encerrar Combustível" }));
+    fireEvent.click(screen.getByLabelText("Mais ações de Combustível"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Encerrar Combustível" }));
 
     const dialog = screen.getByRole("dialog", { name: "Encerrar Combustível?" });
     expect(within(dialog).getByRole("button", { name: "Encerrar" })).toBeDefined();
     expect(within(dialog).getByText(/continuam no histórico/)).toBeDefined();
-    expect(screen.queryByRole("button", { name: /Arquivar/ })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /Arquivar/ })).toBeNull();
   });
 
   it("mostra alerta para verbas negativas e faixa não alocado", () => {
-    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+    renderPage();
     expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Não alocado/).length).toBeGreaterThan(0);
   });
 
   it("expõe tabs filtráveis e busca", () => {
-    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+    renderPage();
     expect(screen.getByRole("tab", { name: /Todas/ })).toBeDefined();
     expect(screen.getByLabelText(/Buscar verba/)).toBeDefined();
   });
 
   it("abre o formulário de compromisso fixo já com a natureza FIXED", () => {
-    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     fireEvent.click(screen.getByRole("button", { name: /Criar compromisso fixo/i }));
     const dialog = screen.getByRole("dialog", { name: "Nova verba" });
@@ -180,7 +217,7 @@ describe("VerbasPage", () => {
     ledgerHook.summary = null;
     ledgerHook.error = null;
 
-    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     expect(screen.queryByRole("heading", { name: "Combustível" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "Lazer" })).toBeNull();
@@ -192,10 +229,25 @@ describe("VerbasPage", () => {
     ledgerHook.summary = null;
     ledgerHook.error = "Não foi possível carregar o resumo";
 
-    render(<VerbasPage email="pessoa@example.com" onLogout={vi.fn()} />);
+    renderPage();
 
     expect(screen.getByText("Não foi possível carregar o resumo")).toBeDefined();
     expect(screen.queryByRole("heading", { name: "Combustível" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Registrar gasto em Combustível" })).toBeNull();
+  });
+
+  it("ao registrar gasto mostra toast com Desfazer e remove o lançamento", async () => {
+    deleteHistoryEntry.mockResolvedValueOnce(undefined);
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Registrar gasto em Combustível" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar gasto mock" }));
+
+    expect(await screen.findByRole("button", { name: "Desfazer" })).toBeDefined();
+    expect(screen.getAllByText(/Gasto registrado em "Combustível"/).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Desfazer" }));
+    await waitFor(() => expect(deleteHistoryEntry).toHaveBeenCalledWith("entry-1"));
+    expect(await screen.findByText("Lançamento desfeito.")).toBeDefined();
   });
 });

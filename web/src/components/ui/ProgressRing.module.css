@@ -1,0 +1,33 @@
+.ring {
+  flex: none;
+  display: block;
+}
+
+.track {
+  stroke: var(--surface-muted);
+}
+
+.indicator {
+  stroke: var(--purpose-limit);
+  transition: stroke-dashoffset 220ms ease;
+}
+
+.ring[data-purpose="GOAL"] .indicator {
+  stroke: var(--purpose-goal);
+}
+
+.ring[data-purpose="FIXED"] .indicator {
+  stroke: var(--purpose-fixed);
+}
+
+.ring[data-purpose="SAVINGS_TARGET"] .indicator {
+  stroke: var(--purpose-savings);
+}
+
+.ring[data-purpose="ANNUAL_EXPENSE"] .indicator {
+  stroke: var(--purpose-annual);
+}
+
+.ring[data-negative="true"] .indicator {
+  stroke: var(--danger);
+}

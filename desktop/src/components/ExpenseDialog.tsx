@@ -36,7 +36,8 @@ export function ExpenseDialog({
   // campo valor mover o foco — num efeito já seria tarde demais.
   const [opener] = useState<Element | null>(() => document.activeElement);
 
-  const occurredAt = today ?? todaySaoPaulo();
+  const todayDate = today ?? todaySaoPaulo();
+  const [occurredAt, setOccurredAt] = useState(todayDate);
 
   // Devolve o foco ao gatilho ao fechar — vale tanto para a ação da verba
   // quanto para o atalho de teclado.
@@ -144,11 +145,9 @@ export function ExpenseDialog({
             label="Data"
             type="date"
             value={occurredAt}
-            onChange={() => {
-              /* o corte registra na data de hoje */
-            }}
-            hint="Hoje, no calendário de São Paulo."
-            disabled
+            onChange={setOccurredAt}
+            hint="Padrão hoje (São Paulo); você pode escolher uma data anterior."
+            disabled={pending}
           />
           <Field
             id="descricao"

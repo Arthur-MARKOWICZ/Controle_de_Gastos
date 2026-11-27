@@ -56,4 +56,43 @@ class HistoryListContentTest {
 
         assertEquals(HistoryEmptyState("Nenhum lançamento neste período.", offerClearFilters = false), content.emptyState)
     }
+
+    @Test
+    fun `groups history items by day newest first`() {
+        fun item(id: String, day: String) = HistoryItemView(
+            entry = LedgerEntryView(
+                id = id,
+                envelopeId = "env-1",
+                kind = LedgerKind.EXPENSE,
+                amount = Money(100),
+                occurredAt = day,
+                description = null,
+            ),
+            envelopeName = "Saúde",
+            purpose = "LIMIT",
+            role = EnvelopeRole.OWNER,
+        )
+        val grouped = groupHistoryByDay(
+            listOf(item("a", "2026-09-10"), item("b", "2026-09-12"), item("c", "2026-09-10")),
+        )
+
+        assertEquals(listOf("2026-09-12", "2026-09-10"), grouped.map { it.first })
+        assertEquals(listOf("a", "c"), grouped[1].second.map { it.entry.id })
+    }
+
+    @Test
+    fun `day headings use Hoje Ontem or date`() {
+        assertEquals("Hoje · 15/09/2026", formatHistoryDayHeading("2026-09-15", "2026-09-15"))
+        assertEquals("Ontem · 14/09/2026", formatHistoryDayHeading("2026-09-14", "2026-09-15"))
+        assertEquals("10/09/2026", formatHistoryDayHeading("2026-09-10", "2026-09-15"))
+        assertEquals("Ontem · 31/08/2026", formatHistoryDayHeading("2026-08-31", "2026-09-01"))
+        assertEquals("30/08/2026", formatHistoryDayHeading("2026-08-30", "2026-09-01"))
+    }
+
+    @Test
+    fun `shiftIsoDays covers zero delta and month boundaries`() {
+        assertEquals("2026-09-15", shiftIsoDays("2026-09-15", 0))
+        assertEquals("2026-09-01", shiftIsoDays("2026-09-08", -7))
+        assertEquals("2026-10-01", shiftIsoDays("2026-09-30", 1))
+    }
 }

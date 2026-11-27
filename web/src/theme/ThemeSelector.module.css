@@ -4,19 +4,21 @@
 }
 
 .field span {
-  color: var(--text-subtle);
+  color: var(--sidebar-text-subtle);
+  font-family: var(--font-mono);
   font-size: 0.6875rem;
-  font-weight: 750;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .field select {
-  min-height: 2.5rem;
-  padding: 0.5rem 2rem 0.5rem 0.75rem;
-  border: 1px solid var(--border-strong);
+  min-height: 2.25rem;
+  padding: 0.375rem 2rem 0.375rem 0.625rem;
+  border: 1px solid var(--sidebar-border);
   border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  background: var(--surface-raised);
+  color: var(--sidebar-text);
+  background: var(--sidebar-surface);
+  font-size: var(--text-xs);
   cursor: pointer;
 }

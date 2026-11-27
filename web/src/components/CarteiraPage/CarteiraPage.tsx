@@ -9,7 +9,8 @@ import {
   type PortfolioStockPositionDTO,
   type PortfolioSummaryDTO,
 } from "../../lib/api";
-import { formatBRL, isValidBRL } from "../../lib/money";
+import { todaySaoPaulo } from "../../lib/dates";
+import { formatBRL, formatBRLInputMask, isValidBRL, maskToPlain } from "../../lib/money";
 import { AppShell } from "../AppShell/AppShell";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
@@ -17,6 +18,7 @@ import { Dialog } from "../ui/Dialog";
 import { Field } from "../ui/Field";
 import { Notice } from "../ui/Notice";
 import { PageHeader } from "../ui/PageHeader";
+import { useToast } from "../ui/ToastProvider";
 import styles from "./CarteiraPage.module.css";
 
 type Props = { email: string; onLogout(): void };
@@ -34,11 +36,23 @@ function pnlToneClass(amount: string): string {
 function normalizeMoneyInput(raw: string): string {
   const trimmed = raw.trim();
   if (isValidBRL(trimmed)) return trimmed;
+  const fromMask = maskToPlain(trimmed);
+  if (isValidBRL(fromMask)) return fromMask;
   return trimmed.replace(/\./g, "").replace(",", ".");
+}
+
+/** Converte taxa percentual anual (ex.: "12,50" -> "0.1250") para o formato decimal da API. */
+function parseAnnualRatePercentToDecimal(raw: string): string | null {
+  const cleaned = raw.trim().replace("%", "").replace(",", ".");
+  if (!cleaned || !/^\d+(\.\d+)?$/.test(cleaned)) return null;
+  const pct = Number(cleaned);
+  if (!Number.isFinite(pct) || pct <= 0 || pct > 1000) return null;
+  return (pct / 100).toFixed(4);
 }
 
 export function CarteiraPage({ email, onLogout }: Props) {
   const { client } = useAuth();
+  const { showToast } = useToast();
   const api = useMemo(() => createApiClient(client), [client]);
   const [summary, setSummary] = useState<PortfolioSummaryDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +77,7 @@ export function CarteiraPage({ email, onLogout }: Props) {
 
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [assetTab, setAssetTab] = useState<"ALL" | "STOCKS" | "CDBS">("ALL");
 
   const loadSummary = useCallback(async () => {
     setLoading(true);
@@ -104,7 +119,7 @@ export function CarteiraPage({ email, onLogout }: Props) {
     setStockTicker("");
     setStockQuantity("");
     setStockUnitPrice("");
-    setStockPurchaseDate("");
+    setStockPurchaseDate(todaySaoPaulo());
     setStockError(null);
     setStockDialogOpen(true);
   }
@@ -112,7 +127,7 @@ export function CarteiraPage({ email, onLogout }: Props) {
   function openCdbDialog() {
     setCdbPrincipal("");
     setCdbAnnualRate("");
-    setCdbStartDate("");
+    setCdbStartDate(todaySaoPaulo());
     setCdbMaturityDate("");
     setCdbError(null);
     setCdbDialogOpen(true);
@@ -127,7 +142,7 @@ export function CarteiraPage({ email, onLogout }: Props) {
       return;
     }
     if (!isValidBRL(amount)) {
-      setStockError("Informe o preço unitário com duas casas decimais (ex.: 10.00).");
+      setStockError("Informe o preço unitário em reais (ex.: 10,00).");
       return;
     }
     setStockBusy(true);
@@ -140,7 +155,9 @@ export function CarteiraPage({ email, onLogout }: Props) {
         purchaseDate: stockPurchaseDate.trim(),
       });
       setStockDialogOpen(false);
-      setFeedback("Lote de ação cadastrado na sua carteira.");
+      const msg = "Lote de ação cadastrado na sua carteira.";
+      setFeedback(msg);
+      showToast(msg);
       await loadSummary();
     } catch (err) {
       setStockError(err instanceof ApiError ? err.message : "Não foi possível cadastrar o lote de ação.");
@@ -153,7 +170,12 @@ export function CarteiraPage({ email, onLogout }: Props) {
     event.preventDefault();
     const amount = normalizeMoneyInput(cdbPrincipal);
     if (!isValidBRL(amount)) {
-      setCdbError("Informe o valor aplicado com duas casas decimais (ex.: 10000.00).");
+      setCdbError("Informe o valor aplicado em reais (ex.: 10.000,00).");
+      return;
+    }
+    const annualRate = parseAnnualRatePercentToDecimal(cdbAnnualRate);
+    if (!annualRate) {
+      setCdbError("Informe uma taxa anual válida em percentual (ex.: 12,50).");
       return;
     }
     setCdbBusy(true);
@@ -161,12 +183,14 @@ export function CarteiraPage({ email, onLogout }: Props) {
     try {
       await api.registerCdb({
         principal: { amount, currency: "BRL" },
-        annualRate: cdbAnnualRate.trim().replace(",", "."),
+        annualRate,
         startDate: cdbStartDate.trim(),
         maturityDate: cdbMaturityDate.trim(),
       });
       setCdbDialogOpen(false);
-      setFeedback("CDB cadastrado na sua carteira.");
+      const msg = "CDB cadastrado na sua carteira.";
+      setFeedback(msg);
+      showToast(msg);
       await loadSummary();
     } catch (err) {
       setCdbError(err instanceof ApiError ? err.message : "Não foi possível cadastrar o CDB.");
@@ -182,10 +206,14 @@ export function CarteiraPage({ email, onLogout }: Props) {
     try {
       if (deleteTarget.kind === "stock") {
         await api.deleteStockLot(deleteTarget.id);
-        setFeedback("Lote de ação excluído da sua carteira.");
+        const msg = "Lote de ação excluído da sua carteira.";
+        setFeedback(msg);
+        showToast(msg);
       } else {
         await api.deleteCdb(deleteTarget.id);
-        setFeedback("CDB excluído da sua carteira.");
+        const msg = "CDB excluído da sua carteira.";
+        setFeedback(msg);
+        showToast(msg);
       }
       setDeleteTarget(null);
       await loadSummary();
@@ -264,28 +292,108 @@ export function CarteiraPage({ email, onLogout }: Props) {
           </section>
         )}
 
-        {summary && !isEmpty && (
-          <>
-            <section className={styles.totals} aria-label="Totais da carteira">
-              <div className={styles.metric}>
-                <span className={styles.metricLabel}>Custo total</span>
-                <strong className={styles.metricValue}>{formatBRL(summary.totalCost.amount)}</strong>
-              </div>
-              <div className={styles.metric}>
-                <span className={styles.metricLabel}>
-                  Valor atual {!summary.complete && <span className={styles.badge}>Parcial</span>}
-                </span>
-                <strong className={styles.metricValue}>{formatBRL(summary.totalCurrent.amount)}</strong>
-              </div>
-              <div className={styles.metric}>
-                <span className={styles.metricLabel}>Resultado (P&amp;L)</span>
-                <strong className={`${styles.metricValue} ${pnlToneClass(summary.totalPnl.amount)}`}>
-                  {formatBRL(summary.totalPnl.amount)}
-                </strong>
-              </div>
-            </section>
+        {summary && !isEmpty && (() => {
+          const stocksTotal = summary.stocks.reduce(
+            (acc, s) => acc + Number(s.currentValue?.amount ?? s.acquisitionCost.amount),
+            0,
+          );
+          const cdbsTotal = summary.cdbs.reduce((acc, c) => acc + Number(c.estimatedValue.amount), 0);
+          const allocTotal = stocksTotal + cdbsTotal;
+          const stocksPct = allocTotal > 0 ? Math.round((stocksTotal / allocTotal) * 100) : 0;
+          const cdbsPct = allocTotal > 0 ? 100 - stocksPct : 0;
+          const showStocks = (assetTab === "ALL" || assetTab === "STOCKS") && summary.stocks.length > 0;
+          const showCdbs = (assetTab === "ALL" || assetTab === "CDBS") && summary.cdbs.length > 0;
 
-            {summary.stocks.length > 0 && (
+          return (
+          <>
+            <div className={styles.heroGrid}>
+              <section className={styles.totals} aria-label="Totais da carteira">
+                <div className={styles.metric}>
+                  <span className={styles.metricLabel}>Custo total</span>
+                  <strong className={styles.metricValue}>{formatBRL(summary.totalCost.amount)}</strong>
+                </div>
+                <div className={styles.metric}>
+                  <span className={styles.metricLabel}>
+                    Valor atual {!summary.complete && <span className={styles.badge}>Parcial</span>}
+                  </span>
+                  <strong className={styles.metricValue}>{formatBRL(summary.totalCurrent.amount)}</strong>
+                </div>
+                <div className={styles.metric}>
+                  <span className={styles.metricLabel}>Resultado (P&amp;L)</span>
+                  <strong className={`${styles.metricValue} ${pnlToneClass(summary.totalPnl.amount)}`}>
+                    {formatBRL(summary.totalPnl.amount)}
+                  </strong>
+                </div>
+              </section>
+
+              <section className={styles.allocationCard} aria-label="Alocação por classe">
+                <svg className={styles.donutSvg} width="76" height="76" viewBox="0 0 36 36" aria-hidden="true">
+                  <circle cx="18" cy="18" r="14" fill="none" stroke="var(--surface-muted)" strokeWidth="5" />
+                  {stocksPct > 0 && (
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="14"
+                      fill="none"
+                      stroke="var(--purpose-limit)"
+                      strokeWidth="5"
+                      strokeDasharray={`${stocksPct} ${100 - stocksPct}`}
+                      transform="rotate(-90 18 18)"
+                    />
+                  )}
+                  {cdbsPct > 0 && (
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="14"
+                      fill="none"
+                      stroke="var(--purpose-goal)"
+                      strokeWidth="5"
+                      strokeDasharray={`${cdbsPct} ${100 - cdbsPct}`}
+                      strokeDashoffset={-stocksPct}
+                      transform="rotate(-90 18 18)"
+                    />
+                  )}
+                </svg>
+                <div className={styles.allocationLegend}>
+                  <strong>Alocação</strong>
+                  <span><i className={styles.legendDotStocks} aria-hidden="true" /> Ações B3: {stocksPct}%</span>
+                  <span><i className={styles.legendDotCdbs} aria-hidden="true" /> Renda Fixa (CDB): {cdbsPct}%</span>
+                </div>
+              </section>
+            </div>
+
+            <div className={styles.assetTabs} role="tablist" aria-label="Filtrar por classe de ativo">
+              <button
+                type="button"
+                role="tab"
+                className={styles.assetTab}
+                aria-selected={assetTab === "ALL"}
+                onClick={() => setAssetTab("ALL")}
+              >
+                Tudo ({summary.stocks.length + summary.cdbs.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className={styles.assetTab}
+                aria-selected={assetTab === "STOCKS"}
+                onClick={() => setAssetTab("STOCKS")}
+              >
+                Ações B3 ({summary.stocks.length})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                className={styles.assetTab}
+                aria-selected={assetTab === "CDBS"}
+                onClick={() => setAssetTab("CDBS")}
+              >
+                CDBs ({summary.cdbs.length})
+              </button>
+            </div>
+
+            {showStocks && (
               <section className={styles.section} aria-labelledby="carteira-acoes-heading">
                 <div className={styles.sectionHeader}>
                   <h2 id="carteira-acoes-heading">Ações</h2>
@@ -325,35 +433,50 @@ export function CarteiraPage({ email, onLogout }: Props) {
                           </dd>
                         </div>
                       </dl>
-                      <ul className={styles.lots} aria-label={`Lotes de ${stock.ticker}`}>
-                        {stock.lots.map((lot) => (
-                          <li key={lot.id} className={styles.lotRow}>
-                            <span>
-                              {lot.purchaseDate} · {lot.quantity} × {formatBRL(lot.unitPrice.amount)} (custo{" "}
-                              {formatBRL(lot.acquisitionCost.amount)})
-                            </span>
-                            <Button
-                              variant="text"
-                              onClick={() =>
-                                setDeleteTarget({
-                                  kind: "stock",
-                                  id: lot.id,
-                                  label: `o lote de ${stock.ticker} (${lot.quantity} em ${lot.purchaseDate})`,
-                                })
-                              }
-                            >
-                              Excluir lote
-                            </Button>
-                          </li>
-                        ))}
-                      </ul>
+                      <div className={styles.tableWrap}>
+                        <table className={styles.lotsTable} aria-label={`Lotes de ${stock.ticker}`}>
+                          <thead>
+                            <tr>
+                              <th>Compra</th>
+                              <th className={styles.numCol}>Qtd</th>
+                              <th className={styles.numCol}>Preço unit.</th>
+                              <th className={styles.numCol}>Custo</th>
+                              <th className={styles.numCol}>Ação</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {stock.lots.map((lot) => (
+                              <tr key={lot.id}>
+                                <td>{lot.purchaseDate}</td>
+                                <td className={styles.numCol}>{lot.quantity}</td>
+                                <td className={styles.numCol}>{formatBRL(lot.unitPrice.amount)}</td>
+                                <td className={styles.numCol}>{formatBRL(lot.acquisitionCost.amount)}</td>
+                                <td className={styles.numCol}>
+                                  <Button
+                                    variant="text"
+                                    onClick={() =>
+                                      setDeleteTarget({
+                                        kind: "stock",
+                                        id: lot.id,
+                                        label: `o lote de ${stock.ticker} (${lot.quantity} em ${lot.purchaseDate})`,
+                                      })
+                                    }
+                                  >
+                                    Excluir lote
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </li>
                   ))}
                 </ul>
               </section>
             )}
 
-            {summary.cdbs.length > 0 && (
+            {showCdbs && (
               <section className={styles.section} aria-labelledby="carteira-cdbs-heading">
                 <div className={styles.sectionHeader}>
                   <h2 id="carteira-cdbs-heading">CDBs</h2>
@@ -402,7 +525,8 @@ export function CarteiraPage({ email, onLogout }: Props) {
               </section>
             )}
           </>
-        )}
+          );
+        })()}
 
         <Dialog open={stockDialogOpen} onClose={() => setStockDialogOpen(false)} title="Cadastrar ação">
           <form className={styles.form} onSubmit={(event) => void submitStock(event)}>
@@ -425,12 +549,13 @@ export function CarteiraPage({ email, onLogout }: Props) {
                 required
               />
             </Field>
-            <Field id="stock-unit-price" label="Preço unitário (BRL)" hint="Duas casas decimais, ex.: 10.00">
+            <Field id="stock-unit-price" label="Preço unitário (BRL)" hint="Use vírgula para centavos (ex.: 10,00).">
               <input
                 type="text"
                 inputMode="decimal"
                 value={stockUnitPrice}
-                onChange={(event) => setStockUnitPrice(event.target.value)}
+                placeholder="0,00"
+                onChange={(event) => setStockUnitPrice(formatBRLInputMask(event.target.value))}
                 required
               />
             </Field>
@@ -456,24 +581,26 @@ export function CarteiraPage({ email, onLogout }: Props) {
         <Dialog open={cdbDialogOpen} onClose={() => setCdbDialogOpen(false)} title="Cadastrar CDB">
           <form className={styles.form} onSubmit={(event) => void submitCdb(event)}>
             {cdbError && <Notice tone="danger">{cdbError}</Notice>}
-            <Field id="cdb-principal" label="Valor aplicado (BRL)" hint="Duas casas decimais, ex.: 10000.00">
+            <Field id="cdb-principal" label="Valor aplicado (BRL)" hint="Use vírgula para centavos (ex.: 10.000,00).">
               <input
                 type="text"
                 inputMode="decimal"
                 value={cdbPrincipal}
-                onChange={(event) => setCdbPrincipal(event.target.value)}
+                placeholder="0,00"
+                onChange={(event) => setCdbPrincipal(formatBRLInputMask(event.target.value))}
                 required
               />
             </Field>
             <Field
               id="cdb-annual-rate"
-              label="Taxa anual decimal"
-              hint="Taxa anual decimal (ex.: 0.1250 = 12,50% a.a.)"
+              label="Taxa anual (% a.a.)"
+              hint="Informe em percentual (ex.: 12,50 para 12,50% ao ano)."
             >
               <input
                 type="text"
                 inputMode="decimal"
                 value={cdbAnnualRate}
+                placeholder="12,50"
                 onChange={(event) => setCdbAnnualRate(event.target.value)}
                 required
               />

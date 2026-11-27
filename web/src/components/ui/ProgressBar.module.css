@@ -1,9 +1,9 @@
 .progressTrack {
   width: 100%;
-  height: 0.5rem;
+  height: 0.25rem;
   display: block;
   overflow: hidden;
-  border: 1px solid var(--border-control);
+  border: 0;
   border-radius: 999px;
   background: var(--surface-muted);
   color: var(--purpose-limit);

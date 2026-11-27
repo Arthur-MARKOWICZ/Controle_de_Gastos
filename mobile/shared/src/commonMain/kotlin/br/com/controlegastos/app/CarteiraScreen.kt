@@ -423,9 +423,10 @@ private fun RegisterCdbDialog(
         onDismiss = onDismiss,
         onConfirm = {
             val principal = AmountInput.toMoney(principalDigits)
+            val annualRateDecimal = parseAnnualRatePercentToDecimal(annualRate)
             when {
                 principal.cents <= 0 -> message = "Informe um valor aplicado maior que zero."
-                annualRate.isBlank() -> message = "Informe a taxa anual decimal (ex.: 0.1250)."
+                annualRateDecimal == null -> message = "Informe uma taxa anual válida em percentual (ex.: 12,50)."
                 startDate.isBlank() || maturityDate.isBlank() -> message = "Informe as datas de início e vencimento."
                 else -> scope.launch {
                     busy = true
@@ -434,7 +435,7 @@ private fun RegisterCdbDialog(
                         gateway.registerCdb(
                             NewCdbPosition(
                                 principal = principal,
-                                annualRate = annualRate.trim().replace(",", "."),
+                                annualRate = annualRateDecimal,
                                 startDate = startDate.trim(),
                                 maturityDate = maturityDate.trim(),
                             ),
@@ -456,8 +457,8 @@ private fun RegisterCdbDialog(
         OutlinedTextField(
             value = annualRate,
             onValueChange = { annualRate = it },
-            label = { Text("Taxa anual decimal") },
-            supportingText = { Text("Ex.: 0.1250 = 12,50% a.a.") },
+            label = { Text("Taxa anual (% a.a.)") },
+            supportingText = { Text("Ex.: 12,50") },
             singleLine = true,
             enabled = !busy,
             modifier = Modifier.fillMaxWidth(),

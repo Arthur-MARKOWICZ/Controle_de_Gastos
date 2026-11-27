@@ -97,7 +97,8 @@ class FinanceDashboardControllerTest {
             entry = NewLedgerEntry(LedgerKind.EXPENSE, Money.fromApiAmount("1250.00"), "2026-09-09"),
         )
 
-        assertEquals("Gasto de R$ 1.250,00 em Combustível.", confirmation)
+        assertEquals("Gasto de R$ 1.250,00 em Combustível.", confirmation.message)
+        assertEquals("entry-1", confirmation.entryId)
     }
 
     @Test
@@ -112,7 +113,11 @@ class FinanceDashboardControllerTest {
             entry = NewLedgerEntry(LedgerKind.EXPENSE, Money.fromApiAmount("300.00"), "2026-09-09"),
         )
 
-        assertEquals("Gasto de R$ 300,00 em Combustível. A verba ficou negativa: -R$ 60,00.", confirmation)
+        assertEquals(
+            "Gasto de R$ 300,00 em Combustível. A verba ficou negativa: -R$ 60,00.",
+            confirmation.message,
+        )
+        assertEquals("entry-1", confirmation.entryId)
     }
 
     @Test
@@ -125,7 +130,8 @@ class FinanceDashboardControllerTest {
             entry = NewLedgerEntry(LedgerKind.CONTRIBUTION, Money.fromApiAmount("50.00"), "2026-09-09"),
         )
 
-        assertEquals("Aporte de R$ 50,00 em Viagem.", confirmation)
+        assertEquals("Aporte de R$ 50,00 em Viagem.", confirmation.message)
+        assertEquals("entry-1", confirmation.entryId)
     }
 
     @Test
@@ -140,7 +146,49 @@ class FinanceDashboardControllerTest {
             entry = NewLedgerEntry(LedgerKind.CONTRIBUTION, Money.fromApiAmount("50.00"), "2026-09-09"),
         )
 
-        assertEquals("Meta de Viagem alcançada.", confirmation)
+        assertEquals("Meta de Viagem alcançada.", confirmation.message)
+        assertEquals("entry-1", confirmation.entryId)
+    }
+
+    @Test
+    fun `loads a small recent history page for the overview`() = runSuspend {
+        val gateway = FakeLedgerGateway(dashboard()).apply {
+            historyItems = List(8) { index ->
+                HistoryItemView(
+                    entry = LedgerEntryView(
+                        id = "entry-$index",
+                        envelopeId = "envelope-1",
+                        kind = LedgerKind.EXPENSE,
+                        amount = Money.fromApiAmount("10.00"),
+                        occurredAt = "2026-09-0${(index % 9) + 1}",
+                        description = null,
+                    ),
+                    envelopeName = "Combustível",
+                    purpose = "LIMIT",
+                    role = EnvelopeRole.OWNER,
+                )
+            }
+        }
+        val controller = FinanceDashboardController(gateway, SEPTEMBER)
+
+        val recent = controller.loadRecentEntries(limit = 5)
+
+        assertEquals(5, recent.size)
+        assertEquals("entry-0", recent.first().entry.id)
+        assertEquals(5, gateway.lastHistorySize)
+        assertEquals("2026-09-01" to "2026-09-30", gateway.lastHistoryPeriod)
+    }
+
+    @Test
+    fun `deletes an entry and reloads the month for undo`() = runSuspend {
+        val gateway = FakeLedgerGateway(dashboard())
+        val controller = FinanceDashboardController(gateway, SEPTEMBER)
+        controller.refresh()
+
+        controller.deleteEntry("entry-1")
+
+        assertEquals(listOf("entry-1"), gateway.deletedEntryIds)
+        assertEquals(2, gateway.loads)
     }
 
     @Test
@@ -193,6 +241,10 @@ private class FakeLedgerGateway(private var dashboard: FinancialDashboard) : Led
     var targetJustReached = false
     var dashboardAfterEntry: FinancialDashboard? = null
     val createdEntries = mutableListOf<NewLedgerEntry>()
+    var historyItems: List<HistoryItemView> = emptyList()
+    var lastHistorySize: Int? = null
+    var lastHistoryPeriod: Pair<String, String>? = null
+    val deletedEntryIds = mutableListOf<String>()
 
     override suspend fun loadDashboard(month: YearMonth?): FinancialDashboard {
         failure?.let { throw it }
@@ -216,13 +268,25 @@ private class FakeLedgerGateway(private var dashboard: FinancialDashboard) : Led
     }
 
     override suspend fun listEntries(envelopeId: String, month: YearMonth?): List<LedgerEntryView> = emptyList()
-    override suspend fun loadHistory(from: String, to: String, page: Int, includeDeleted: Boolean, filter: HistoryFilter) =
-        HistoryPageView(emptyList(), 0, false)
+    override suspend fun loadHistory(
+        from: String,
+        to: String,
+        page: Int,
+        includeDeleted: Boolean,
+        filter: HistoryFilter,
+        size: Int,
+    ): HistoryPageView {
+        lastHistoryPeriod = from to to
+        lastHistorySize = size
+        return HistoryPageView(historyItems.take(size), page, historyItems.size > size)
+    }
     override suspend fun loadHistorySummary(from: String, to: String) = HistorySummaryView(
         Money(0), Money(0), Money(0), Money(0), Money(0), emptyList(), emptyList(),
     )
     override suspend fun updateEntry(id: String, edit: LedgerEntryEdit): LedgerEntryView = error("não usado")
-    override suspend fun deleteEntry(id: String) = error("não usado")
+    override suspend fun deleteEntry(id: String) {
+        deletedEntryIds += id
+    }
     override suspend fun listEntryRevisions(id: String, page: Int) =
         LedgerEntryRevisionPageView(emptyList(), false)
 }
