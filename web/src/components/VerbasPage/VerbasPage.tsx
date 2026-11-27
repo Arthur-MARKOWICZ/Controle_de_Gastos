@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import styles from "./Verbas.module.css";
 import { useEnvelopes } from "../../hooks/useEnvelopes";
 import { useLedgerSummary } from "../../hooks/useLedgerSummary";
+import { useLimitSpendingPace } from "../../hooks/useLimitSpendingPace";
 import { currentMonthSaoPaulo, formatMonthLabel, parseMonthParam } from "../../lib/dates";
 import { formatBRL } from "../../lib/money";
 import { BalanceSummary } from "../BalanceSummary/BalanceSummary";
@@ -57,6 +58,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
     error: summaryError,
     refresh: refreshSummary,
   } = useLedgerSummary(month);
+  const { byEnvelopeId: paceById, refresh: refreshPace } = useLimitSpendingPace(month);
 
   const [purposeFilter, setPurposeFilter] = useState<PurposeFilter>("ALL");
   const [query, setQuery] = useState("");
@@ -134,6 +136,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
       setFeedback(`Verba "${envelope.name}" encerrada`);
       void refreshEnvelopes();
       void refreshSummary();
+      void refreshPace();
     } catch {
       setFeedback("Não foi possível encerrar a verba");
     }
@@ -152,6 +155,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
       );
       void refreshEnvelopes();
       void refreshSummary();
+      void refreshPace();
     } catch {
       setFeedback("Não foi possível atualizar a classificação da verba");
     }
@@ -162,6 +166,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
     setFeedback("Verba criada com sucesso");
     void refreshEnvelopes();
     void refreshSummary();
+    void refreshPace();
   }
 
   function handleExpenseSuccess(result: ExpenseResult) {
@@ -190,6 +195,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
     });
     void refreshEnvelopes();
     void refreshSummary();
+    void refreshPace();
     setAlertsRefreshKey((key) => key + 1);
   }
 
@@ -237,6 +243,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
               onClick={() => {
                 void refreshEnvelopes();
                 void refreshSummary();
+                void refreshPace();
               }}
             >
               Tentar novamente
@@ -290,6 +297,7 @@ export function VerbasPage({ email, onLogout }: { email: string; onLogout(): voi
                   key={p}
                   purpose={p}
                   envelopes={byPurpose[p]}
+                  paceById={paceById}
                   onRegisterExpense={(target) => { setFeedback(null); setExpenseTarget(target); }}
                   onManageParticipants={(target) => { setFeedback(null); setParticipantsTarget(target); }}
                   onManageRecurring={(target) => { setFeedback(null); setRecurringTarget(target); }}

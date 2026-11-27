@@ -6,6 +6,8 @@ import { PendingOccurrences } from "../components/PendingOccurrences";
 import { useExpenseCapture } from "../components/useExpenseCapture";
 import { dismissAlert, listAlerts } from "../lib/api";
 import { IpcError } from "../lib/ipc";
+import { spendingPaceLabel } from "../lib/spendingPace";
+import { useLimitSpendingPace } from "../lib/use-limit-spending-pace";
 import { useSummary } from "../lib/use-summary";
 import type { Alert } from "../lib/types";
 import styles from "./Screens.module.css";
@@ -32,8 +34,10 @@ export function OverviewScreen({
   onAuthRequired,
 }: ScreenProps) {
   const { state } = useSummary(month, revision, onAuthRequired);
+  const paceById = useLimitSpendingPace(month, revision);
   const envelopes = state.kind === "ready" ? state.summary.envelopes : [];
   const { openQuick, dialog, toast, hasSpendable } = useExpenseCapture(envelopes, onRegistered);
+  const paceRows = Object.values(paceById);
 
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [alertError, setAlertError] = useState<string | null>(null);
@@ -137,6 +141,25 @@ export function OverviewScreen({
 
       {/* Confirmar recorrência recarrega o resumo pelo mesmo caminho do gasto manual. */}
       <PendingOccurrences onChanged={onRegistered} onAuthRequired={onAuthRequired} revision={revision} />
+
+      {paceRows.length > 0 ? (
+        <section aria-labelledby="titulo-ritmo">
+          <h2 className={styles.sectionTitle} id="titulo-ritmo">
+            Ritmo das verbas de limite
+          </h2>
+          <ul className={styles.alerts}>
+            {paceRows.map((pace) => (
+              <li className={styles.alert} key={pace.envelopeId}>
+                <span className={styles.alertText}>
+                  <strong>{pace.name}</strong>
+                  {" — "}
+                  {spendingPaceLabel(pace)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <section aria-labelledby="titulo-alertas">
         <h2 className={styles.sectionTitle} id="titulo-alertas">

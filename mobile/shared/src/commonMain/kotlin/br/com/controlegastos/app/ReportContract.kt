@@ -26,6 +26,20 @@ enum class ReportId(val api: String, val label: String, val description: String)
 /** Arquivo já gravado no dispositivo, pronto para abrir ou compartilhar. */
 data class DownloadedReport(val fileName: String, val location: String)
 
+/** Projeção de ritmo de uma verba LIMIT (strings decimais da API; sem recalcular no cliente). */
+data class LimitSpendingPaceRow(
+    val envelopeId: String,
+    val name: String,
+    val capacity: String,
+    val spent: String,
+    val projectedMonthSpend: String,
+    val dailyRemainingAllowance: String,
+    val projectedOverrunDay: String?,
+    val month: String,
+)
+
 interface ReportGateway {
     suspend fun downloadReport(report: ReportId, from: String, to: String, format: ReportFormat): DownloadedReport
+
+    suspend fun loadLimitSpendingPace(month: String): List<LimitSpendingPaceRow>
 }

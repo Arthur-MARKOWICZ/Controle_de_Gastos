@@ -6,9 +6,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 import styles from "./Dashboard.module.css";
 import { useEnvelopes } from "../../hooks/useEnvelopes";
 import { useLedgerSummary } from "../../hooks/useLedgerSummary";
+import { useLimitSpendingPace } from "../../hooks/useLimitSpendingPace";
 import { useIncome, useIncomeHistory } from "../../hooks/useIncome";
 import { currentMonthSaoPaulo, formatDateLabel, formatMonthLabel, parseMonthParam } from "../../lib/dates";
 import { formatBRL } from "../../lib/money";
+import { spendingPaceLabel } from "../../lib/spendingPace";
 import { MonthSummary } from "../MonthSummary/MonthSummary";
 import { IncomeForm } from "../IncomeForm/IncomeForm";
 import { IncomeHistory } from "../IncomeHistory/IncomeHistory";
@@ -78,6 +80,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
     error: summaryError,
     refresh: refreshSummary,
   } = useLedgerSummary(month);
+  const { byEnvelopeId: paceById, refresh: refreshPace } = useLimitSpendingPace(month);
   const {
     income,
     loading: incomeLoading,
@@ -152,6 +155,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
       notifySuccess(`Verba "${envelope.name}" encerrada`);
       void refreshEnvelopes();
       void refreshSummary();
+      void refreshPace();
     } catch {
       setFeedback("Não foi possível encerrar a verba");
     }
@@ -162,6 +166,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
     notifySuccess("Verba criada com sucesso");
     void refreshEnvelopes();
     void refreshSummary();
+    void refreshPace();
   }
 
   const balanceEnvelopes = useMemo(() => summary?.envelopes ?? [], [summary]);
@@ -198,6 +203,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
     setAlertsRefreshKey((key) => key + 1);
     void refreshEnvelopes();
     void refreshSummary();
+    void refreshPace();
   }
 
   function handleIncomeSuccess() {
@@ -285,6 +291,25 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
               error={incomeError}
               onConfigureIncome={() => { clearFeedback(); setShowIncomeForm(true); }}
             />
+            {Object.keys(paceById).length > 0 && (
+              <section className={styles.panel} aria-label="Ritmo das verbas de limite">
+                <div className={styles.panelHeader}>
+                  <div>
+                    <h2>Ritmo das verbas de limite</h2>
+                    <p>Projeção com base no gasto até hoje neste mês</p>
+                  </div>
+                </div>
+                <ul className={styles.envelopeList}>
+                  {Object.values(paceById).map((pace) => (
+                    <li key={pace.envelopeId}>
+                      <strong>{pace.name}</strong>
+                      {" — "}
+                      {spendingPaceLabel(pace)}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {notConfigured && !incomeLoading && (
               <Notice tone="info">
                 Nenhuma renda configurada para {monthLabel}. Use <strong>Configurar renda</strong> no resumo para definir a renda deste mês.
@@ -315,6 +340,7 @@ export function Dashboard({ email, onLogout }: { email: string; onLogout(): void
                   <EnvelopeCard
                     key={envelope.id}
                     envelope={envelope}
+                    pace={envelope.purpose === "LIMIT" ? paceById[envelope.id] ?? null : null}
                     onRegisterExpense={(target) => { clearFeedback(); setExpenseTarget(target); }}
                     onManageParticipants={(target) => { clearFeedback(); setParticipantsTarget(target); }}
                     onManageRecurring={(target) => { clearFeedback(); setRecurringTarget(target); }}

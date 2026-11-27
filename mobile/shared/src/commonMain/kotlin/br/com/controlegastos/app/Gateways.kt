@@ -95,6 +95,8 @@ object UnavailableGateway :
         format: ReportFormat,
     ): DownloadedReport = error(UNAVAILABLE)
 
+    override suspend fun loadLimitSpendingPace(month: String): List<LimitSpendingPaceRow> = error(UNAVAILABLE)
+
     override suspend fun loadSummary(): PortfolioSummaryView = error(UNAVAILABLE)
     override suspend fun registerStockLot(input: NewStockLot): StockLotView = error(UNAVAILABLE)
     override suspend fun deleteStockLot(id: String) = error(UNAVAILABLE)

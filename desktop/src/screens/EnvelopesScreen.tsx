@@ -4,6 +4,8 @@ import { Amount } from "../components/Amount";
 import { MonthSelector } from "../components/MonthSelector";
 import { RecurringPanel } from "../components/RecurringPanel";
 import { useExpenseCapture } from "../components/useExpenseCapture";
+import { spendingPaceLabel } from "../lib/spendingPace";
+import { useLimitSpendingPace } from "../lib/use-limit-spending-pace";
 import { useSummary } from "../lib/use-summary";
 import { isSpendable, PURPOSE_LABELS } from "../lib/types";
 import type { ScreenProps } from "./OverviewScreen";
@@ -24,6 +26,7 @@ export function EnvelopesScreen({
   onAuthRequired,
 }: ScreenProps) {
   const { state } = useSummary(month, revision, onAuthRequired);
+  const paceById = useLimitSpendingPace(month, revision);
   const envelopes = state.kind === "ready" ? state.summary.envelopes : [];
   const { openFor, dialog, toast } = useExpenseCapture(envelopes, onRegistered);
   const [recurringOpen, setRecurringOpen] = useState<string | null>(null);
@@ -74,6 +77,9 @@ export function EnvelopesScreen({
                     <WarningCircle size={20} aria-hidden />
                     Saldo negativo
                   </span>
+                ) : null}
+                {envelope.purpose === "LIMIT" && paceById[envelope.id] ? (
+                  <span className={styles.rowPurpose}>{spendingPaceLabel(paceById[envelope.id])}</span>
                 ) : null}
               </div>
 

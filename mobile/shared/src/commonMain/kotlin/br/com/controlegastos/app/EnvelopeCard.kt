@@ -71,6 +71,7 @@ internal fun purposeColor(purpose: String): Color = purposeTone(purpose)
 @Composable
 internal fun EnvelopeCard(
     envelope: EnvelopeView,
+    pace: LimitSpendingPaceRow? = null,
     onRegister: (() -> Unit)? = null,
     onEdit: (() -> Unit)? = null,
     onArchive: (() -> Unit)? = null,
@@ -140,7 +141,7 @@ internal fun EnvelopeCard(
                 trackColor = trackColor,
             )
             Spacer(Modifier.height(8.dp))
-            EnvelopeStatus(envelope)
+            EnvelopeStatus(envelope, pace)
             EnvelopeCardActionBar(
                 envelope = envelope,
                 onRegister = onRegister,
@@ -219,7 +220,7 @@ private fun EnvelopeCardActionBar(
  * leitor de tela não repetir o que a frase já diz.
  */
 @Composable
-private fun EnvelopeStatus(envelope: EnvelopeView) {
+private fun EnvelopeStatus(envelope: EnvelopeView, pace: LimitSpendingPaceRow? = null) {
     val negative = envelope.isNegative
     val reached = !negative && envelope.targetReachedAt != null
     val color = when {
@@ -247,7 +248,7 @@ private fun EnvelopeStatus(envelope: EnvelopeView) {
             )
         }
         Text(
-            statusLine(envelope),
+            statusLine(envelope, pace),
             color = color,
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.weight(1f),

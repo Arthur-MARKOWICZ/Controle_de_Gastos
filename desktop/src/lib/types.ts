@@ -76,6 +76,18 @@ export type Alert = {
   referenceMonth: string;
 };
 
+/** Projeção de ritmo LIMIT (`GET /api/v1/reports/limit-spending-pace`). */
+export type LimitSpendingPaceRowDTO = {
+  envelopeId: string;
+  name: string;
+  capacity: string;
+  spent: string;
+  projectedMonthSpend: string;
+  dailyRemainingAllowance: string;
+  projectedOverrunDay: string | null;
+  month: string;
+};
+
 export const PURPOSE_LABELS: Record<EnvelopePurpose, string> = {
   LIMIT: "Limite de gasto",
   GOAL: "Meta de aporte",

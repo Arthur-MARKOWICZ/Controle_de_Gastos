@@ -267,6 +267,7 @@ internal fun LazyListScope.envelopeSection(
     onOpenEntries: (EnvelopeView) -> Unit,
     onParticipants: (EnvelopeView) -> Unit = {},
     onRecurring: (EnvelopeView) -> Unit = {},
+    spendingPaceById: Map<String, LimitSpendingPaceRow> = emptyMap(),
 ) {
     item { Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
     if (envelopes.isEmpty()) {
@@ -276,6 +277,7 @@ internal fun LazyListScope.envelopeSection(
     items(envelopes, key = EnvelopeView::id) { envelope ->
         EnvelopeCard(
             envelope = envelope,
+            pace = spendingPaceById[envelope.id],
             onRegister = { onRegister(envelope) },
             onOpenEntries = { onOpenEntries(envelope) },
             onParticipants = if (envelope.isOwner) ({ onParticipants(envelope) }) else null,

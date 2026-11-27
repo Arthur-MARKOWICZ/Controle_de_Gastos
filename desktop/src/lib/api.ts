@@ -10,6 +10,7 @@ import { apiCall, IpcError, type ApiMethod } from "./ipc";
 import type {
   Alert,
   ExpenseSuggestions,
+  LimitSpendingPaceRowDTO,
   NotificationPreferences,
   LedgerSummary,
   PendingOccurrences,
@@ -62,6 +63,13 @@ export function getLedgerSummary(month: string): Promise<LedgerSummary> {
   return request<LedgerSummary>(
     "GET",
     `/api/v1/ledger/summary?month=${encodeURIComponent(month)}`,
+  );
+}
+
+export function getLimitSpendingPace(month: string): Promise<LimitSpendingPaceRowDTO[]> {
+  return request<LimitSpendingPaceRowDTO[]>(
+    "GET",
+    `/api/v1/reports/limit-spending-pace?month=${encodeURIComponent(month)}`,
   );
 }
 

@@ -3,10 +3,29 @@
 import type {
   Alert,
   LedgerSummary,
+  LimitSpendingPaceRowDTO,
   PendingOccurrence,
   PendingOccurrences,
   SummaryEnvelope,
 } from "./types";
+
+export function pacePath(month: string): string {
+  return `/api/v1/reports/limit-spending-pace?month=${encodeURIComponent(month)}`;
+}
+
+export function paceRow(overrides: Partial<LimitSpendingPaceRowDTO> = {}): LimitSpendingPaceRowDTO {
+  return {
+    envelopeId: "env-1",
+    name: "Combustível",
+    capacity: "400.00",
+    spent: "200.00",
+    projectedMonthSpend: "620.00",
+    dailyRemainingAllowance: "9.09",
+    projectedOverrunDay: "2026-10-20",
+    month: "2026-10",
+    ...overrides,
+  };
+}
 
 export function envelope(overrides: Partial<SummaryEnvelope> = {}): SummaryEnvelope {
   return {

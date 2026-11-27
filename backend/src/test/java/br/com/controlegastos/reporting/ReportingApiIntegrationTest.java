@@ -67,6 +67,58 @@ class ReportingApiIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.code").value("AUTHENTICATION_FAILED"));
+        mockMvc.perform(get("/api/v1/reports/limit-spending-pace?month=2026-10"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_FAILED"));
+    }
+
+    @Test
+    void limitSpendingPaceReturnsJsonForOwnerAndRejectsInvalidMonth() throws Exception {
+        String token = tokenFor("ritmo-titular@example.com");
+        UUID owner = userId("ritmo-titular@example.com");
+        insertEnvelope(owner, "Combustível", "LIMIT", "310.00");
+        insertEnvelope(owner, "Viagem", "GOAL", "80.00");
+
+        mockMvc.perform(get("/api/v1/reports/limit-spending-pace?month=2026-10")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$[0].name").value("Combustível"))
+                .andExpect(jsonPath("$[0].capacity").value("310.00"))
+                .andExpect(jsonPath("$[0].month").value("2026-10"))
+                .andExpect(jsonPath("$[?(@.name=='Viagem')]").isEmpty())
+                .andExpect(jsonPath("$[0].email").doesNotExist())
+                .andExpect(jsonPath("$[0].description").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/reports/limit-spending-pace?month=2026-13")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON));
+    }
+
+    @Test
+    void limitSpendingPaceShowsOnlySharedLimitToParticipant() throws Exception {
+        String ownerToken = tokenFor("ritmo-owner@example.com");
+        UUID owner = userId("ritmo-owner@example.com");
+        String participantToken = tokenFor("ritmo-participante@example.com");
+        UUID participant = userId("ritmo-participante@example.com");
+        UUID shared = insertEnvelope(owner, "Mercado", "LIMIT", "200.00");
+        insertEnvelope(owner, "Pessoal", "LIMIT", "100.00");
+        jdbc.update("INSERT INTO envelope_participant(envelope_id, user_id, added_at, added_by) VALUES (?, ?, ?, ?)",
+                shared, participant, Timestamp.from(Instant.now()), owner);
+
+        mockMvc.perform(get("/api/v1/reports/limit-spending-pace?month=2026-10")
+                        .header("Authorization", "Bearer " + participantToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Mercado"))
+                .andExpect(jsonPath("$.length()").value(1));
+
+        mockMvc.perform(get("/api/v1/reports/limit-spending-pace?month=2026-10")
+                        .header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
     }
 
     @Test

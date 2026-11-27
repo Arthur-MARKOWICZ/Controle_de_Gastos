@@ -85,6 +85,7 @@ internal fun MonthWorkspaceScreen(
 ) {
     var state by remember(controller) { mutableStateOf(controller.state) }
     var alerts by remember(controller) { mutableStateOf(controller.activeAlerts) }
+    var spendingPaceById by remember(controller) { mutableStateOf(controller.spendingPaceById) }
     var dialog by remember { mutableStateOf<MonthDialog?>(null) }
     var recentEntries by remember(controller) { mutableStateOf<List<HistoryItemView>?>(null) }
     var recentEpoch by remember(controller) { mutableStateOf(0) }
@@ -117,6 +118,7 @@ internal fun MonthWorkspaceScreen(
         controller.refresh()
         state = controller.state
         alerts = controller.activeAlerts
+        spendingPaceById = controller.spendingPaceById
         if (recurring !== UnavailableGateway) {
             pendingController.refresh()
             pending = pendingController.pending
@@ -226,6 +228,7 @@ internal fun MonthWorkspaceScreen(
                     onOpenEntries = onOpenEntries,
                     onParticipants = { dialog = MonthDialog.Participants(it) },
                     onRecurring = { dialog = MonthDialog.Recurring(it) },
+                    spendingPaceById = spendingPaceById,
                 )
                 envelopeSection(
                     title = "Compromissos fixos",
@@ -341,6 +344,7 @@ internal fun MonthWorkspaceScreen(
                     onOpenEntries = onOpenEntries,
                     onParticipants = { dialog = MonthDialog.Participants(it) },
                     onRecurring = { dialog = MonthDialog.Recurring(it) },
+                    spendingPaceById = spendingPaceById,
                 )
                 item { RecentEntriesSection(recentEntries, onOpenHistory) }
                 item {

@@ -502,6 +502,26 @@ class AndroidApiGateway(
         DownloadedReport(fileName = fileName, location = target.absolutePath)
     }
 
+    override suspend fun loadLimitSpendingPace(month: String): List<LimitSpendingPaceRow> {
+        val response = client.request(
+            "GET",
+            "/api/v1/reports/limit-spending-pace",
+            query = mapOf("month" to month),
+        ).orThrow("Não foi possível carregar o ritmo das verbas")
+        return JSONArray(response.body).mapObjects { json ->
+            LimitSpendingPaceRow(
+                envelopeId = json.getString("envelopeId"),
+                name = json.getString("name"),
+                capacity = json.getString("capacity"),
+                spent = json.getString("spent"),
+                projectedMonthSpend = json.getString("projectedMonthSpend"),
+                dailyRemainingAllowance = json.getString("dailyRemainingAllowance"),
+                projectedOverrunDay = json.optString("projectedOverrunDay").takeIf { it.isNotBlank() && it != "null" },
+                month = json.getString("month"),
+            )
+        }
+    }
+
     // ------------------------------------------------------------- carteira (ADR-0034)
 
     override suspend fun loadSummary(): PortfolioSummaryView {

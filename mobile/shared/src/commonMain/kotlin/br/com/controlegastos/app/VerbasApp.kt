@@ -282,6 +282,7 @@ private fun SignedInApp(
             gateways.envelopes,
             gateways.income,
             gateways.alerts,
+            gateways.reports,
         )
     }
     val historyController = remember(gateways, currentMonth) { HistoryController(gateways.ledger, currentMonth) }

@@ -1,10 +1,13 @@
 package br.com.controlegastos.reporting.application;
 
 import br.com.controlegastos.ledger.application.LedgerReportingQuery;
+import br.com.controlegastos.reporting.domain.LimitSpendingPaceCalculator;
 import br.com.controlegastos.reporting.domain.ReportRange;
 import br.com.controlegastos.shared.money.Money;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -15,6 +18,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class ReportingService {
@@ -22,9 +26,11 @@ public class ReportingService {
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("America/Sao_Paulo");
     private static final Locale PT_BR = Locale.forLanguageTag("pt-BR");
     private final LedgerReportingQuery ledger;
+    private final Clock clock;
 
-    public ReportingService(LedgerReportingQuery ledger) {
+    public ReportingService(LedgerReportingQuery ledger, Clock clock) {
         this.ledger = ledger;
+        this.clock = clock;
     }
 
     public ReportDocument prepare(ReportType type, ReportRange range, ReportFormat format) {
@@ -34,6 +40,35 @@ public class ReportingService {
             case LIMIT_EXCEEDED_MONTHS -> limitExceededMonths(range, format);
             case GOALS_BELOW_TARGET -> goalsBelowTarget(range, format);
         };
+    }
+
+    @Transactional(readOnly = true)
+    public List<LimitSpendingPaceRow> limitSpendingPace(YearMonth month) {
+        LocalDate from = month.atDay(1);
+        LocalDate to = month.atEndOfMonth();
+        LocalDate today = LocalDate.now(clock.withZone(BUSINESS_ZONE));
+        List<LedgerReportingQuery.ReportEntry> entries = ledger.activeEntries(from, to);
+        ReportRange monthRange = new ReportRange(from, to);
+        return ledger.visibleEnvelopes().stream()
+                .filter(envelope -> "LIMIT".equals(envelope.purpose()))
+                .filter(envelope -> eligibleMonths(envelope, monthRange).contains(month))
+                .sorted(Comparator.comparing(LedgerReportingQuery.ReportEnvelope::name))
+                .map(envelope -> {
+                    Money contributions = total(entries, envelope.id(), month, "CONTRIBUTION");
+                    Money spent = total(entries, envelope.id(), month, "EXPENSE");
+                    Money capacity = envelope.baseAmount().add(contributions);
+                    var pace = LimitSpendingPaceCalculator.calculate(capacity, spent, month, today);
+                    return new LimitSpendingPaceRow(
+                            envelope.id(),
+                            envelope.name(),
+                            capacity.toPlainString(),
+                            spent.toPlainString(),
+                            pace.projectedMonthSpend(),
+                            pace.dailyRemainingAllowance(),
+                            pace.projectedOverrunDay(),
+                            month.toString());
+                })
+                .toList();
     }
 
     private ReportDocument expensesByPurpose(ReportRange range, ReportFormat format) {

@@ -150,6 +150,10 @@ vi.mock("../../hooks/useLedgerSummary", () => ({
   useLedgerSummary: () => ledgerHook,
 }));
 
+vi.mock("../../hooks/useLimitSpendingPace", () => ({
+  useLimitSpendingPace: () => ({ byEnvelopeId: {}, refresh: vi.fn() }),
+}));
+
 function renderPage() {
   return render(
     <ToastProvider>

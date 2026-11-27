@@ -1,5 +1,6 @@
 import { formatBRL } from "../../lib/money";
-import type { EnvelopeDTO } from "../../lib/api";
+import type { EnvelopeDTO, LimitSpendingPaceRowDTO } from "../../lib/api";
+import { spendingPaceLabel } from "../../lib/spendingPace";
 import { ActionMenu } from "../ui/ActionMenu";
 import type { ActionMenuItem } from "../ui/ActionMenu";
 import { Button } from "../ui/Button";
@@ -9,6 +10,7 @@ import styles from "./EnvelopeCard.module.css";
 
 type Props = {
   envelope: EnvelopeDTO;
+  pace?: LimitSpendingPaceRowDTO | null;
   onRegisterExpense?: (envelope: EnvelopeDTO) => void;
   onManageParticipants?: (envelope: EnvelopeDTO) => void;
   onManageRecurring?: (envelope: EnvelopeDTO) => void;
@@ -37,6 +39,7 @@ function purposeLabel(purpose: string) {
 
 export function EnvelopeCard({
   envelope,
+  pace,
   onRegisterExpense,
   onManageParticipants,
   onManageRecurring,
@@ -66,6 +69,9 @@ export function EnvelopeCard({
     status = `Saldo negativo ${financialAvailable}`;
   } else if (envelope.purpose === "LIMIT") {
     status = availNum === baseNum ? `${available} disponíveis` : `${available} restantes · ${spent}% usado`;
+    if (pace) {
+      status = `${status} · ${spendingPaceLabel(pace)}`;
+    }
   } else if (envelope.purpose === "GOAL") {
     const contributed = goalProgress ? formatBRL(goalProgress.contributedAmount.amount) : null;
     status = envelope.role === "PARTICIPANT" ? `Compartilhada · ${pct}%` : availNum > 0

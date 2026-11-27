@@ -1,7 +1,7 @@
 "use client";
 
 import { formatBRL } from "../../lib/money";
-import type { EnvelopeDTO } from "../../lib/api";
+import type { EnvelopeDTO, LimitSpendingPaceRowDTO } from "../../lib/api";
 import { EnvelopeCard } from "../EnvelopeCard/EnvelopeCard";
 import { Button } from "../ui/Button";
 import styles from "./Verbas.module.css";
@@ -16,6 +16,7 @@ const PURPOSE_META: Record<Purpose, { label: string; hint: string }> = {
 type Props = {
   purpose: Purpose;
   envelopes: EnvelopeDTO[];
+  paceById?: Record<string, LimitSpendingPaceRowDTO>;
   onRegisterExpense: (e: EnvelopeDTO) => void;
   onManageParticipants: (e: EnvelopeDTO) => void;
   onManageRecurring?: (e: EnvelopeDTO) => void;
@@ -27,6 +28,7 @@ type Props = {
 export function PurposeSection({
   purpose,
   envelopes,
+  paceById = {},
   onRegisterExpense,
   onManageParticipants,
   onManageRecurring,
@@ -72,6 +74,7 @@ export function PurposeSection({
             <EnvelopeCard
               key={env.id}
               envelope={env}
+              pace={purpose === "LIMIT" ? paceById[env.id] ?? null : null}
               onRegisterExpense={onRegisterExpense}
               onManageParticipants={onManageParticipants}
               onManageRecurring={onManageRecurring}

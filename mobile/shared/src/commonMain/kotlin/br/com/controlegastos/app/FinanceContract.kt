@@ -25,6 +25,7 @@ class FinanceDashboardController(
     private val envelopes: EnvelopeGateway = UnavailableGateway,
     private val income: IncomeGateway = UnavailableGateway,
     private val alerts: AlertGateway = UnavailableGateway,
+    private val reports: ReportGateway = UnavailableGateway,
 ) {
     var month: YearMonth = currentMonth
         private set
@@ -44,6 +45,10 @@ class FinanceDashboardController(
     var activeAlerts: List<InAppAlertView> = emptyList()
         private set
 
+    /** Ritmo LIMIT por envelopeId; vazio se a API falhar. */
+    var spendingPaceById: Map<String, LimitSpendingPaceRow> = emptyMap()
+        private set
+
     val isCurrentMonth: Boolean get() = month == currentMonth
 
     val dashboard: FinancialDashboard? get() = (state as? DashboardState.Content)?.dashboard
@@ -55,6 +60,9 @@ class FinanceDashboardController(
             lastFailure = null
             state = DashboardState.Content(ledger.loadDashboard(month.takeUnless { it == currentMonth }))
             activeAlerts = runCatching { alerts.listActiveAlerts() }.getOrDefault(emptyList())
+            spendingPaceById = runCatching {
+                reports.loadLimitSpendingPace(month.toApiMonth()).associateBy { it.envelopeId }
+            }.getOrDefault(emptyMap())
         } catch (failure: Throwable) {
             lastFailure = failure
             if (!keepContent) {

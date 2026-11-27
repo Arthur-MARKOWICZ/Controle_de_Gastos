@@ -4,6 +4,7 @@ import {
   dismissAlert,
   getExpenseSuggestions,
   getLedgerSummary,
+  getLimitSpendingPace,
   hasExpenseToday,
   listAlerts,
   registerExpense,
@@ -22,6 +23,23 @@ describe("api do desktop", () => {
 
     expect(result.unallocated.amount).toBe("1550.00");
     expect(ipc.apiCalls()[0].args).toMatchObject({ method: "GET", body: null });
+  });
+
+  it("busca o ritmo LIMIT pelo mês na query", async () => {
+    const ipc = installFakeIpc().onApi("/api/v1/reports/limit-spending-pace?month=2026-10", {
+      status: 200,
+      body: [{
+        envelopeId: "e1", name: "Combustível", capacity: "400.00", spent: "200.00",
+        projectedMonthSpend: "620.00", dailyRemainingAllowance: "9.09",
+        projectedOverrunDay: "2026-10-20", month: "2026-10",
+      }],
+    });
+
+    const rows = await getLimitSpendingPace("2026-10");
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].projectedOverrunDay).toBe("2026-10-20");
+    expect(ipc.pathsCalled()).toEqual(["/api/v1/reports/limit-spending-pace?month=2026-10"]);
   });
 
   it("consulta sugestões de gasto", async () => {
