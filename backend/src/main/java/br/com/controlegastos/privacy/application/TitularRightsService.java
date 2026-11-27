@@ -40,6 +40,7 @@ public class TitularRightsService {
         payload.put("notificationPreferences", exportNotificationPreferences(userId));
         payload.put("webPushSubscriptions", exportWebPushSubscriptions(userId));
         payload.put("stockLots", exportStockLots(userId));
+        payload.put("cdbPositions", exportCdbPositions(userId));
         return payload;
     }
 
@@ -51,6 +52,7 @@ public class TitularRightsService {
     }
 
     private void eraseFinancialData(UUID userId) {
+        jdbc.update("DELETE FROM cdb_position WHERE owner_id = ?", userId);
         jdbc.update("DELETE FROM stock_lot WHERE owner_id = ?", userId);
         jdbc.update("DELETE FROM envelope WHERE owner_id = ?", userId);
         jdbc.update("DELETE FROM notification_preference WHERE user_id = ?", userId);
@@ -77,6 +79,30 @@ public class TitularRightsService {
                     row.put("unitPrice", rs.getString("unit_price"));
                     row.put("currency", "BRL");
                     row.put("purchaseDate", rs.getDate("purchase_date").toLocalDate().toString());
+                    row.put("createdAt", rs.getTimestamp("created_at").toInstant().toString());
+                    return row;
+                },
+                userId);
+    }
+
+    /** Posições de CDB prefixado (ADR-0034); o estimado é derivado e fica fora. */
+    private List<Map<String, Object>> exportCdbPositions(UUID userId) {
+        return jdbc.query(
+                """
+                SELECT id, principal::text AS principal, annual_rate::text AS annual_rate,
+                       start_date, maturity_date, created_at
+                FROM cdb_position
+                WHERE owner_id = ?
+                ORDER BY start_date, created_at
+                """,
+                (rs, rowNum) -> {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("id", rs.getObject("id", UUID.class).toString());
+                    row.put("principal", rs.getString("principal"));
+                    row.put("currency", "BRL");
+                    row.put("annualRate", rs.getString("annual_rate"));
+                    row.put("startDate", rs.getDate("start_date").toLocalDate().toString());
+                    row.put("maturityDate", rs.getDate("maturity_date").toLocalDate().toString());
                     row.put("createdAt", rs.getTimestamp("created_at").toInstant().toString());
                     return row;
                 },

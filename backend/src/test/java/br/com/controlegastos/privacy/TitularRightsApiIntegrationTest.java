@@ -254,6 +254,34 @@ class TitularRightsApiIntegrationTest {
                 .isZero();
     }
 
+    @Test
+    @DisplayName("exportação traz as posições de CDB e a eliminação as apaga (ADR-0034)")
+    void cdbPositionsNaExportacaoENaEliminacao() throws Exception {
+        String token = tokenFor("titular-cdbs@example.com");
+        UUID titularId = userId("titular-cdbs@example.com");
+        createCdb(token, "10000.00", "0.1250", "2025-11-26", "2027-11-26");
+        createCdb(token, "5000.00", "0.1000", "2026-01-15", "2028-01-15");
+
+        mockMvc.perform(get("/api/v1/privacy/export").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.cdbPositions.length()").value(2))
+                .andExpect(jsonPath("$.cdbPositions[0].principal").value("10000.00"))
+                .andExpect(jsonPath("$.cdbPositions[0].currency").value("BRL"))
+                .andExpect(jsonPath("$.cdbPositions[0].annualRate").value("0.1250"))
+                .andExpect(jsonPath("$.cdbPositions[0].startDate").value("2025-11-26"))
+                .andExpect(jsonPath("$.cdbPositions[0].maturityDate").value("2027-11-26"))
+                .andExpect(jsonPath("$.cdbPositions[0].createdAt").isNotEmpty())
+                .andExpect(jsonPath("$.cdbPositions[0].estimatedValue").doesNotExist())
+                .andExpect(jsonPath("$.cdbPositions[1].principal").value("5000.00"))
+                .andExpect(jsonPath("$.cdbPositions[1].annualRate").value("0.1000"));
+
+        erase(token, Map.of("password", PASSWORD)).andExpect(status().isNoContent());
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM cdb_position WHERE owner_id = ?", Integer.class, titularId))
+                .isZero();
+    }
+
     private void createStockLot(String token, String ticker, long quantity, String unitPrice, String purchaseDate)
             throws Exception {
         mockMvc.perform(post("/api/v1/investments/stocks")
@@ -262,6 +290,19 @@ class TitularRightsApiIntegrationTest {
                         .content(objectMapper.writeValueAsString(Map.of(
                                 "ticker", ticker, "quantity", quantity,
                                 "unitPrice", money(unitPrice), "purchaseDate", purchaseDate))))
+                .andExpect(status().isCreated());
+    }
+
+    private void createCdb(String token, String principal, String rate, String start, String maturity)
+            throws Exception {
+        mockMvc.perform(post("/api/v1/investments/cdbs")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "principal", money(principal),
+                                "annualRate", rate,
+                                "startDate", start,
+                                "maturityDate", maturity))))
                 .andExpect(status().isCreated());
     }
 }
